@@ -18,6 +18,7 @@ Everything that changed since the last release goes under "Unreleased". A new re
 - Key 1 starts with the belt tier you used last, also after a restart.
 - Save Now gives clear feedback: a green "Saved ..." with the time once the file is checked on disk, or a red message with the reason if it failed.
 - Big Pole (milestone 2): wires up to 18 tiles to other big poles. Normal poles still link only within 7 tiles.
+- Changing a setting no longer closes the settings window.
 
 ## v0.0.2 Beta (2026-11-20)
 

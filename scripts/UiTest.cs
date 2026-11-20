@@ -160,6 +160,9 @@ public partial class Main
         OpenSettings((t, w) => _hud.OpenPanel(t, w));
         await Wait(0.5);
         Shot("09_settings");
+        FindAll<HSlider>(_hud).First().Value = 0.6;
+        await Wait(0.2);
+        Check(_hud.HasPanel && _s.MiniOpacity == 0.6f, "changing a slider keeps the settings window open");
         _hud.ClosePanel();
 
         var pole = Find<Pole>();

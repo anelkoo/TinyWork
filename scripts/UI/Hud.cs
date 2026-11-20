@@ -134,8 +134,11 @@ public sealed partial class Hud : Control
         if (Ui.Enabled) { _toast.PivotOffset = _toast.Size / 2; _toast.Scale = Vector2.One * 1.25f; CreateTween().TweenProperty(_toast, "scale", Vector2.One, 0.3).SetTrans(Tween.TransitionType.Back).SetEase(Tween.EaseType.Out); }
     }
 
+    // Runs on every settings change too, so it only rebuilds when the mode really switched
+    // (rebuilding closes the open panel, which would close the settings window under your mouse).
     public void SetMini(bool mini)
     {
+        if (mini == _mini) return;
         _mini = mini;
         _miniBtn.Text = mini ? "Big" : "Mini";
         _miniBtn.TooltipText = mini ? "Back to the normal window (F7)" : "Switch to the small always-on-top window (F7)";
