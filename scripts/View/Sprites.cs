@@ -73,6 +73,25 @@ public static class Sprites
         return c;
     }
     public static readonly Dictionary<string, ImageTexture> Items = new();
+    public static readonly Dictionary<string, ImageTexture> Potions = new();
+
+    // A round flask with a cork, filled with the potion's colour.
+    static Canvas PaintPotion(Color col)
+    {
+        var c = new Canvas(T, T);
+        c.R(6, 1, 4, 2, new Color("9a6a42"));                  // cork
+        c.R(5, 3, 6, 4, Ink); c.R(6, 3, 4, 4, new Color("dfe8f0")); // neck
+        for (int y = 6; y < 16; y++)
+            for (int x = 1; x < 15; x++)
+            {
+                float d = new Vector2(x + 0.5f - 8, y + 0.5f - 10.5f).Length();
+                if (d < 5.6f) c.P(x, y, Ink);
+                if (d < 4.6f) c.P(x, y, y >= 9 ? col : new Color("dfe8f0"));
+            }
+        c.P(5, 9, Colors.White); c.P(5, 10, Colors.White);     // shine
+        c.P(9, 12, col.Lightened(0.4f)); c.P(7, 13, col.Lightened(0.4f)); // bubbles
+        return c;
+    }
     public static readonly Dictionary<string, ImageTexture> Icons = new(); // building icons for the UI
     // Chevron colour tells belt tiers apart: yellow, red, blue.
     static readonly Dictionary<string, Color> BeltTint = new() { ["belt"] = new("f2c14e"), ["fast_belt"] = new("e8665a"), ["express_belt"] = new("5aa9e8") };
@@ -111,6 +130,7 @@ public static class Sprites
         Chest = PaintChest().Tex();
         Coin = PaintCoin().Tex();
         foreach (var id in Defs.Items.Keys) Items[id] = PaintItem(id).Tex();
+        foreach (var p in Defs.Potions) Potions[p.Id] = PaintPotion(p.Color).Tex();
         Icons["miner"] = Miner; Icons["furnace"] = Furnace; Icons["hub"] = Hub; Icons["assembler"] = Assembler; Icons["chest"] = Chest;
         Icons["inserter"] = PaintInserterIcon().Tex();
     }

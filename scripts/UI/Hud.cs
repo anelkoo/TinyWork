@@ -48,6 +48,9 @@ public sealed partial class Hud : Control
         _coinRow = Ui.Row(Ui.Icon(Sprites.Coin), _coins);
         _coinRow.TooltipText = "Coins: turn on auto-sell in the Hub to earn them";
         _storage.AddChild(_coinRow);
+        _potionRows = new VBoxContainer();
+        _potionRows.AddThemeConstantOverride("separation", 2);
+        _storage.AddChild(_potionRows);
         foreach (var id in Defs.Items.Keys)
         {
             var count = Ui.MakeLabel("0");
@@ -305,6 +308,7 @@ public sealed partial class Hud : Control
         CheckMilestone();
         UpdateTracker();
         UpdateTutorial();
+        UpdatePotionTimers();
         bool showStorage = S.StatOn("storage");
         foreach (var id in Defs.Items.Keys)
         {
@@ -386,7 +390,7 @@ public sealed partial class Hud : Control
     {
         switch (e)
         {
-            case Hub: OpenHub(false); break;
+            case Hub: OpenHub(SellTab); break;
             case Assembler a: OpenRecipePicker(a); break;
             case Inserter i: OpenFilterPicker(i); break;
             case Chest c: OpenChest(c); break;
@@ -449,18 +453,20 @@ public sealed partial class Hud : Control
         body.AddChild(Ui.MakeLabel("Locked buildings unlock with milestones. Hover one to see which.", 13, Ui.Muted));
     }
 
-    public void OpenHub(bool shop)
+    public const int SellTab = 0, ShopTab = 1, PotionTab = 2;
+
+    public void OpenHub(int tab)
     {
         Label coins = null;
         var refresh = new List<Action>();
         var body = OpenPanel("Hub", 560, () => { coins.Text = $"{W.Coins} coins"; foreach (var r in refresh) r(); });
         coins = Ui.MakeLabel("", 16, new Color("f7c948"));
-        var sellTab = Ui.MakeButton("Sell", () => OpenHub(false), Sfx);
-        var shopTab = Ui.MakeButton("Shop", () => OpenHub(true), Sfx);
-        (shop ? shopTab : sellTab).AddThemeStyleboxOverride("normal", Ui.Box(Ui.BtnHover, Ui.Accent, 3));
-        body.AddChild(Ui.Row(sellTab, shopTab, Ui.Icon(Sprites.Coin), coins));
+        var tabs = new[] { Ui.MakeButton("Sell", () => OpenHub(SellTab), Sfx), Ui.MakeButton("Shop", () => OpenHub(ShopTab), Sfx), Ui.MakeButton("Potions", () => OpenHub(PotionTab), Sfx) };
+        tabs[tab].AddThemeStyleboxOverride("normal", Ui.Box(Ui.BtnHover, Ui.Accent, 3));
+        body.AddChild(Ui.Row(tabs[0], tabs[1], tabs[2], Ui.Icon(Sprites.Coin), coins));
 
-        if (!shop)
+        if (tab == PotionTab) { FillPotions(body, refresh); return; }
+        if (tab == SellTab)
         {
             var info = Ui.MakeLabel("Auto-sell turns items delivered here into coins. The reserve always stays in storage for building.", 13, Ui.Muted);
             info.AutowrapMode = TextServer.AutowrapMode.WordSmart;

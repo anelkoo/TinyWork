@@ -25,6 +25,8 @@ public sealed class SaveData
     public List<string> AutoSell = new();
     public Dictionary<string, int> Reserve = new();
     public Dictionary<string, int> Upgrades = new();
+    public Dictionary<string, long> Potions = new(); // ticks left per active potion
+    public long CoinsEarned;
     public int Tutorial; // tutorial steps done; -1 = hidden
 }
 
@@ -67,9 +69,41 @@ public sealed class World
     public bool Free => Mode == "sandbox";
     public Milestone CurrentMilestone => !Free && MilestoneIndex < Defs.Milestones.Length ? Defs.Milestones[MilestoneIndex] : null;
     public int Up(string id) => Upgrades.GetValueOrDefault(id);
-    public float MachineSpeed => 1 + 0.1f * Up("machine_speed");
-    public float ArmSpeed => 1 + 0.15f * Up("arm_speed");
-    public int HandYield => 1 + Up("hand");
+    public float MachineSpeed => (1 + 0.1f * Up("machine_speed")) * (Has("overdrive") ? 1.5f : 1);
+    public float ArmSpeed => (1 + 0.15f * Up("arm_speed")) * (Has("quick_arms") ? 1.5f : 1);
+    public int HandYield => (1 + Up("hand")) * (Has("rock_crusher") ? 5 : 1);
+    public float SellMultiplier => (1 + 0.1f * Up("sell_price")) * (Has("coin_rush") ? 2 : 1);
+    public float GeneratorKW => Defs.GeneratorKW * (1 + 0.2f * Up("power"));
+    public float PumpRate => Defs.PumpRate * (1 + 0.25f * Up("pump"));
+
+    // ---------- Potions ----------
+    public readonly Dictionary<string, long> Potions = new(); // ticks left per active potion
+    public long CoinsEarned;                                     // all coins ever made by selling: prices scale with it
+    public const int TicksPerMinute = 20 * 60;
+    public bool Has(string potion) => Potions.ContainsKey(potion);
+
+    // How far along the game is, as a price multiplier: every milestone and every 10k coins earned add to it.
+    public float PriceLevel => (1 + 0.75f * MilestoneIndex) * (1 + CoinsEarned / 10000f);
+    public long PotionCost(string id, int minutes) =>
+        Array.Find(Defs.Potions, p => p.Id == id) is { } p ? (long)Math.Ceiling(p.CoinsPerMinute * minutes * PriceLevel) : long.MaxValue;
+    public int PotionMinutesLeft(string id) => (int)Math.Ceiling(Potions.GetValueOrDefault(id) / (double)TicksPerMinute);
+
+    // Buying while one is active adds time, up to Defs.PotionMaxMinutes.
+    public bool BuyPotion(string id, int minutes)
+    {
+        minutes = Math.Min(minutes, Defs.PotionMaxMinutes - PotionMinutesLeft(id));
+        if (minutes < 1 || Coins < PotionCost(id, minutes)) return false;
+        Coins -= PotionCost(id, minutes);
+        Potions[id] = Potions.GetValueOrDefault(id) + (long)minutes * TicksPerMinute;
+        Emit("potion", Vector2I.Zero, id, minutes);
+        return true;
+    }
+
+    void StepPotions()
+    {
+        foreach (var id in Potions.Keys.ToList())
+            if (--Potions[id] <= 0) { Potions.Remove(id); Emit("potion_end", Vector2I.Zero, id); }
+    }
 
     // Buildings and recipes: the base set, plus whatever finished milestones unlocked. Sandbox has everything.
     public bool IsUnlocked(string key)
@@ -102,8 +136,10 @@ public sealed class World
             long excess = Storage.GetValueOrDefault(item) - Reserved(item);
             if (excess <= 0 || !Defs.Items.TryGetValue(item, out var def)) continue;
             AddStorage(item, -excess);
-            Coins += excess * def.Price;
-            Emit("sold", Vector2I.Zero, item, excess * def.Price);
+            long paid = (long)Math.Round(excess * def.Price * SellMultiplier);
+            Coins += paid;
+            CoinsEarned += paid;
+            Emit("sold", Vector2I.Zero, item, paid);
         }
     }
 
@@ -260,7 +296,7 @@ public sealed class World
             float demand = 0, cap = 0;
             foreach (var u in net.Users) if (u.Working) demand += Defs.PowerUse[u.Type];
             int capable = 0;
-            foreach (var g in net.Gens) { g.Gas = GasNextTo(g); g.Working = false; if (g.CanSupply) { cap += Defs.GeneratorKW; capable++; } }
+            foreach (var g in net.Gens) { g.Gas = GasNextTo(g); g.Working = false; if (g.CanSupply) { cap += GeneratorKW; capable++; } }
             net.Demand = demand;
             net.Capacity = cap;
             net.Satisfaction = cap <= 0 ? 0 : demand <= 0 ? 1 : Mathf.Min(1, cap / demand);
@@ -281,6 +317,7 @@ public sealed class World
             e.Idle = e.Working ? 0 : e.Idle + 1;
         }
         if (Tick % 20 == 0) AutoSellPass();
+        StepPotions();
     }
 
     // ---------- Undergrounds ----------
@@ -499,6 +536,8 @@ public sealed class World
         foreach (var kv in Storage) s.Storage[kv.Key] = kv.Value;
         s.MilestoneIndex = MilestoneIndex;
         s.Tutorial = Tutorial;
+        s.CoinsEarned = CoinsEarned;
+        foreach (var kv in Potions) s.Potions[kv.Key] = kv.Value;
         s.Coins = Coins;
         foreach (var kv in Delivered) s.Delivered[kv.Key] = kv.Value;
         s.AutoSell.AddRange(AutoSell);
@@ -519,7 +558,8 @@ public sealed class World
     public static World FromSave(SaveData s)
     {
         if (s.Version > SaveVersion) throw new InvalidOperationException("This save was made by a newer version of Tiny Works.");
-        var w = new World(s.Seed) { Name = s.Name, Mode = s.Mode ?? "normal", Flat = s.Flat, Tick = s.Tick, MilestoneIndex = s.MilestoneIndex, Coins = s.Coins, Tutorial = s.Tutorial };
+        var w = new World(s.Seed) { Name = s.Name, Mode = s.Mode ?? "normal", Flat = s.Flat, Tick = s.Tick, MilestoneIndex = s.MilestoneIndex, Coins = s.Coins, Tutorial = s.Tutorial, CoinsEarned = s.CoinsEarned };
+        foreach (var kv in s.Potions ?? new()) if (Array.Exists(Defs.Potions, p => p.Id == kv.Key) && kv.Value > 0) w.Potions[kv.Key] = kv.Value;
         foreach (var kv in s.Storage) w.Storage[kv.Key] = kv.Value;
         foreach (var kv in s.Delivered ?? new()) w.Delivered[kv.Key] = kv.Value;
         foreach (var i in s.AutoSell ?? new()) w.AutoSell.Add(i);

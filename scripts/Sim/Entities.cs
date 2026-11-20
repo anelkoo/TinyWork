@@ -581,7 +581,7 @@ public sealed class Pipe : Entity
 public sealed class Pump : Entity
 {
     public override void Tick(World w) =>
-        Working = (w.FluidNetAt(Front, Pos)?.Fill("water", Defs.PumpRate * w.SpeedOf(this)) ?? 0) > 0;
+        Working = (w.FluidNetAt(Front, Pos)?.Fill("water", w.PumpRate * w.SpeedOf(this)) ?? 0) > 0;
 
     public override string Status => Idle > StallTicks ? "blocked" : null;
 }

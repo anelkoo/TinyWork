@@ -33,6 +33,9 @@ public static class SelfTest
         Test("joining two fluids keeps the larger one", FluidMixing);
         Test("pump -> refinery -> plastic, sparkgas powers a generator", RefineryChain);
         Test("items glide over belt edges without pausing", GlideAcrossEdges);
+        Test("coin rush doubles sales, then wears off", CoinRush);
+        Test("potions stack up to the cap and cost more later in the game", PotionPrices);
+        Test("better deals and bigger generators upgrades work", NewUpgrades);
         Test("older saves still load and run", LegacySaves);
         GD.Print(_fails == 0 ? "SELFTEST PASS" : $"SELFTEST FAIL ({_fails})");
         return _fails;
@@ -196,6 +199,9 @@ public static class SelfTest
         // and a powered pair, so generator fuel/energy is part of the round trip
         w.Place("pole", new(9, 1), 0);
         ((Generator)w.Place("generator", new(10, 1), 0)).Fuel = 5;
+        // a potion that runs out halfway through the round trip
+        Check(w.BuyPotion("rock_crusher", 1), "potion purchase in the economy world");
+        w.Upgrades["sell_price"] = 1;
         return w;
     }
 
@@ -541,6 +547,54 @@ public static class SelfTest
         var refunds = new List<string>();
         foreach (var e in w.Entities) e.Contents(refunds);
         Check(!refunds.Any(Defs.IsFluid), "fluids must never be refunded as items");
+    }
+
+    static void CoinRush()
+    {
+        var w = World.New("t", "normal", false, 1);
+        w.Coins = 1000;
+        long cost = w.PotionCost("coin_rush", 2);
+        Check(cost == 40 && w.BuyPotion("coin_rush", 2) && w.Coins == 1000 - 40, $"2 min coin rush at the start costs 40 (got {cost}, coins {w.Coins})");
+        w.Coins = 0;
+        w.Storage["iron_plate"] = 60;
+        w.AutoSell.Add("iron_plate");
+        for (int i = 0; i < 20; i++) w.Step();
+        Check(w.Coins == 10 * 3 * 2 && w.CoinsEarned == 60, $"coin rush should pay double: {w.Coins} coins");
+        w.Events.Clear();
+        for (int i = 0; i < 2 * World.TicksPerMinute; i++) w.Step();
+        Check(!w.Has("coin_rush") && w.Events.Any(e => e.Kind == "potion_end" && e.Id == "coin_rush"), "coin rush should be over after 2 minutes");
+        w.Storage["iron_plate"] = 60;
+        long before = w.Coins;
+        for (int i = 0; i < 20; i++) w.Step();
+        Check(w.Coins - before == 10 * 3, "normal price again after the potion");
+    }
+
+    static void PotionPrices()
+    {
+        var w = World.New("t", "normal", false, 1);
+        w.Coins = 1_000_000;
+        Check(w.BuyPotion("overdrive", 100) && w.BuyPotion("overdrive", 100) && w.PotionMinutesLeft("overdrive") == Defs.PotionMaxMinutes, $"stacking should stop at {Defs.PotionMaxMinutes} min, got {w.PotionMinutesLeft("overdrive")}");
+        Check(!w.BuyPotion("overdrive", 5), "no buying past the cap");
+        Check(Mathf.Abs(w.MachineSpeed - 1.5f) < 1e-4f, "overdrive makes machines 50% faster");
+        long early = w.PotionCost("coin_rush", 10);
+        w.MilestoneIndex = 2;
+        w.CoinsEarned = 10000;
+        long late = w.PotionCost("coin_rush", 10);
+        Check(late == (long)Math.Ceiling(early * 2.5 * 2), $"price should scale with milestones and coins earned: {early} -> {late}");
+        Check(w.PotionCost("coin_rush", 20) == 2 * late, "price scales with the duration");
+    }
+
+    static void NewUpgrades()
+    {
+        var w = World.New("t", "normal", false, 1);
+        w.Upgrades["sell_price"] = 5;
+        w.Storage["iron_plate"] = 150;
+        w.AutoSell.Add("iron_plate");
+        for (int i = 0; i < 20; i++) w.Step();
+        Check(w.Coins == 450, $"+50% deals on 100 plates at 3c should pay 450, got {w.Coins}");
+        w.Upgrades["power"] = 5;
+        Check(Mathf.Abs(w.GeneratorKW - 2 * Defs.GeneratorKW) < 0.01f, "5 generator upgrades double the output");
+        foreach (var u in Defs.Upgrades) Check(Defs.UpgradeCost(u, u.Max - 1) > 0, $"{u.Id} top level cost overflows");
     }
 
     // Pass "--legacy <dir>" with copies of real saves to check they still load (never the live save folder).

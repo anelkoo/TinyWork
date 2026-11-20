@@ -288,6 +288,19 @@ public sealed partial class WorldView : Node2D
                     if (J("place")) _juice.Burst(at, Defs.Items[e.Id].Color, 12, 50, 2, 80);
                     Sfx.Play("error");
                     break;
+                case "potion" or "potion_end":
+                    var potion = Array.Find(Defs.Potions, p => p.Id == e.Id);
+                    _hub ??= W.Entities.Find(x => x is Hub) as Hub;
+                    if (e.Kind == "potion")
+                    {
+                        Toast?.Invoke($"{potion.Name}: {potion.Description.ToLower()} for {(W.PotionMinutesLeft(e.Id))} min");
+                        if (_hub != null && J("production"))
+                            for (int k = 0; k < 3; k++) _juice.Burst(_hub.Pos * T + new Vector2(24, 8 - k * 8), potion.Color, 10, 70, 2, 90, 1.2f);
+                        if (J("screen")) _juice.Shake(0.15f);
+                        Sfx.Play("milestone", 0.1f);
+                    }
+                    else Toast?.Invoke($"{potion.Name} wore off");
+                    break;
                 case "upgraded" or "bought":
                     Sfx.Play("coin");
                     break;

@@ -11,6 +11,8 @@ public sealed record BuildingDef(string Id, string Name, int Size, (string Item,
 public sealed record Recipe(string Id, string Machine, (string Item, int Count)[] In, string Out, int OutCount, int Ticks, string Unlock = null);
 public sealed record Milestone(string Name, (string Item, int Count)[] Need, string[] Unlocks);
 public sealed record Upgrade(string Id, string Name, string Description, int Max, int BaseCost);
+// A temporary boost bought with coins. Price per minute is multiplied by World.PriceLevel, which grows with progress.
+public sealed record Potion(string Id, string Name, string Description, Color Color, int CoinsPerMinute);
 
 // IDs are strings everywhere (also in saves) so adding items later never shifts existing ones.
 public static class Defs
@@ -42,10 +44,22 @@ public static class Defs
 
     public static readonly Upgrade[] Upgrades =
     {
-        new("machine_speed", "Faster Machines", "+10% speed for miners, furnaces and assemblers", 5, 100),
-        new("arm_speed", "Quick Arms", "+15% inserter speed", 3, 80),
-        new("hand", "Strong Hands", "+1 ore per click when mining by hand", 3, 30),
+        new("machine_speed", "Faster Machines", "+10% speed for miners, furnaces, assemblers and refineries", 10, 100),
+        new("arm_speed", "Quick Arms", "+15% inserter speed", 6, 80),
+        new("hand", "Strong Hands", "+1 ore per click when mining by hand", 5, 30),
+        new("sell_price", "Better Deals", "+10% coins for everything auto-sold", 10, 150),
+        new("power", "Bigger Generators", "+20% power from every generator", 5, 120),
+        new("pump", "Strong Pumps", "+25% water from every pump", 4, 200),
     };
+
+    public static readonly Potion[] Potions =
+    {
+        new("coin_rush", "Coin Rush", "Auto-sell pays double", new Color("f7c948"), 20),
+        new("overdrive", "Overdrive", "Machines work 50% faster", new Color("e8665a"), 15),
+        new("quick_arms", "Arm Tonic", "Inserters swing 50% faster", new Color("5aa9e8"), 8),
+        new("rock_crusher", "Rock Crusher", "Mining by hand gives 5x ore", new Color("62b86a"), 4),
+    };
+    public const int PotionMaxMinutes = 120; // per potion, buying more extends it up to this
 
     static Defs()
     {

@@ -3,6 +3,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using Godot;
 using TinyWorks.Sim;
+using TinyWorks.UI;
 
 namespace TinyWorks;
 
@@ -83,10 +84,23 @@ public partial class Main
         Check(_world.Coins > coins && _world.Storage["iron_plate"] is >= 400 and <= 410, $"auto-sell paid out ({_world.Coins - coins} coins) and kept the reserve ({_world.Storage["iron_plate"]})");
         Shot("04_selling");
 
-        _hud.OpenHub(true);
+        _hud.OpenHub(Hud.ShopTab);
         await Wait(0.5);
         Shot("05_hub_shop");
         Check(_world.BuyUpgrade("machine_speed"), "bought an upgrade");
+        _hud.OpenHub(Hud.PotionTab);
+        await Wait(0.5);
+        Shot("05b_potions");
+        var rushButton = FindAll<Button>(_hud).First(b => b.Text.StartsWith("2 min"));
+        long beforeCoins = _world.Coins, earnedBefore = _world.CoinsEarned, rushCost = _world.PotionCost("coin_rush", 2);
+        rushButton.EmitSignal(BaseButton.SignalName.Pressed);
+        await Wait(0.3);
+        Check(_world.Has("coin_rush") && _world.Coins == beforeCoins - rushCost + (_world.CoinsEarned - earnedBefore), $"bought a 2 min Coin Rush for {rushCost} coins");
+        Check(FindAll<Button>(_hud).Any(b => b.Text.StartsWith("Brew") && !b.Disabled), "custom potion brew button is ready");
+        _hud.ClosePanel();
+        await Wait(0.3);
+        Check(FindAll<Label>(_hud).Any(l => l.IsVisibleInTree() && l.Text.StartsWith("1:5")), "the potion timer counts down under the coins");
+        Shot("05c_potion_active");
         _hud.ClosePanel();
 
         Key(Godot.Key.Q);
@@ -225,10 +239,10 @@ public partial class Main
         Shot("10_mini_game");
         var slots = FindAll<Button>(_hud).Where(b => b.HasMeta("id")).ToList();
         Check(slots.Count == 15 && slots.Max(b => b.GetGlobalRect().End.X) <= 400 && slots.Min(b => b.GetGlobalRect().Position.X) >= 0, $"all {slots.Count} hotbar slots fit in the mini window");
-        _hud.OpenHub(false);
+        _hud.OpenHub(Hud.SellTab);
         await Wait(0.5);
         Shot("11_mini_hub");
-        _hud.OpenHub(true);
+        _hud.OpenHub(Hud.ShopTab);
         await Wait(0.5);
         Shot("12_mini_shop");
         _hud.OpenBuildMenu();
