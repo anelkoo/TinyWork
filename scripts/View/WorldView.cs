@@ -55,13 +55,19 @@ public sealed partial class WorldView : Node2D
     static Vector2 Center(Vector2I tile) => tile * T + Vector2.One * T / 2;
 
     // shortcut: the hotbar is simply every unlocked building in a fixed order; make it customizable if 9 slots run out.
-    public List<string> Hotbar() => Defs.HotbarOrder.Where(W.IsUnlocked).ToList();
+    public List<string> Hotbar() => Defs.HotbarOrder.ToList();
 
     public Action<Entity> Inspect; // clicked a building with nothing selected
     public Action<GameEvent> OnEvent; // every world event, as the view drains them
 
     public void Select(string building)
     {
+        if (!W.IsUnlocked(building))
+        {
+            Toast?.Invoke($"{Defs.Buildings[building].Name} unlocks with milestone {Defs.UnlockTier(building)}");
+            Sfx.Play("error");
+            return;
+        }
         if (Defs.IsBelt(building) && Defs.IsBelt(Selected))
         {
             // Pressing the belt key again steps through the unlocked tiers, then puts the belt away.
@@ -77,7 +83,8 @@ public sealed partial class WorldView : Node2D
     public bool HandleKey(Key k)
     {
         var bar = Hotbar();
-        if (k >= Key.Key1 && k <= Key.Key9 && k - Key.Key1 < bar.Count) { Select(bar[(int)(k - Key.Key1)]); return true; }
+        int slot = k == Key.Key0 ? 9 : k >= Key.Key1 && k <= Key.Key9 ? (int)(k - Key.Key1) : -1;
+        if (slot >= 0 && slot < bar.Count) { Select(bar[slot]); return true; }
         switch (k)
         {
             case Key.R when Selected != null: Rot = (Rot + 1) % 4; Sfx.Play("rotate"); return true;

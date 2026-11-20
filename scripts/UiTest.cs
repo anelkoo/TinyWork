@@ -37,7 +37,14 @@ public partial class Main
         await Wait(2.5);
         Shot("02_game");
         Check(_world.MilestoneIndex == 1, "milestone 1 reached from the prepared save");
-        Check(_view.Hotbar().Contains("assembler") && _view.Hotbar().Contains("chest"), "assembler and chest on the hotbar after the unlock");
+        Check(_view.Hotbar().Count == Defs.Buildings.Count - 3, $"every building is on the hotbar ({_view.Hotbar().Count} slots)"); // belt tiers share slot 1, no Hub
+        Key(Godot.Key.Key0);
+        await Wait(0.1);
+        Check(_view.Selected == "pole", $"0 picks the tenth slot (got {_view.Selected})");
+        _view.Selected = null;
+        _view.Select("pipe");
+        Check(_view.Selected == null, "a locked building can't be picked from the hotbar");
+        Shot("02a_hotbar");
         Check(Engine.TimeScale == 1, "slow motion ended");
         var gearRow = FindAll<HBoxContainer>(_hud).FirstOrDefault(r => FindAll<ProgressBar>(r).Any() && FindAll<Label>(r).Any(l => l.Text == "Gear"));
         Check(gearRow != null && gearRow.TooltipText.Contains("Assembler: 2 Iron Plate"),
@@ -216,6 +223,8 @@ public partial class Main
         await Wait(0.6);
         Check(GetViewport().GetVisibleRect().Size == new Vector2(400, 300), $"window is mini sized ({GetViewport().GetVisibleRect().Size})");
         Shot("10_mini_game");
+        var slots = FindAll<Button>(_hud).Where(b => b.HasMeta("id")).ToList();
+        Check(slots.Count == 15 && slots.Max(b => b.GetGlobalRect().End.X) <= 400 && slots.Min(b => b.GetGlobalRect().Position.X) >= 0, $"all {slots.Count} hotbar slots fit in the mini window");
         _hud.OpenHub(false);
         await Wait(0.5);
         Shot("11_mini_hub");

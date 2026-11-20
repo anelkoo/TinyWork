@@ -21,8 +21,9 @@ public static class Defs
     public static readonly string[] Ores = { "iron_ore", "copper_ore", "stone", "coal" };
     public static readonly string[] BaseUnlocks = { "belt", "crossing", "inserter", "miner", "furnace", "pole", "generator" };
     public static readonly string[] BuildOrder = { "belt", "fast_belt", "express_belt", "crossing", "inserter", "miner", "furnace", "assembler", "chest", "pole", "generator", "splitter", "tunnel", "pipe", "pipe_tunnel", "pump", "refinery" };
-    // Hotbar keys 1-9. Key 1 cycles through the unlocked belt tiers, so faster belts need no slot of their own.
-    public static readonly string[] HotbarOrder = { "belt", "inserter", "miner", "furnace", "crossing", "pole", "generator", "assembler", "chest" };
+    // Every building has a hotbar slot, locked ones greyed out, so slots never shift when something unlocks.
+    // Keys 1-9 and 0 reach the first ten. Key 1 cycles through the unlocked belt tiers, so faster belts need no slot.
+    public static readonly string[] HotbarOrder = { "belt", "inserter", "miner", "furnace", "crossing", "splitter", "tunnel", "assembler", "chest", "pole", "generator", "pipe", "pipe_tunnel", "pump", "refinery" };
 
     // Power (kW) a machine draws while it works. Power only ever speeds things up: see World.PowerBoost.
     public static readonly Dictionary<string, float> PowerUse = new() { ["miner"] = 90, ["furnace"] = 90, ["assembler"] = 75, ["inserter"] = 15, ["pump"] = 30, ["refinery"] = 120 };

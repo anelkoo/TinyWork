@@ -100,7 +100,7 @@ public sealed partial class Hud : Control
         _toast.AddThemeConstantOverride("outline_size", 6);
         AddChild(_toast);
 
-        _hints = Ui.MakeLabel("Click ore to mine   Click a building to open it   1-9 build (1 again: faster belts)   Q all buildings   R rotate   Right-click remove   V underground   F7 mini   F8 hide", 13, Ui.Text);
+        _hints = Ui.MakeLabel("Click ore to mine   Click a building to open it   1-0 build (1 again: faster belts)   Q all buildings   R rotate   Right-click remove   V underground   F7 mini   F8 hide", 13, Ui.Text);
         _hints.SetAnchorsAndOffsetsPreset(LayoutPreset.BottomLeft);
         _hints.GrowVertical = GrowDirection.Begin;
         _hints.Position += new Vector2(10, -66);
@@ -114,6 +114,7 @@ public sealed partial class Hud : Control
 
         View.Inspect = Inspect;
         BuildTutorial();
+        Resized += FitHotbar;
         _seenMilestone = W.MilestoneIndex;
         RebuildHotbar();
         RebuildTracker();
@@ -164,18 +165,19 @@ public sealed partial class Hud : Control
 
     void RebuildHotbar()
     {
-        foreach (var c in _bar.GetChildren()) c.QueueFree();
+        foreach (var c in _bar.GetChildren()) { _bar.RemoveChild(c); c.QueueFree(); }
         var list = View.Hotbar();
-        float s = _mini ? 30 : 48;
-        for (int i = 0; i < list.Count && i < 9; i++)
+        for (int i = 0; i < list.Count; i++)
         {
             var id = list[i];
             var def = Defs.Buildings[id];
-            var b = new Button { Icon = Sprites.Icons[id], ExpandIcon = true, IconAlignment = HorizontalAlignment.Center, FocusMode = FocusModeEnum.None, CustomMinimumSize = new Vector2(s, s) };
-            b.TooltipText = $"{def.Name}  ({i + 1})\nCosts {Ui.Cost(def.Cost)}";
-            b.AddThemeConstantOverride("icon_max_width", _mini ? 20 : 32);
+            bool open = W.IsUnlocked(id);
+            string keyName = i < 10 ? ((i + 1) % 10).ToString() : null;
+            var b = new Button { Icon = Sprites.Icons[id], ExpandIcon = true, IconAlignment = HorizontalAlignment.Center, FocusMode = FocusModeEnum.None };
+            b.TooltipText = $"{def.Name}{(keyName != null ? $"  ({keyName})" : "")}\n" + (open ? $"Costs {Ui.Cost(def.Cost)}" : $"Unlocks with milestone {Defs.UnlockTier(id)}");
+            if (!open) b.Modulate = new Color(1, 1, 1, 0.4f); // still clickable: it says when it unlocks
             b.Pressed += () => View.Select(id);
-            var key = Ui.MakeLabel((i + 1).ToString(), 11, Ui.Muted);
+            var key = Ui.MakeLabel(keyName ?? "", _mini ? 9 : 11, Ui.Muted);
             key.Position = new Vector2(4, 1);
             key.MouseFilter = MouseFilterEnum.Ignore;
             b.AddChild(key);
@@ -184,7 +186,36 @@ public sealed partial class Hud : Control
             _bar.AddChild(b);
         }
         _shownSel = "";
+        FitHotbar();
     }
+
+    // All slots in one row: they shrink when the window is too narrow (mini mode, and while it grows on hover).
+    void FitHotbar()
+    {
+        int n = _bar.GetChildCount();
+        if (n == 0) return;
+        _bar.AddThemeConstantOverride("separation", _mini ? 2 : 4);
+        float s = Mathf.Floor(Mathf.Min(_mini ? 30 : 48, (Size.X - 12) / n - (_mini ? 2 : 4)));
+        foreach (var c in _bar.GetChildren())
+            if (c is Button b)
+            {
+                b.CustomMinimumSize = new Vector2(s, s);
+                b.AddThemeConstantOverride("icon_max_width", (int)Mathf.Min(s * 0.66f, s - 2 * SlotPad - 2));
+                b.AddThemeStyleboxOverride("hover", Ui.Box(Ui.BtnHover, Ui.Accent with { A = 0.7f }, 2, 6, SlotPad));
+                b.AddThemeStyleboxOverride("pressed", Ui.Box(Ui.Accent, Ui.Accent, 2, 6, SlotPad));
+            }
+        _shownSel = ""; // re-applies the "normal" style with the small padding
+        Callable.From(() =>
+        {
+            _bar.ResetSize();
+            _bar.SetAnchorsAndOffsetsPreset(LayoutPreset.CenterBottom);
+            _bar.GrowHorizontal = GrowDirection.Both;
+            _bar.GrowVertical = GrowDirection.Begin;
+            _bar.Position -= new Vector2(0, _mini ? 4 : 10);
+        }).CallDeferred();
+    }
+
+    const int SlotPad = 3; // hotbar slots use small padding so 15 of them fit in the mini window
 
     void RebuildTracker()
     {
@@ -302,7 +333,7 @@ public sealed partial class Hud : Control
                     var id = (string)b.GetMeta("id");
                     bool sel = id == View.Selected || id == "belt" && Defs.IsBelt(View.Selected);
                     if (id == "belt" && Defs.IsBelt(View.Selected)) b.Icon = Sprites.Icons[View.Selected]; // slot 1 shows the belt tier in hand
-                    b.AddThemeStyleboxOverride("normal", Ui.Box(sel ? Ui.BtnHover : Ui.Btn, sel ? Ui.Accent : Ui.Border, sel ? 3 : 2));
+                    b.AddThemeStyleboxOverride("normal", Ui.Box(sel ? Ui.BtnHover : Ui.Btn, sel ? Ui.Accent : Ui.Border, sel ? 3 : 2, 6, SlotPad));
                 }
         }
         _toastT -= dt;
