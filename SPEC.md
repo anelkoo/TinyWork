@@ -98,7 +98,7 @@ SFX plus a calm music loop, with separate volume sliders. Audio mutes while hidd
 ## Packaging
 
 - Windows: a portable zip and an Inno Setup installer.
-- Linux x86_64: a tar.gz and an AppImage.
+- Linux x86_64: a .deb, an Arch package, an AppImage and a tar.gz.
 
 ## Known platform limits
 
@@ -124,7 +124,7 @@ Each step ends in something playable:
    - New items: plastic and sulfur, plus the fluids water, black goo and sparkgas.
    - Milestones 4 to 6 are still to be defined. The new buildings are in the Q menu only, because the 9 hotbar slots are full (the customizable hotbar comes in step 6).
 6. Undo, copy/paste, blueprints, Sandbox tools, stats.
-7. Installers and packages. Portable packages are done early: `build.ps1` makes `export/TinyWorks-linux-x86_64.tar.gz` and `export/TinyWorks-windows-x86_64.zip` (self-contained, no .NET or ICU needed). Still to do: the Inno Setup installer and the AppImage.
+7. Installers and packages. Done: `.uild.ps1 -Version <ver>` builds a Windows installer (Inno Setup, per user, no admin) and a portable zip, a `.deb` (Debian/Ubuntu), a `.pkg.tar.zst` (Arch), an AppImage (other distros) and a Linux tar.gz. All are self-contained, with no .NET or ICU needed. The packaging files are in `packaging/`, and the icon is the Hub (`--export-icon`). The Arch package has not been installed on a real Arch system yet.
 
 Juice and sound get added to each system as it lands.
 

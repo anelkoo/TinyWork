@@ -35,6 +35,17 @@ public partial class Main : Node
         GetTree().AutoAcceptQuit = false;
         _s = Persist.LoadSettings();
         Sprites.Build();
+        int iconArg = Array.IndexOf(args, "--export-icon"); // packaging: the Hub sprite as a 256 px app icon
+        if (iconArg >= 0 && iconArg + 1 < args.Length)
+        {
+            var hub = Sprites.Hub.GetImage();
+            hub.Resize(240, 240, Image.Interpolation.Nearest); // 5x the 48 px sprite, centred on 256
+            var icon = Image.CreateEmpty(256, 256, false, Image.Format.Rgba8);
+            icon.BlitRect(hub, new Rect2I(0, 0, 240, 240), new Vector2I(8, 8));
+            icon.SavePng(args[iconArg + 1]);
+            GetTree().Quit();
+            return;
+        }
 
         // Everything renders into one full-res viewport, so mini-mode opacity fades a single texture.
         var outer = new SubViewportContainer { Stretch = true };

@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=Tiny Works
+Comment=A small, relaxing factory game
+Exec=tinyworks
+Icon=tinyworks
+Terminal=false
+Categories=Game;Simulation;
