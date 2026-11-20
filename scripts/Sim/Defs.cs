@@ -12,7 +12,11 @@ public sealed record Recipe(string Id, string Machine, (string Item, int Count)[
 public sealed record Milestone(string Name, (string Item, int Count)[] Need, string[] Unlocks);
 public sealed record Upgrade(string Id, string Name, string Description, int Max, int BaseCost);
 // A temporary boost bought with coins. Price per minute is multiplied by World.PriceLevel, which grows with progress.
-public sealed record Potion(string Id, string Name, string Description, Color Color, int CoinsPerMinute);
+// Strengths are the multipliers you can brew; the price scales with the bonus (strength - 1) relative to Default.
+public sealed record Potion(string Id, string Name, string Effect, Color Color, int CoinsPerMinute, float[] Strengths, float Default)
+{
+    public string Describe(float strength) => string.Format(Effect, Defs.X(strength));
+}
 
 // IDs are strings everywhere (also in saves) so adding items later never shifts existing ones.
 public static class Defs
@@ -22,26 +26,29 @@ public static class Defs
     public static readonly List<Recipe> Recipes = new();
     public static readonly string[] Ores = { "iron_ore", "copper_ore", "stone", "coal" };
     public static readonly string[] BaseUnlocks = { "belt", "crossing", "inserter", "miner", "furnace", "pole", "generator" };
-    public static readonly string[] BuildOrder = { "belt", "fast_belt", "express_belt", "crossing", "inserter", "miner", "furnace", "assembler", "chest", "pole", "big_pole", "generator", "splitter", "tunnel", "pipe", "pipe_tunnel", "pump", "refinery" };
+    public static readonly string[] BuildOrder = { "belt", "fast_belt", "express_belt", "crossing", "inserter", "miner", "furnace", "assembler", "chest", "pole", "big_pole", "super_pole", "generator", "splitter", "tunnel", "pipe", "pipe_tunnel", "pump", "refinery" };
     // Every building has a hotbar slot, locked ones greyed out, so slots never shift when something unlocks.
-    // Keys 1-9 and 0 reach the first ten. Key 1 cycles through the unlocked belt tiers, so faster belts need no slot.
-    public static readonly string[] HotbarOrder = { "belt", "inserter", "miner", "furnace", "crossing", "splitter", "tunnel", "assembler", "chest", "pole", "big_pole", "generator", "pipe", "pipe_tunnel", "pump", "refinery" };
+    // Keys 1-9 and 0 reach the first ten. Pressing a tiered slot again (belts, poles) steps through its unlocked tiers.
+    public static readonly string[] HotbarOrder = { "belt", "inserter", "miner", "furnace", "crossing", "splitter", "tunnel", "assembler", "chest", "pole", "generator", "pipe", "pipe_tunnel", "pump", "refinery" };
 
     // Power (kW) a machine draws while it works. Power only ever speeds things up: see World.PowerBoost.
     public static readonly Dictionary<string, float> PowerUse = new() { ["miner"] = 90, ["furnace"] = 90, ["assembler"] = 75, ["inserter"] = 15, ["pump"] = 30, ["refinery"] = 120 };
     public const float GeneratorKW = 600, CoalKJ = 4000, SparkgasKJ = 200; // kJ per unit
     public const int TunnelRange = 5, PipeTunnelRange = 10; // how far apart an entrance and its exit may be
     public const float PipeCap = 100, PumpRate = 1; // fluid units per pipe tile, units per tick
-    public const int WireRange = 7, BigWireRange = 18, PoleReach = 2; // poles power a 5x5 square; big poles wire much further
-    // Two poles link when they are within the shorter of their two ranges, so small poles never reach 18 tiles.
-    public static int WireRangeOf(string pole) => pole == "big_pole" ? BigWireRange : WireRange;
+    // Tier families share one hotbar slot, like the belts. Better poles wire further and power a bigger square.
+    public static readonly string[] BeltTiers = { "belt", "fast_belt", "express_belt" }, PoleTiers = { "pole", "big_pole", "super_pole" };
+    public static string[] TiersOf(string type) => System.Array.IndexOf(BeltTiers, type) >= 0 ? BeltTiers : System.Array.IndexOf(PoleTiers, type) >= 0 ? PoleTiers : null;
+    // Two poles link when they are within the shorter of their two ranges, so a small pole never reaches 18 tiles.
+    public static int WireRangeOf(string pole) => pole switch { "super_pole" => 18, "big_pole" => 12, _ => 7 };
+    public static int PoleReachOf(string pole) => pole switch { "super_pole" => 4, "big_pole" => 3, _ => 2 }; // 9x9, 7x7, 5x5
     public static readonly Dictionary<string, long> StarterKit = new() { ["iron_plate"] = 40, ["stone"] = 16 };
 
     public static readonly Milestone[] Milestones =
     {
         new("First Plates", new[] { ("iron_plate", 40), ("copper_plate", 20) }, new[] { "assembler", "chest", "splitter", "tunnel" }),
         new("Gears Turning", new[] { ("gear", 40), ("copper_wire", 60) }, new[] { "fast_belt", "steel", "big_pole" }),
-        new("Smart Factory", new[] { ("circuit", 30), ("steel_plate", 15) }, new[] { "express_belt", "pipe", "pipe_tunnel", "pump", "refinery" }),
+        new("Smart Factory", new[] { ("circuit", 30), ("steel_plate", 15) }, new[] { "express_belt", "super_pole", "pipe", "pipe_tunnel", "pump", "refinery" }),
     };
 
     public static readonly Upgrade[] Upgrades =
@@ -56,12 +63,15 @@ public static class Defs
 
     public static readonly Potion[] Potions =
     {
-        new("coin_rush", "Coin Rush", "Auto-sell pays double", new Color("f7c948"), 20),
-        new("overdrive", "Overdrive", "Machines work 50% faster", new Color("e8665a"), 15),
-        new("quick_arms", "Arm Tonic", "Inserters swing 50% faster", new Color("5aa9e8"), 8),
-        new("rock_crusher", "Rock Crusher", "Mining by hand gives 5x ore", new Color("62b86a"), 4),
+        new("coin_rush", "Coin Rush", "Auto-sell pays {0}", new Color("f7c948"), 20, new[] { 1.5f, 2f, 3f }, 2f),
+        new("overdrive", "Overdrive", "Machines work {0} as fast", new Color("e8665a"), 15, new[] { 1.25f, 1.5f, 2f }, 1.5f),
+        new("quick_arms", "Arm Tonic", "Inserters swing {0} as fast", new Color("5aa9e8"), 8, new[] { 1.25f, 1.5f, 2f }, 1.5f),
+        new("rock_crusher", "Rock Crusher", "Mining by hand gives {0} ore", new Color("62b86a"), 4, new[] { 2f, 5f, 10f }, 5f),
     };
-    public const int PotionMaxMinutes = 120; // per potion, buying more extends it up to this
+    public const int PotionMaxMinutes = 120; // per potion and strength; buying more extends it up to this
+    public static Potion PotionById(string id) => System.Array.Find(Potions, p => p.Id == id);
+    // "x1.5", "x2": multipliers as players read them, the same in every language setting.
+    public static string X(float m) => "x" + m.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture);
 
     static Defs()
     {
@@ -93,6 +103,7 @@ public static class Defs
         Building("chest", "Chest", 1, ("iron_plate", 4));
         Building("pole", "Power Pole", 1, ("iron_plate", 2), ("copper_plate", 1));
         Building("big_pole", "Big Pole", 1, ("steel_plate", 2), ("copper_plate", 4));
+        Building("super_pole", "Super Pole", 1, ("steel_plate", 4), ("circuit", 2), ("copper_plate", 4));
         Building("generator", "Generator", 1, ("iron_plate", 10), ("stone", 5));
         Building("splitter", "Splitter", 1, ("iron_plate", 5), ("gear", 2));
         Building("tunnel", "Underground Belt", 1, ("iron_plate", 6), ("gear", 3));

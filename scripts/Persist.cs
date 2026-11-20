@@ -17,6 +17,7 @@ public sealed class Settings
     public float MiniIdleOpacity = 0.5f;  // while it isn't
     public float MiniHoverScale = 1.25f;  // hovered size = mini size times this
     public string LastBelt = "belt";      // key 1 starts with the belt tier used last
+    public string LastPole = "pole";      // and the pole slot with the pole tier used last
     public int MiniW = 400, MiniH = 300;
     public int NormalX = -1, NormalY = -1, NormalW = 1280, NormalH = 720;
     public int FpsFocused = 60, FpsBackground = 60;

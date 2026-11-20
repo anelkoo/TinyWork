@@ -14,8 +14,8 @@ public sealed partial class WorldView : Node2D
     static readonly float[] Zooms = { 0.5f, 1, 1.5f, 2, 2.5f, 3, 3.5f, 4 };
     const float ZoomCooldown = 0.12f; // a fast wheel spin moves one step at a time, not five
     float _lastZoom = -1;
-    public Func<bool> Blocked;
-    string _beltStart; // a menu is open: the wheel belongs to it, never to the map
+    public Func<bool> Blocked; // a menu is open: the wheel belongs to it, never to the map
+    string _tierStart;         // the tier a tiered slot started on, so cycling stops after one round
     const float PixelScale = 2; // screen pixels per art pixel at zoom 1
 
     public World W;
@@ -73,18 +73,23 @@ public sealed partial class WorldView : Node2D
             Sfx.Play("error");
             return;
         }
-        if (Defs.IsBelt(building) && Defs.IsBelt(Selected))
+        var family = Defs.TiersOf(building);
+        if (family != null && family == Defs.TiersOf(Selected))
         {
-            // Pressing the belt key again steps through the unlocked tiers, then puts the belt away
+            // Pressing a tiered slot again steps through its unlocked tiers, then puts it away
             // once it would come back round to the tier it started with.
-            var tiers = new[] { "belt", "fast_belt", "express_belt" }.Where(W.IsUnlocked).ToList();
+            var tiers = family.Where(W.IsUnlocked).ToList();
             var next = tiers[(tiers.IndexOf(Selected) + 1) % tiers.Count];
-            Selected = next == _beltStart ? null : next;
+            Selected = next == _tierStart ? null : next;
         }
-        else if (Defs.IsBelt(building)) // the belt key starts with the tier used last
-            Selected = _beltStart = Defs.IsBelt(S.LastBelt) && W.IsUnlocked(S.LastBelt) ? S.LastBelt : "belt";
+        else if (family != null) // a tiered slot starts with the tier used last
+        {
+            var last = family == Defs.PoleTiers ? S.LastPole : S.LastBelt;
+            Selected = _tierStart = Array.IndexOf(family, last) >= 0 && W.IsUnlocked(last) ? last : family[0];
+        }
         else Selected = Selected == building ? null : building;
         if (Defs.IsBelt(Selected)) S.LastBelt = Selected;
+        if (Defs.TiersOf(Selected) == Defs.PoleTiers) S.LastPole = Selected;
         Sfx.Play("click");
     }
 
@@ -301,17 +306,20 @@ public sealed partial class WorldView : Node2D
                     if (J("place")) _juice.Burst(at, Defs.Items[e.Id].Color, 12, 50, 2, 80);
                     Sfx.Play("error");
                     break;
-                case "potion" or "potion_end":
-                    var potion = Array.Find(Defs.Potions, p => p.Id == e.Id);
+                case "potion" or "potion_next" or "potion_end":
+                    var potion = Defs.PotionById(e.Id);
                     _hub ??= W.Entities.Find(x => x is Hub) as Hub;
                     if (e.Kind == "potion")
                     {
-                        Toast?.Invoke($"{potion.Name}: {potion.Description.ToLower()} for {(W.PotionMinutesLeft(e.Id))} min");
+                        Toast?.Invoke(e.F < W.Strength(e.Id)
+                            ? $"{potion.Name} {Defs.X(e.F)} waits until the {Defs.X(W.Strength(e.Id))} runs out"
+                            : $"{potion.Name}: {potion.Describe(e.F).ToLower()} for {W.PotionMinutesLeft(e.Id, e.F)} min");
                         if (_hub != null && J("production"))
                             for (int k = 0; k < 3; k++) _juice.Burst(_hub.Pos * T + new Vector2(24, 8 - k * 8), potion.Color, 10, 70, 2, 90, 1.2f);
                         if (J("screen")) _juice.Shake(0.15f);
                         Sfx.Play("milestone", 0.1f);
                     }
+                    else if (e.Kind == "potion_next") Toast?.Invoke($"{potion.Name} continues at {Defs.X(e.F)}");
                     else Toast?.Invoke($"{potion.Name} wore off");
                     break;
                 case "upgraded" or "bought":
@@ -419,7 +427,7 @@ public sealed partial class WorldView : Node2D
                     DrawCrossing(x, c, f);
                     break;
                 case Pole:
-                    Sprite(e.Type == "big_pole" ? Sprites.BigPole : Sprites.Pole, c, 0, sq);
+                    Sprite(Sprites.Icons[e.Type], c, 0, sq);
                     break;
                 case Splitter sp:
                     Sprite(Sprites.BeltFrames["belt"][frame], c, Angle(sp.Rot), Vector2.One);
@@ -581,7 +589,7 @@ public sealed partial class WorldView : Node2D
         }
     }
 
-    static Vector2 PoleTop(Entity p) => Center(p.Pos) + new Vector2(0, p.Type == "big_pole" ? -8 : -6);
+    static Vector2 PoleTop(Entity p) => Center(p.Pos) + new Vector2(0, p.Type == "pole" ? -6 : -8);
 
     // A sagging wire, swaying a little. Live wires are copper coloured, dead ones dark.
     void DrawWire(Vector2 a, Vector2 b, bool live)
@@ -604,9 +612,10 @@ public sealed partial class WorldView : Node2D
         .Where(p => p.Pos != at && World.InWireRange(p, type, at))
         .OrderBy(p => (p.Pos - at).LengthSquared()).Take(3);
 
-    void DrawPoleArea(Vector2I at, Color col)
+    void DrawPoleArea(Vector2I at, string type, Color col)
     {
-        var r = new Rect2((at - Vector2I.One * Defs.PoleReach) * T, Vector2.One * T * (Defs.PoleReach * 2 + 1));
+        int reach = Defs.PoleReachOf(type);
+        var r = new Rect2((at - Vector2I.One * reach) * T, Vector2.One * T * (reach * 2 + 1));
         DrawRect(r, col with { A = 0.12f });
         DrawRect(r, col with { A = 0.6f }, false, 1);
     }
@@ -719,10 +728,10 @@ public sealed partial class WorldView : Node2D
             var entrance = W.EntranceFor(Selected, _hover, Rot);
             if (entrance != null) DrawLine(Center(entrance.Pos), c, Sprites.Glow with { A = 0.7f }, 2);
             Sprite(Sprites.Icons[Selected], c, ang, new Vector2(entrance != null ? -wob : wob, wob), tint);
-            if (Selected is "pole" or "big_pole") // where it powers and which poles it would wire to
+            if (Defs.TiersOf(Selected) == Defs.PoleTiers) // where it powers and which poles it would wire to
             {
-                DrawPoleArea(_hover, Sprites.Glow);
-                foreach (var p in WireTargets(_hover, Selected)) DrawWire(c + new Vector2(0, Selected == "big_pole" ? -8 : -6), PoleTop(p), true);
+                DrawPoleArea(_hover, Selected, Sprites.Glow);
+                foreach (var p in WireTargets(_hover, Selected)) DrawWire(c + new Vector2(0, Selected == "pole" ? -6 : -8), PoleTop(p), true);
             }
             if (Selected == "inserter") // show which way it hands items
             {
@@ -734,7 +743,7 @@ public sealed partial class WorldView : Node2D
             return;
         }
         var e = W.At(_hover);
-        if (e is Pole hovered) DrawPoleArea(hovered.Pos, Sprites.Glow);
+        if (e is Pole hovered) DrawPoleArea(hovered.Pos, hovered.Type, Sprites.Glow);
         var rect = e is Hub ? new Rect2(e.Pos * T, Vector2.One * T * 3) : new Rect2(_hover * T, Vector2.One * T);
         var col = e == null && W.OreAt(_hover) != null ? Sprites.Glow : Colors.White;
         DrawRect(rect.Grow(-0.5f), col with { A = 0.45f + 0.15f * Mathf.Sin(_time * 5) }, false, 1);

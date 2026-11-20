@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
 using Godot;
 using TinyWorks.Sim;
@@ -103,7 +104,7 @@ public sealed partial class Hud : Control
         _toast.AddThemeConstantOverride("outline_size", 6);
         AddChild(_toast);
 
-        _hints = Ui.MakeLabel("Click ore to mine   Click a building to open it   1-0 build (1 again: faster belts)   Q all buildings   R rotate   Right-click remove   V underground   F7 mini   F8 hide", 13, Ui.Text);
+        _hints = Ui.MakeLabel("Click ore to mine   Click a building to open it   1-0 build (again: next tier)   Q all buildings   R rotate   Right-click remove   V underground   F7 mini   F8 hide", 13, Ui.Text);
         _hints.SetAnchorsAndOffsetsPreset(LayoutPreset.BottomLeft);
         _hints.GrowVertical = GrowDirection.Begin;
         _hints.Position += new Vector2(10, -66);
@@ -341,8 +342,9 @@ public sealed partial class Hud : Control
                 if (n is Button b && b.HasMeta("id"))
                 {
                     var id = (string)b.GetMeta("id");
-                    bool sel = id == View.Selected || id == "belt" && Defs.IsBelt(View.Selected);
-                    if (id == "belt" && Defs.IsBelt(View.Selected)) b.Icon = Sprites.Icons[View.Selected]; // slot 1 shows the belt tier in hand
+                    var family = Defs.TiersOf(id);
+                    bool sel = id == View.Selected || family != null && family == Defs.TiersOf(View.Selected);
+                    if (family != null) b.Icon = Sprites.Icons[sel ? View.Selected : id]; // a tiered slot shows the tier in hand
                     b.AddThemeStyleboxOverride("normal", Ui.Box(sel ? Ui.BtnHover : Ui.Btn, sel ? Ui.Accent : Ui.Border, sel ? 3 : 2, 6, SlotPad));
                 }
         }
@@ -351,7 +353,8 @@ public sealed partial class Hud : Control
         _panelTick?.Invoke();
     }
 
-    public static string Compact(long n) => n >= 1_000_000 ? $"{n / 1e6:0.#}M" : n >= 10_000 ? $"{n / 1e3:0.#}k" : n.ToString();
+    public static string Compact(long n) => n >= 1_000_000 ? (n / 1e6).ToString("0.#", CultureInfo.InvariantCulture) + "M"
+        : n >= 10_000 ? (n / 1e3).ToString("0.#", CultureInfo.InvariantCulture) + "k" : n.ToString();
 
     // ---------- Panels ----------
 
@@ -466,7 +469,7 @@ public sealed partial class Hud : Control
     {
         Label coins = null;
         var refresh = new List<Action>();
-        var body = OpenPanel("Hub", 560, () => { coins.Text = $"{W.Coins} coins"; foreach (var r in refresh) r(); });
+        var body = OpenPanel("Hub", 620, () => { coins.Text = $"{W.Coins} coins"; foreach (var r in refresh) r(); });
         coins = Ui.MakeLabel("", 16, new Color("f7c948"));
         var tabs = new[] { Ui.MakeButton("Sell", () => OpenHub(SellTab), Sfx), Ui.MakeButton("Shop", () => OpenHub(ShopTab), Sfx), Ui.MakeButton("Potions", () => OpenHub(PotionTab), Sfx) };
         tabs[tab].AddThemeStyleboxOverride("normal", Ui.Box(Ui.BtnHover, Ui.Accent, 3));

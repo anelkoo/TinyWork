@@ -4,6 +4,11 @@ Everything that changed since the last release goes under "Unreleased". A new re
 
 ## Unreleased
 
+- Settings sliders keep their place: the percentage next to them has a fixed width.
+- Poles are a tier family like the belts: Power Pole, Big Pole (milestone 2) and Super Pole (milestone 3) share one hotbar slot (key 0, press again for the next tier, the last tier is remembered). Better poles wire further (7, 12, 18 tiles) and power a bigger area (5x5, 7x7, 9x9).
+- Potions have a strength to pick, for example Coin Rush x1.5, x2 or x3. Stronger costs more. Strengths never add up: the strongest one runs first, and weaker ones wait and take over after it. Potions from v0.0.3 saves load at their old strength.
+- Numbers like 10.7k use a dot in every language setting.
+
 ## v0.0.3 Beta (2026-11-20)
 
 - Milestone bars show the item name. Hovering a row shows how to make the item (machine and recipe, or the ore patch).

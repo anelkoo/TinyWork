@@ -38,7 +38,8 @@ public partial class Main
         await Wait(2.5);
         Shot("02_game");
         Check(_world.MilestoneIndex == 1, "milestone 1 reached from the prepared save");
-        Check(_view.Hotbar().Count == Defs.Buildings.Count - 3, $"every building is on the hotbar ({_view.Hotbar().Count} slots)"); // belt tiers share slot 1, no Hub
+        int expected = Defs.Buildings.Keys.Count(k => k != "hub" && (Defs.TiersOf(k)?[0] ?? k) == k); // a tier family shares one slot, no Hub
+        Check(_view.Hotbar().Count == expected, $"every building is on the hotbar ({_view.Hotbar().Count} of {expected} slots)");
         Key(Godot.Key.Key0);
         await Wait(0.1);
         Check(_view.Selected == "pole", $"0 picks the tenth slot (got {_view.Selected})");
@@ -92,14 +93,22 @@ public partial class Main
         await Wait(0.5);
         Shot("05b_potions");
         var rushButton = FindAll<Button>(_hud).First(b => b.Text.StartsWith("2 min"));
-        long beforeCoins = _world.Coins, earnedBefore = _world.CoinsEarned, rushCost = _world.PotionCost("coin_rush", 2);
+        long beforeCoins = _world.Coins, earnedBefore = _world.CoinsEarned, rushCost = _world.PotionCost("coin_rush", 2f, 2);
         rushButton.EmitSignal(BaseButton.SignalName.Pressed);
         await Wait(0.3);
         Check(_world.Has("coin_rush") && _world.Coins == beforeCoins - rushCost + (_world.CoinsEarned - earnedBefore), $"bought a 2 min Coin Rush for {rushCost} coins");
         Check(FindAll<Button>(_hud).Any(b => b.Text.StartsWith("Brew") && !b.Disabled), "custom potion brew button is ready");
+        _world.Coins += 10000;
+        var strengthPick = FindAll<OptionButton>(_hud).First(o => o.ItemCount == 3 && o.GetItemText(2) == "x3");
+        strengthPick.Selected = 2;
+        await Wait(0.2);
+        FindAll<Button>(_hud).First(b => b.Text.StartsWith("2 min")).EmitSignal(BaseButton.SignalName.Pressed);
+        await Wait(0.2);
+        Check(_world.Strength("coin_rush") == 3f && _world.PotionMinutesLeft("coin_rush", 2f) == 2, "picking x3 runs it first; the x2 waits");
+        Shot("05b2_potion_strengths");
         _hud.ClosePanel();
         await Wait(0.3);
-        Check(FindAll<Label>(_hud).Any(l => l.IsVisibleInTree() && l.Text.StartsWith("1:5")), "the potion timer counts down under the coins");
+        Check(FindAll<Label>(_hud).Any(l => l.IsVisibleInTree() && l.Text.StartsWith("x3 1:5") && l.Text.EndsWith("+1 waiting")), "the potion timer counts down under the coins");
         Shot("05c_potion_active");
         _hud.ClosePanel();
 
@@ -190,6 +199,14 @@ public partial class Main
         Key(Godot.Key.Key1);
         await Wait(0.1);
         Check(_view.Selected == "fast_belt", $"1 starts with the belt tier used last (got {_view.Selected})");
+        Key(Godot.Key.Escape);
+        await Wait(0.1);
+        Key(Godot.Key.Key0);
+        await Wait(0.1);
+        Key(Godot.Key.Key0);
+        await Wait(0.1);
+        Check(_view.Selected == "big_pole", $"0 twice steps from the power pole to the big pole (got {_view.Selected})");
+        Shot("09e_big_pole_ghost");
         Key(Godot.Key.Escape);
         await Wait(0.1);
 

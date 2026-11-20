@@ -5,7 +5,7 @@ using Godot;
 
 namespace TinyWorks.Sim;
 
-public readonly record struct GameEvent(string Kind, Vector2I Tile, string Id, long N = 1);
+public readonly record struct GameEvent(string Kind, Vector2I Tile, string Id, long N = 1, float F = 0);
 
 // Save files hold plain strings and numbers only, so they survive new items and buildings.
 // Fields added later just default when an older save is loaded.
@@ -25,10 +25,13 @@ public sealed class SaveData
     public List<string> AutoSell = new();
     public Dictionary<string, int> Reserve = new();
     public Dictionary<string, int> Upgrades = new();
-    public Dictionary<string, long> Potions = new(); // ticks left per active potion
+    public Dictionary<string, long> Potions = new(); // v0.0.3 format, read only: ticks left at the default strength
+    public List<PotionSave> PotionStacks = new();
     public long CoinsEarned;
     public int Tutorial; // tutorial steps done; -1 = hidden
 }
+
+public sealed class PotionSave { public string Id; public float Strength; public long Ticks; }
 
 public sealed class EntityData
 {
@@ -69,40 +72,65 @@ public sealed class World
     public bool Free => Mode == "sandbox";
     public Milestone CurrentMilestone => !Free && MilestoneIndex < Defs.Milestones.Length ? Defs.Milestones[MilestoneIndex] : null;
     public int Up(string id) => Upgrades.GetValueOrDefault(id);
-    public float MachineSpeed => (1 + 0.1f * Up("machine_speed")) * (Has("overdrive") ? 1.5f : 1);
-    public float ArmSpeed => (1 + 0.15f * Up("arm_speed")) * (Has("quick_arms") ? 1.5f : 1);
-    public int HandYield => (1 + Up("hand")) * (Has("rock_crusher") ? 5 : 1);
-    public float SellMultiplier => (1 + 0.1f * Up("sell_price")) * (Has("coin_rush") ? 2 : 1);
+    public float MachineSpeed => (1 + 0.1f * Up("machine_speed")) * Strength("overdrive");
+    public float ArmSpeed => (1 + 0.15f * Up("arm_speed")) * Strength("quick_arms");
+    public int HandYield => (int)Math.Round((1 + Up("hand")) * Strength("rock_crusher"));
+    public float SellMultiplier => (1 + 0.1f * Up("sell_price")) * Strength("coin_rush");
     public float GeneratorKW => Defs.GeneratorKW * (1 + 0.2f * Up("power"));
     public float PumpRate => Defs.PumpRate * (1 + 0.25f * Up("pump"));
 
     // ---------- Potions ----------
-    public readonly Dictionary<string, long> Potions = new(); // ticks left per active potion
-    public long CoinsEarned;                                     // all coins ever made by selling: prices scale with it
+    // Each potion can have several strengths waiting. Strengths never multiply: only the strongest one works and
+    // counts down; when it runs out, the next strongest takes over where it was paused.
+    public sealed class PotionStack { public float Strength; public long Ticks; }
+    public readonly Dictionary<string, List<PotionStack>> Potions = new(); // strongest first
+    public long CoinsEarned;                                                  // all coins ever made by selling: prices scale with it
     public const int TicksPerMinute = 20 * 60;
     public bool Has(string potion) => Potions.ContainsKey(potion);
+    public float Strength(string potion) => Potions.TryGetValue(potion, out var l) ? l[0].Strength : 1;
 
     // How far along the game is, as a price multiplier: every milestone and every 10k coins earned add to it.
     public float PriceLevel => (1 + 0.75f * MilestoneIndex) * (1 + CoinsEarned / 10000f);
-    public long PotionCost(string id, int minutes) =>
-        Array.Find(Defs.Potions, p => p.Id == id) is { } p ? (long)Math.Ceiling(p.CoinsPerMinute * minutes * PriceLevel) : long.MaxValue;
-    public int PotionMinutesLeft(string id) => (int)Math.Ceiling(Potions.GetValueOrDefault(id) / (double)TicksPerMinute);
 
-    // Buying while one is active adds time, up to Defs.PotionMaxMinutes.
-    public bool BuyPotion(string id, int minutes)
+    public long PotionCost(string id, float strength, int minutes) =>
+        Defs.PotionById(id) is { } p && Array.IndexOf(p.Strengths, strength) >= 0
+            ? (long)Math.Ceiling(p.CoinsPerMinute * minutes * PriceLevel * (strength - 1) / (p.Default - 1))
+            : long.MaxValue;
+
+    public int PotionMinutesLeft(string id, float strength) =>
+        (int)Math.Ceiling((Potions.GetValueOrDefault(id)?.Find(s => s.Strength == strength)?.Ticks ?? 0) / (double)TicksPerMinute);
+
+    // Buying the same strength again adds time, up to Defs.PotionMaxMinutes.
+    public bool BuyPotion(string id, float strength, int minutes)
     {
-        minutes = Math.Min(minutes, Defs.PotionMaxMinutes - PotionMinutesLeft(id));
-        if (minutes < 1 || Coins < PotionCost(id, minutes)) return false;
-        Coins -= PotionCost(id, minutes);
-        Potions[id] = Potions.GetValueOrDefault(id) + (long)minutes * TicksPerMinute;
-        Emit("potion", Vector2I.Zero, id, minutes);
+        minutes = Math.Min(minutes, Defs.PotionMaxMinutes - PotionMinutesLeft(id, strength));
+        long cost = PotionCost(id, strength, minutes);
+        if (minutes < 1 || Coins < cost) return false;
+        Coins -= cost;
+        AddPotion(id, strength, (long)minutes * TicksPerMinute);
+        Emit("potion", Vector2I.Zero, id, minutes, strength);
         return true;
+    }
+
+    void AddPotion(string id, float strength, long ticks)
+    {
+        if (!Potions.TryGetValue(id, out var list)) Potions[id] = list = new();
+        if (list.Find(s => s.Strength == strength) is { } same) same.Ticks += ticks;
+        else list.Add(new PotionStack { Strength = strength, Ticks = ticks });
+        list.Sort((a, b) => b.Strength.CompareTo(a.Strength));
     }
 
     void StepPotions()
     {
         foreach (var id in Potions.Keys.ToList())
-            if (--Potions[id] <= 0) { Potions.Remove(id); Emit("potion_end", Vector2I.Zero, id); }
+        {
+            var list = Potions[id];
+            if (--list[0].Ticks > 0) continue;
+            list.RemoveAt(0);
+            if (list.Count > 0) { Emit("potion_next", Vector2I.Zero, id, 1, list[0].Strength); continue; }
+            Potions.Remove(id);
+            Emit("potion_end", Vector2I.Zero, id);
+        }
     }
 
     // Buildings and recipes: the base set, plus whatever finished milestones unlocked. Sandbox has everything.
@@ -216,7 +244,7 @@ public sealed class World
 
     public Entity At(Vector2I t) => Grid.GetValueOrDefault(t);
     public void AddStorage(string item, long n) => Storage[item] = Storage.GetValueOrDefault(item) + n;
-    public void Emit(string kind, Vector2I tile, string id, long n = 1) { if (Events.Count < 512) Events.Enqueue(new GameEvent(kind, tile, id, n)); }
+    public void Emit(string kind, Vector2I tile, string id, long n = 1, float f = 0) { if (Events.Count < 512) Events.Enqueue(new GameEvent(kind, tile, id, n, f)); }
 
     // ---------- Power ----------
     // Poles wire up to their 3 nearest poles in range; each connected group is one network that powers
@@ -279,8 +307,8 @@ public sealed class World
             }
             net.Wires.AddRange(wires.Where(w => net.Poles.Contains(w.Item1)));
             foreach (var p in net.Poles)
-                for (int dx = -Defs.PoleReach; dx <= Defs.PoleReach; dx++)
-                    for (int dy = -Defs.PoleReach; dy <= Defs.PoleReach; dy++)
+                for (int dx = -Defs.PoleReachOf(p.Type); dx <= Defs.PoleReachOf(p.Type); dx++)
+                    for (int dy = -Defs.PoleReachOf(p.Type); dy <= Defs.PoleReachOf(p.Type); dy++)
                     {
                         if (At(p.Pos + new Vector2I(dx, dy)) is not { } e || _netOf.ContainsKey(e)) continue;
                         if (e is Generator g) { net.Gens.Add(g); _netOf[g] = net; }
@@ -539,7 +567,9 @@ public sealed class World
         s.MilestoneIndex = MilestoneIndex;
         s.Tutorial = Tutorial;
         s.CoinsEarned = CoinsEarned;
-        foreach (var kv in Potions) s.Potions[kv.Key] = kv.Value;
+        foreach (var p in Defs.Potions)
+            if (Potions.TryGetValue(p.Id, out var list))
+                foreach (var st in list) s.PotionStacks.Add(new PotionSave { Id = p.Id, Strength = st.Strength, Ticks = st.Ticks });
         s.Coins = Coins;
         foreach (var kv in Delivered) s.Delivered[kv.Key] = kv.Value;
         s.AutoSell.AddRange(AutoSell);
@@ -561,7 +591,10 @@ public sealed class World
     {
         if (s.Version > SaveVersion) throw new InvalidOperationException("This save was made by a newer version of Tiny Works.");
         var w = new World(s.Seed) { Name = s.Name, Mode = s.Mode ?? "normal", Flat = s.Flat, Tick = s.Tick, MilestoneIndex = s.MilestoneIndex, Coins = s.Coins, Tutorial = s.Tutorial, CoinsEarned = s.CoinsEarned };
-        foreach (var kv in s.Potions ?? new()) if (Array.Exists(Defs.Potions, p => p.Id == kv.Key) && kv.Value > 0) w.Potions[kv.Key] = kv.Value;
+        foreach (var kv in s.Potions ?? new()) // v0.0.3 saves: one potion at its default strength
+            if (Defs.PotionById(kv.Key) is { } p && kv.Value > 0) w.AddPotion(p.Id, p.Default, kv.Value);
+        foreach (var ps in s.PotionStacks ?? new())
+            if (Defs.PotionById(ps.Id) is { } p && Array.IndexOf(p.Strengths, ps.Strength) >= 0 && ps.Ticks > 0) w.AddPotion(ps.Id, ps.Strength, ps.Ticks);
         foreach (var kv in s.Storage) w.Storage[kv.Key] = kv.Value;
         foreach (var kv in s.Delivered ?? new()) w.Delivered[kv.Key] = kv.Value;
         foreach (var i in s.AutoSell ?? new()) w.AutoSell.Add(i);

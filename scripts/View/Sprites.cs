@@ -63,7 +63,7 @@ public static class Sprites
     }
 
     // Steel lattice mast, taller than the wooden pole, with a wide crossbar and glowing insulators.
-    static Canvas PaintBigPole()
+    static Canvas PaintBigPole(Color beacon, bool super)
     {
         var c = new Canvas(T, T);
         var steel = new Color("8a93a6");
@@ -72,7 +72,8 @@ public static class Sprites
         for (int y = 3; y < 15; y += 3) { c.P(6, y, steel); c.P(7, y + 1, steel); c.P(8, y + 1, steel); c.P(9, y + 2, steel); } // bracing
         c.R(0, 1, 16, 3, Ink); c.R(1, 2, 14, 1, steel.Lightened(0.2f));                 // crossbar
         c.R(0, 0, 3, 2, Ink); c.P(1, 0, Glow); c.R(13, 0, 3, 2, Ink); c.P(14, 0, Glow);  // insulators
-        c.P(7, 0, Ink); c.P(8, 0, Ink); c.P(7, 1, Accent); c.P(8, 1, Accent);            // beacon
+        c.P(7, 0, Ink); c.P(8, 0, Ink); c.P(7, 1, beacon); c.P(8, 1, beacon);            // beacon: orange, or blue on the super pole
+        if (super) { c.R(6, 6, 4, 1, beacon); c.R(6, 11, 4, 1, beacon); }               // glowing bands
         return c;
     }
 
@@ -134,7 +135,8 @@ public static class Sprites
         Icons["splitter"] = Splitter; Icons["tunnel"] = Tunnel; Icons["pipe_tunnel"] = PipeTunnel; Icons["pump"] = Pump; Icons["refinery"] = Refinery;
         Icons["pipe"] = PaintPipeIcon().Tex();
         Icons["pole"] = Pole;
-        Icons["big_pole"] = BigPole = PaintBigPole().Tex();
+        Icons["big_pole"] = BigPole = PaintBigPole(Accent, false).Tex();
+        Icons["super_pole"] = PaintBigPole(new Color("5aa9e8"), true).Tex();
         Icons["generator"] = Generator;
         Belt = BeltFrames["belt"];
         BeltCurve = BeltCurves["belt"];

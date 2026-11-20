@@ -42,7 +42,7 @@ public abstract class Entity
         "inserter" => new Inserter(),
         "crossing" => new Crossing(),
         "generator" => new Generator(),
-        "pole" or "big_pole" => new Pole(),
+        "pole" or "big_pole" or "super_pole" => new Pole(),
         "splitter" => new Splitter(),
         "tunnel" => new Tunnel(),
         "pipe" or "pipe_tunnel" => new Pipe(),
@@ -453,7 +453,7 @@ public sealed class Generator : Entity
     public override void Load(EntityData d) { Fuel = d.An; Energy = d.P; }
 }
 
-// Links to poles up to Defs.WireRangeOf(type) away and powers machines within Defs.PoleReach tiles.
+// Links to poles up to Defs.WireRangeOf(type) away and powers machines within Defs.PoleReachOf(type) tiles.
 public sealed class Pole : Entity { }
 
 // Everything delivered here goes into central storage and counts toward the current milestone.

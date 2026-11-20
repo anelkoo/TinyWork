@@ -13,7 +13,7 @@ public static class SettingsUi
 
     static Control Slider(string name, double min, double max, float value, Action<float> set, Action apply)
     {
-        var label = Ui.MakeLabel($"{value:P0}", 14, Ui.Muted);
+        var label = Percent(value);
         var slider = new HSlider { MinValue = min, MaxValue = max, Step = 0.05, Value = value, CustomMinimumSize = new Vector2(140, 0), SizeFlagsVertical = Control.SizeFlags.ShrinkCenter };
         slider.ValueChanged += v => { set((float)v); label.Text = $"{v:P0}"; apply(); };
         return Line(name, slider, label);
@@ -68,7 +68,7 @@ public static class SettingsUi
         }
 
         Section(body, "Sound");
-        var volLabel = Ui.MakeLabel($"{s.SfxVolume:P0}", 14, Ui.Muted);
+        var volLabel = Percent(s.SfxVolume);
         var vol = new HSlider { MinValue = 0, MaxValue = 1, Step = 0.05, Value = s.SfxVolume, CustomMinimumSize = new Vector2(140, 0), SizeFlagsVertical = Control.SizeFlags.ShrinkCenter };
         vol.ValueChanged += v => { s.SfxVolume = (float)v; volLabel.Text = $"{v:P0}"; apply(); };
         vol.DragEnded += _ => sfx.Play("click");
@@ -85,6 +85,15 @@ public static class SettingsUi
         var l = Ui.MakeLabel(title, 15, Ui.Accent);
         l.AutowrapMode = TextServer.AutowrapMode.WordSmart;
         body.AddChild(l);
+    }
+
+    // Fixed width, right-aligned: "60 %" and "100 %" take the same space, so the slider never shifts.
+    static Label Percent(float value)
+    {
+        var l = Ui.MakeLabel($"{value:P0}", 14, Ui.Muted);
+        l.CustomMinimumSize = new Vector2(48, 0);
+        l.HorizontalAlignment = HorizontalAlignment.Right;
+        return l;
     }
 
     static HBoxContainer Line(string label, params Control[] controls)

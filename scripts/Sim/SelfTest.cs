@@ -35,6 +35,8 @@ public static class SelfTest
         Test("items glide over belt edges without pausing", GlideAcrossEdges);
         Test("coin rush doubles sales, then wears off", CoinRush);
         Test("potions stack up to the cap and cost more later in the game", PotionPrices);
+        Test("strongest potion runs first, weaker ones wait, never multiplied", PotionOrder);
+        Test("potions from v0.0.3 saves still load", LegacyPotions);
         Test("better deals and bigger generators upgrades work", NewUpgrades);
         Test("big poles wire far, but only to each other", BigPoles);
         Test("older saves still load and run", LegacySaves);
@@ -201,7 +203,7 @@ public static class SelfTest
         w.Place("pole", new(9, 1), 0);
         ((Generator)w.Place("generator", new(10, 1), 0)).Fuel = 5;
         // a potion that runs out halfway through the round trip
-        Check(w.BuyPotion("rock_crusher", 1), "potion purchase in the economy world");
+        Check(w.BuyPotion("rock_crusher", 5f, 1), "potion purchase in the economy world");
         w.Upgrades["sell_price"] = 1;
         return w;
     }
@@ -553,21 +555,30 @@ public static class SelfTest
     static void BigPoles()
     {
         var w = Sandbox();
-        var a = (Pole)w.Place("big_pole", new(0, 0), 0);
-        var b = (Pole)w.Place("big_pole", new(Defs.BigWireRange, 0), 0);
-        var small = (Pole)w.Place("pole", new(Defs.BigWireRange + 10, 0), 0);
-        Check(w.NetOf(a) == w.NetOf(b), "two big poles 18 apart should share a network");
-        Check(w.NetOf(small) != w.NetOf(b), "a small pole 10 away from a big one must not link (small range wins)");
-        w.Place("pole", new(Defs.BigWireRange + 5, 0), 0);
-        Check(w.NetOf(small) == w.NetOf(b), "a small pole 5 away links to a big one");
+        var a = (Pole)w.Place("super_pole", new(0, 0), 0);
+        var b = (Pole)w.Place("super_pole", new(18, 0), 0);
+        var big = (Pole)w.Place("big_pole", new(18, 12), 0);
+        var small = (Pole)w.Place("pole", new(28, 0), 0);
+        Check(w.NetOf(a) == w.NetOf(b), "two super poles 18 apart should share a network");
+        Check(w.NetOf(big) == w.NetOf(b), "a big pole 12 from a super pole links (big range 12)");
+        Check(w.NetOf(small) != w.NetOf(b), "a small pole 10 away from a super one must not link (small range 7 wins)");
+        w.Place("pole", new(23, 0), 0);
+        Check(w.NetOf(small) == w.NetOf(b), "a small pole 5 away links to a super one");
+        // Better poles power a bigger square: super reaches 4 tiles, a small pole only 2.
+        w.ForcedOre[new(4, 4)] = "iron_ore";
+        w.ForcedOre[new(31, 3)] = "iron_ore";
+        var near = w.Place("miner", new(4, 4), 0);
+        var far = w.Place("miner", new(31, 3), 0);
+        Check(w.NetOf(near) == w.NetOf(a), "a super pole powers a machine 4 tiles away");
+        Check(w.NetOf(far) == null, "a small pole doesn't power a machine 3 tiles away");
     }
 
     static void CoinRush()
     {
         var w = World.New("t", "normal", false, 1);
         w.Coins = 1000;
-        long cost = w.PotionCost("coin_rush", 2);
-        Check(cost == 40 && w.BuyPotion("coin_rush", 2) && w.Coins == 1000 - 40, $"2 min coin rush at the start costs 40 (got {cost}, coins {w.Coins})");
+        long cost = w.PotionCost("coin_rush", 2f, 2);
+        Check(cost == 40 && w.BuyPotion("coin_rush", 2f, 2) && w.Coins == 1000 - 40, $"2 min x2 coin rush at the start costs 40 (got {cost}, coins {w.Coins})");
         w.Coins = 0;
         w.Storage["iron_plate"] = 60;
         w.AutoSell.Add("iron_plate");
@@ -586,15 +597,45 @@ public static class SelfTest
     {
         var w = World.New("t", "normal", false, 1);
         w.Coins = 1_000_000;
-        Check(w.BuyPotion("overdrive", 100) && w.BuyPotion("overdrive", 100) && w.PotionMinutesLeft("overdrive") == Defs.PotionMaxMinutes, $"stacking should stop at {Defs.PotionMaxMinutes} min, got {w.PotionMinutesLeft("overdrive")}");
-        Check(!w.BuyPotion("overdrive", 5), "no buying past the cap");
-        Check(Mathf.Abs(w.MachineSpeed - 1.5f) < 1e-4f, "overdrive makes machines 50% faster");
-        long early = w.PotionCost("coin_rush", 10);
+        Check(w.BuyPotion("overdrive", 1.5f, 100) && w.BuyPotion("overdrive", 1.5f, 100) && w.PotionMinutesLeft("overdrive", 1.5f) == Defs.PotionMaxMinutes, $"stacking should stop at {Defs.PotionMaxMinutes} min, got {w.PotionMinutesLeft("overdrive", 1.5f)}");
+        Check(!w.BuyPotion("overdrive", 1.5f, 5), "no buying past the cap");
+        Check(!w.BuyPotion("overdrive", 7f, 5), "only the listed strengths can be brewed");
+        Check(Mathf.Abs(w.MachineSpeed - 1.5f) < 1e-4f, "x1.5 overdrive makes machines 50% faster");
+        long x2 = w.PotionCost("coin_rush", 2f, 10), x3 = w.PotionCost("coin_rush", 3f, 10), x15 = w.PotionCost("coin_rush", 1.5f, 10);
+        Check(x3 == 2 * x2 && x15 == x2 / 2, $"price follows the bonus: x1.5 {x15}, x2 {x2}, x3 {x3}");
         w.MilestoneIndex = 2;
         w.CoinsEarned = 10000;
-        long late = w.PotionCost("coin_rush", 10);
-        Check(late == (long)Math.Ceiling(early * 2.5 * 2), $"price should scale with milestones and coins earned: {early} -> {late}");
-        Check(w.PotionCost("coin_rush", 20) == 2 * late, "price scales with the duration");
+        long late = w.PotionCost("coin_rush", 2f, 10);
+        Check(late == (long)Math.Ceiling(x2 * 2.5 * 2), $"price should scale with milestones and coins earned: {x2} -> {late}");
+        Check(w.PotionCost("coin_rush", 2f, 20) == 2 * late, "price scales with the duration");
+    }
+
+    static void PotionOrder()
+    {
+        var w = World.New("t", "normal", false, 1);
+        w.Coins = 1_000_000;
+        w.BuyPotion("coin_rush", 2f, 1);
+        w.BuyPotion("coin_rush", 3f, 1);
+        Check(w.Strength("coin_rush") == 3f && w.SellMultiplier == 3f, $"x3 and x2 together give x3, not x6 (got {w.SellMultiplier})");
+        for (int i = 0; i < World.TicksPerMinute - 1; i++) w.Step();
+        Check(w.Strength("coin_rush") == 3f && w.PotionMinutesLeft("coin_rush", 2f) == 1, "the x2 waits untouched while the x3 runs");
+        w.Events.Clear();
+        w.Step();
+        Check(w.Strength("coin_rush") == 2f && w.Events.Any(e => e.Kind == "potion_next" && e.F == 2f), "after the x3 runs out the x2 takes over");
+        for (int i = 0; i < World.TicksPerMinute; i++) w.Step();
+        Check(!w.Has("coin_rush") && w.SellMultiplier == 1, "both used up after two minutes");
+        // a save in the middle keeps every waiting strength
+        w.BuyPotion("overdrive", 2f, 1); w.BuyPotion("overdrive", 1.25f, 3);
+        var b = World.FromSave(Persist.Deserialize(Persist.Serialize(w.ToSave())));
+        Check(b.Strength("overdrive") == 2f && b.PotionMinutesLeft("overdrive", 1.25f) == 3, "waiting potions survive save and load");
+    }
+
+    static void LegacyPotions()
+    {
+        var s = World.New("t", "normal", false, 1).ToSave();
+        s.Potions["rock_crusher"] = World.TicksPerMinute; // how v0.0.3 stored a potion
+        var w = World.FromSave(Persist.Deserialize(Persist.Serialize(s)));
+        Check(w.Strength("rock_crusher") == 5f && w.PotionMinutesLeft("rock_crusher", 5f) == 1, "an old potion loads at its old strength (x5)");
     }
 
     static void NewUpgrades()
