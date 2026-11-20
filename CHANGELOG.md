@@ -4,6 +4,8 @@ Everything that changed since the last release goes under "Unreleased". A new re
 
 ## Unreleased
 
+## v0.0.3 Beta (2026-11-20)
+
 - Milestone bars show the item name. Hovering a row shows how to make the item (machine and recipe, or the ore patch).
 - Storage rows on the left have the same tooltips.
 - Every building now has a hotbar slot, including pipes, pump, refinery, splitter and underground belt. Keys 1 to 9 and 0 reach the first ten. Locked buildings are dimmed, and their tooltip says which milestone unlocks them.
