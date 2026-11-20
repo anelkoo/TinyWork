@@ -13,7 +13,9 @@ public sealed class Settings
     public bool SkipTitle;
     public string WindowMode = "Normal";
     public int Corner = 3; // bottom-right
-    public float MiniOpacity = 0.85f;
+    public float MiniOpacity = 0.85f;     // while the mouse is over the mini window
+    public float MiniIdleOpacity = 0.5f;  // while it isn't
+    public float MiniHoverScale = 1.25f;  // hovered size = mini size times this
     public int MiniW = 400, MiniH = 300;
     public int NormalX = -1, NormalY = -1, NormalW = 1280, NormalH = 720;
     public int FpsFocused = 60, FpsBackground = 60;

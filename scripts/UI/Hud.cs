@@ -197,9 +197,10 @@ public sealed partial class Hud : Control
         if (_mini) return; // mini shows the title with a percentage only
         foreach (var (item, n) in m.Need)
         {
-            var bar = new ProgressBar { MaxValue = n, ShowPercentage = false, CustomMinimumSize = new Vector2(140, 10), SizeFlagsVertical = SizeFlags.ShrinkCenter };
+            var bar = new ProgressBar { MaxValue = n, ShowPercentage = false, CustomMinimumSize = new Vector2(140, 10), SizeFlagsVertical = SizeFlags.ShrinkCenter, SizeFlagsHorizontal = SizeFlags.ExpandFill };
             bar.SetMeta("item", item);
             var label = Ui.MakeLabel($"0/{n}", 13, Ui.Muted);
+            label.CustomMinimumSize = new Vector2(52, 0); // same width on every row, so the bars line up
             _trackerRows.AddChild(Ui.Row(Ui.Icon(Sprites.Items[item]), bar, label));
         }
         _trackerRows.AddChild(Ui.MakeLabel("Unlocks " + UnlockNames(m), 12, Ui.Muted));

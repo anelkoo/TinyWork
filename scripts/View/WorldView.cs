@@ -11,6 +11,7 @@ public sealed partial class WorldView : Node2D
 {
     const int T = Sprites.T;
     static readonly float[] Zooms = { 0.5f, 1, 2, 3, 4 };
+    const float PixelScale = 2; // screen pixels per art pixel at zoom 1
 
     public World W;
     public Settings S;
@@ -44,7 +45,7 @@ public sealed partial class WorldView : Node2D
     {
         _camTarget = Cam.Position = pos;
         _targetZoom = Mathf.Clamp(zoom, Zooms[0], Zooms[^1]);
-        Cam.Zoom = Vector2.One * _targetZoom;
+        Cam.Zoom = Vector2.One * _targetZoom * PixelScale;
     }
 
     public Vector2 CamTarget => _camTarget;
@@ -179,10 +180,10 @@ public sealed partial class WorldView : Node2D
         var move = new Vector2(
             (Input.IsKeyPressed(Key.D) || Input.IsKeyPressed(Key.Right) ? 1 : 0) - (Input.IsKeyPressed(Key.A) || Input.IsKeyPressed(Key.Left) ? 1 : 0),
             (Input.IsKeyPressed(Key.S) || Input.IsKeyPressed(Key.Down) ? 1 : 0) - (Input.IsKeyPressed(Key.W) || Input.IsKeyPressed(Key.Up) ? 1 : 0));
-        if (GetWindow().HasFocus()) _camTarget += move.Normalized() * 260 * _dt / Cam.Zoom.X;
+        if (GetWindow().HasFocus()) _camTarget += move.Normalized() * 520 * _dt / Cam.Zoom.X;
 
-        float z = J("screen") ? Mathf.Lerp(Cam.Zoom.X, _targetZoom, 1 - Mathf.Exp(-14 * _dt)) : _targetZoom;
-        Cam.Zoom = Vector2.One * z;
+        float z = J("screen") ? Mathf.Lerp(Cam.Zoom.X / PixelScale, _targetZoom, 1 - Mathf.Exp(-14 * _dt)) : _targetZoom;
+        Cam.Zoom = Vector2.One * z * PixelScale;
         Cam.Position = J("screen") ? Cam.Position.Lerp(_camTarget, 1 - Mathf.Exp(-20 * _dt)) : _camTarget;
         Cam.Offset = _juice.ShakeOffset;
 
@@ -312,6 +313,9 @@ public sealed partial class WorldView : Node2D
 
     static float Angle(int rot) => rot * Mathf.Pi / 2;
 
+    // Moving things snap to whole screen pixels, not art pixels, so they glide instead of stepping 0-1-0-1.
+    Vector2 Px(Vector2 p) => (p * Cam.Zoom.X).Round() / Cam.Zoom.X;
+
     public override void _Draw()
     {
         var view = ViewRect().Grow(T * 3);
@@ -329,7 +333,7 @@ public sealed partial class WorldView : Node2D
             foreach (var it in b.Items)
             {
                 var p = BeltPoint(b, input, Mathf.Lerp(it.Prev, it.Pos, f));
-                DrawTexture(Sprites.Items[it.Id], (p - Vector2.One * 4).Round());
+                DrawTexture(Sprites.Items[it.Id], Px(p - Vector2.One * 4));
             }
         }
 
@@ -389,7 +393,7 @@ public sealed partial class WorldView : Node2D
                     {
                         float k = Mathf.Lerp(it.Prev, it.Pos, f);
                         var ip = k < 0.5f ? c - (Vector2)sp.Dir * (0.5f - k) * T : c + outDir * (k - 0.5f) * T;
-                        DrawTexture(Sprites.Items[it.Id], (ip - Vector2.One * 4).Round());
+                        DrawTexture(Sprites.Items[it.Id], Px(ip - Vector2.One * 4));
                     }
                     Sprite(Sprites.Splitter, c, Angle(sp.Rot), sq);
                     break;
@@ -475,7 +479,7 @@ public sealed partial class WorldView : Node2D
         {
             float k = Mathf.Lerp(it.Prev, it.Pos, f);
             if (!all && k > 0.55f && k < len + 0.45f) continue;
-            DrawTexture(Sprites.Items[it.Id], (start + (Vector2)tu.Dir * k * T - Vector2.One * 4).Round());
+            DrawTexture(Sprites.Items[it.Id], Px(start + (Vector2)tu.Dir * k * T - Vector2.One * 4));
         }
     }
 
@@ -621,7 +625,7 @@ public sealed partial class WorldView : Node2D
             {
                 var dir = (Vector2)Entity.Dirs[d];
                 var p = c - dir * T / 2 + dir * T * Mathf.Lerp(it.Prev, it.Pos, f);
-                DrawTexture(Sprites.Items[it.Id], (p - Vector2.One * 4).Round());
+                DrawTexture(Sprites.Items[it.Id], Px(p - Vector2.One * 4));
             }
     }
 
@@ -643,7 +647,7 @@ public sealed partial class WorldView : Node2D
         DrawLine(c, end, Sprites.Ink, 3);
         DrawLine(c, end, Sprites.Metal, 1);
         DrawRect(new Rect2((end - Vector2.One * 2).Round(), Vector2.One * 4), Sprites.Ink);
-        if (ins.Held != null) DrawTexture(Sprites.Items[ins.Held], (end - Vector2.One * 4).Round());
+        if (ins.Held != null) DrawTexture(Sprites.Items[ins.Held], Px(end - Vector2.One * 4));
     }
 
     void DrawEyes(Vector2 hc)

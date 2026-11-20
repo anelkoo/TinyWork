@@ -43,8 +43,8 @@ public partial class Main : Node
         // SubViewports filter linearly by default, whatever the project setting says; that blurred every pixel.
         var vp = new SubViewport { TransparentBg = true, CanvasItemDefaultTextureFilter = Viewport.DefaultCanvasItemTextureFilter.Nearest };
         outer.AddChild(vp);
-        // The world draws at half resolution and is scaled up with nearest-neighbour: chunky pixels, half the fill cost.
-        var worldBox = new SubViewportContainer { Stretch = true, StretchShrink = 2 };
+        // The world draws at full resolution (WorldView doubles the zoom), so moving things step one screen pixel at a time.
+        var worldBox = new SubViewportContainer { Stretch = true };
         worldBox.SetAnchorsAndOffsetsPreset(Control.LayoutPreset.FullRect);
         vp.AddChild(worldBox);
         _worldVp = new SubViewport { CanvasItemDefaultTextureFilter = Viewport.DefaultCanvasItemTextureFilter.Nearest };
@@ -57,6 +57,8 @@ public partial class Main : Node
         _win = new AppWindow { Faded = outer, MiniCorner = (ScreenCorner)_s.Corner, MiniSize = new Vector2I(_s.MiniW, _s.MiniH), FpsFocused = _s.FpsFocused, FpsBackground = _s.FpsBackground };
         AddChild(_win);
         _win.MiniOpacity = _s.MiniOpacity;
+        _win.MiniIdleOpacity = _s.MiniIdleOpacity;
+        _win.HoverScale = _s.MiniHoverScale;
         if (_s.NormalX >= 0) _win.RestoreNormal(new Rect2I(_s.NormalX, _s.NormalY, _s.NormalW, _s.NormalH));
         _win.Changed += OnWindowChanged;
         if (_s.WindowMode == nameof(WindowMode.Mini)) Callable.From(() => _win.SetMode(WindowMode.Mini)).CallDeferred();
@@ -87,6 +89,8 @@ public partial class Main : Node
     {
         _win.MiniCorner = (ScreenCorner)_s.Corner;
         _win.MiniOpacity = _s.MiniOpacity;
+        _win.MiniIdleOpacity = _s.MiniIdleOpacity;
+        _win.HoverScale = _s.MiniHoverScale;
         _win.FpsFocused = _s.FpsFocused;
         _win.FpsBackground = _s.FpsBackground;
         _win.ApplyFps();

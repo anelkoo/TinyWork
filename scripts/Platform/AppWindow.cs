@@ -22,6 +22,9 @@ public sealed partial class AppWindow : Node
     public Control Faded;
     float _miniOpacity = 0.85f;
     public float MiniOpacity { get => _miniOpacity; set { _miniOpacity = Mathf.Clamp(value, 0.2f, 1f); ApplyOpacity(); } }
+    public float MiniIdleOpacity = 0.5f, HoverScale = 1.25f; // mini window: faded when the mouse is away, bigger when it's over it
+    float _hover; // 0 = mouse away, 1 = over the mini window; eases between
+    float Scale => 1 + (HoverScale - 1) * _hover;
 
     Rect2I? _normalRect;
 
@@ -40,7 +43,8 @@ public sealed partial class AppWindow : Node
     {
         ProcessMode = ProcessModeEnum.Always;
         // Remember the mini size only when the user resizes it, not while SetMode itself resizes the window.
-        W.SizeChanged += () => { if (Mode == WindowMode.Mini && !Hidden && !_switching) MiniSize = W.Size; };
+        // While hovered the window is scaled up, so store what the user picked at normal scale.
+        W.SizeChanged += () => { if (Mode == WindowMode.Mini && !Hidden && !_switching) MiniSize = (Vector2I)((Vector2)W.Size / Scale).Round(); };
         ApplyFps();
     }
 
@@ -87,6 +91,7 @@ public sealed partial class AppWindow : Node
             W.Transparent = true;
             W.TransparentBg = true;
             W.AlwaysOnTop = true;
+            _hover = 0;
             W.Size = MiniSize;
             W.Position = AnchoredPosition(screen, MiniSize);
         }
@@ -102,6 +107,27 @@ public sealed partial class AppWindow : Node
         _switching = false;
         ApplyOpacity();
         EmitSignal(SignalName.Changed);
+    }
+
+    // Mini window hover: grow from the anchored corner and fade in while the mouse is over it.
+    // Polls the OS cursor, so it works even when another app has focus.
+    public override void _Process(double delta)
+    {
+        if (Mode != WindowMode.Mini || Hidden) return;
+        bool over = new Rect2I(W.Position, W.Size).HasPoint(DisplayServer.MouseGetPosition())
+                    || _hover > 0 && Input.IsMouseButtonPressed(MouseButton.Left); // don't shrink mid edge-drag
+        float target = over ? 1 : 0;
+        if (_hover != target)
+        {
+            _hover = Mathf.Abs(_hover - target) < 0.02f ? target : Mathf.Lerp(_hover, target, 1 - Mathf.Exp(-18 * (float)delta));
+            ApplyOpacity();
+        }
+        var size = (Vector2I)((Vector2)MiniSize * Scale).Round();
+        if (size == W.Size) return;
+        _switching = true;
+        W.Size = size;
+        W.Position = AnchoredPosition(W.CurrentScreen, size);
+        _switching = false;
     }
 
     // Settings changed the corner or size: move the mini window there right away.
@@ -150,7 +176,7 @@ public sealed partial class AppWindow : Node
     {
         if (Faded == null) return;
         var c = Faded.Modulate;
-        c.A = Mode == WindowMode.Mini ? _miniOpacity : 1f;
+        c.A = Mode == WindowMode.Mini ? Mathf.Lerp(Mathf.Min(MiniIdleOpacity, _miniOpacity), _miniOpacity, _hover) : 1f;
         Faded.Modulate = c;
     }
 

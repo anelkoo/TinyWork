@@ -32,6 +32,7 @@ public static class SelfTest
         Test("fluid survives network rebuilds and saves", FluidConserved);
         Test("joining two fluids keeps the larger one", FluidMixing);
         Test("pump -> refinery -> plastic, sparkgas powers a generator", RefineryChain);
+        Test("items glide over belt edges without pausing", GlideAcrossEdges);
         Test("older saves still load and run", LegacySaves);
         GD.Print(_fails == 0 ? "SELFTEST PASS" : $"SELFTEST FAIL ({_fails})");
         return _fails;
@@ -389,6 +390,27 @@ public static class SelfTest
             if (t < Defs.Milestones.Length)
                 foreach (var (item, _) in Defs.Milestones[t].Need)
                     Check(avail.Contains(item), $"milestone {t + 1} needs {item}, which can't be made yet");
+        }
+    }
+
+    // Where an item was drawn last tick (Prev) must be where it really was, also right after it changed belts.
+    static void GlideAcrossEdges()
+    {
+        var w = ChainWorld(); // miner, straight belts, furnace, belts, hub: free flowing
+        var last = new List<float>();
+        for (int t = 0; t < 600; t++)
+        {
+            w.Step();
+            var now = new List<float>();
+            foreach (var b in w.Entities.OfType<Belt>().Where(b => b.Rot == 0 && b.InputFrom(w) == b.Back))
+                foreach (var it in b.Items)
+                {
+                    now.Add(b.Pos.X + it.Pos);
+                    bool fedByBelt = w.At(b.Back) is Belt;
+                    if (t > 0 && fedByBelt)
+                        Check(last.Any(x => Mathf.Abs(x - (b.Pos.X + it.Prev)) < 1e-3f), $"item jumped over the edge into {b.Pos} at tick {w.Tick}");
+                }
+            last = now;
         }
     }
 

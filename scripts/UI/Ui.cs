@@ -26,7 +26,8 @@ public static class Ui
         foreach (var type in new[] { "Button", "OptionButton" })
         {
             t.SetStylebox("normal", type, Box(Btn, Border));
-            t.SetStylebox("hover", type, Box(BtnHover, Border));
+            t.SetStylebox("hover", type, Box(BtnHover, Accent with { A = 0.7f }));
+            t.SetStylebox("hover_pressed", type, Box(Accent.Lightened(0.15f), Accent));
             t.SetStylebox("pressed", type, Box(Accent, Accent));
             t.SetStylebox("disabled", type, Box(Btn with { A = 0.5f }, Border));
             t.SetStylebox("focus", type, Box(Colors.Transparent, Accent));
@@ -40,7 +41,7 @@ public static class Ui
         t.SetColor("font_color", "LineEdit", Text);
         t.SetColor("font_color", "Label", Text);
         t.SetColor("font_color", "CheckBox", Text);
-        t.SetColor("font_hover_color", "CheckBox", Text);
+        t.SetColor("font_hover_color", "CheckBox", Accent);
         t.SetStylebox("panel", "TooltipPanel", Box(Panel, Accent, 1, 6, 6));
         t.SetColor("font_color", "TooltipLabel", Text);
         t.SetStylebox("panel", "PopupMenu", Box(Panel, Border));
@@ -48,7 +49,9 @@ public static class Ui
         t.SetStylebox("background", "ProgressBar", Box(new Color("1d2029"), Border, 1, 4, 0));
         t.SetStylebox("fill", "ProgressBar", Box(Accent, Accent, 0, 4, 0));
         t.SetColor("font_color", "CheckButton", Text);
-        t.SetColor("font_hover_color", "CheckButton", Text);
+        t.SetColor("font_hover_color", "CheckButton", Accent);
+        t.SetColor("font_hover_pressed_color", "CheckButton", Accent);
+        t.SetColor("font_hover_pressed_color", "CheckBox", Accent);
         t.SetColor("font_pressed_color", "CheckButton", Text);
         t.SetStylebox("panel", "PopupPanel", Box(Panel, Border));
         return t;
@@ -65,6 +68,7 @@ public static class Ui
         var row = new HBoxContainer();
         row.AddThemeConstantOverride("separation", 8);
         foreach (var c in items) row.AddChild(c);
+        if (items.Length > 0 && items[0] is TextureRect) Glow(row); // item rows light up under the mouse
         return row;
     }
 
@@ -81,17 +85,31 @@ public static class Ui
         return b;
     }
 
-    // UI juice: buttons dip when pressed and spring back.
+    // UI juice: buttons grow a little under the mouse, dip when pressed and spring back.
     public static void Squishy(Control c)
     {
+        const float hover = 1.06f;
         c.Resized += () => c.PivotOffset = c.Size / 2;
+        bool Live() => Enabled && c is not BaseButton { Disabled: true };
+        void To(float s, double t) => c.CreateTween().TweenProperty(c, "scale", Vector2.One * s, t).SetTrans(Tween.TransitionType.Back).SetEase(Tween.EaseType.Out);
+        c.MouseEntered += () => { if (Live()) To(hover, 0.12); };
+        c.MouseExited += () => { if (Enabled) To(1, 0.15); };
         c.GuiInput += e =>
         {
-            if (e is not InputEventMouseButton { ButtonIndex: MouseButton.Left } mb || !Enabled) return;
+            if (e is not InputEventMouseButton { ButtonIndex: MouseButton.Left } mb || !Live()) return;
             var tw = c.CreateTween();
             if (mb.Pressed) tw.TweenProperty(c, "scale", Vector2.One * 0.9f, 0.06);
-            else tw.TweenProperty(c, "scale", Vector2.One, 0.35).SetTrans(Tween.TransitionType.Elastic).SetEase(Tween.EaseType.Out);
+            else tw.TweenProperty(c, "scale", Vector2.One * (c.GetGlobalRect().HasPoint(c.GetGlobalMousePosition()) ? hover : 1), 0.35).SetTrans(Tween.TransitionType.Elastic).SetEase(Tween.EaseType.Out);
         };
+    }
+
+    // Hover for things that aren't buttons (item rows, labels): they brighten while the mouse is over them.
+    public static void Glow(Control c)
+    {
+        if (c.MouseFilter == Control.MouseFilterEnum.Ignore) c.MouseFilter = Control.MouseFilterEnum.Pass;
+        void To(Color m) => c.CreateTween().TweenProperty(c, "modulate", m, 0.1);
+        c.MouseEntered += () => To(new Color(1.35f, 1.3f, 1.2f));
+        c.MouseExited += () => To(Colors.White);
     }
 
     public static bool Enabled = true; // UI-juice toggle for the current window mode

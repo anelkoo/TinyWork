@@ -11,6 +11,14 @@ public static class SettingsUi
 {
     static readonly int[] FpsChoices = { 30, 60, 120, 144, 0 };
 
+    static Control Slider(string name, double min, double max, float value, Action<float> set, Action apply)
+    {
+        var label = Ui.MakeLabel($"{value:P0}", 14, Ui.Muted);
+        var slider = new HSlider { MinValue = min, MaxValue = max, Step = 0.05, Value = value, CustomMinimumSize = new Vector2(140, 0), SizeFlagsVertical = Control.SizeFlags.ShrinkCenter };
+        slider.ValueChanged += v => { set((float)v); label.Text = $"{v:P0}"; apply(); };
+        return Line(name, slider, label);
+    }
+
     public static void Fill(VBoxContainer body, Settings s, Action apply, GlobalHotkeys keys, Sfx sfx)
     {
         Section(body, "Mini window");
@@ -20,10 +28,9 @@ public static class SettingsUi
         corner.ItemSelected += i => { s.Corner = (int)i; apply(); };
         body.AddChild(Line("Corner", corner));
 
-        var opacityLabel = Ui.MakeLabel($"{s.MiniOpacity:P0}", 14, Ui.Muted);
-        var opacity = new HSlider { MinValue = 0.2, MaxValue = 1, Step = 0.05, Value = s.MiniOpacity, CustomMinimumSize = new Vector2(140, 0), SizeFlagsVertical = Control.SizeFlags.ShrinkCenter };
-        opacity.ValueChanged += v => { s.MiniOpacity = (float)v; opacityLabel.Text = $"{v:P0}"; apply(); };
-        body.AddChild(Line("Opacity", opacity, opacityLabel));
+        body.AddChild(Slider("Opacity on hover", 0.2, 1, s.MiniOpacity, v => s.MiniOpacity = v, apply));
+        body.AddChild(Slider("Opacity otherwise", 0.2, 1, s.MiniIdleOpacity, v => s.MiniIdleOpacity = v, apply));
+        body.AddChild(Slider("Size on hover", 1, 2, s.MiniHoverScale, v => s.MiniHoverScale = v, apply));
 
         Section(body, "Frame rate");
         body.AddChild(Line("When focused", Fps(s.FpsFocused, v => { s.FpsFocused = v; apply(); })));

@@ -63,7 +63,7 @@ public abstract class Entity
 public sealed class Belt : Entity
 {
     public const float Spacing = 0.25f;
-    public sealed class Item { public string Id; public float Pos, Prev; }
+    public sealed class Item { public string Id; public float Pos, Prev; public long Arrived = -1; }
     public readonly List<Item> Items = new(); // front first (Pos descending)
 
     // 2, 3 and 4 tiles/s at 20 ticks/s. Must stay below Spacing.
@@ -113,16 +113,18 @@ public sealed class Belt : Entity
 
     public override void Accept(World w, string item, Vector2I from, float overflow = 0)
     {
-        float p = EntryFor(w, from);
-        if (p == 0) p = overflow;
+        float p = EntryFor(w, from), prev = p;
+        // Entering from behind: Prev sits one tick back, over the edge, so the item glides on instead of pausing a tick.
+        if (p == 0) { p = overflow; prev = overflow - Speed; }
         int i = 0;
         while (i < Items.Count && Items[i].Pos > p) i++;
-        Items.Insert(i, new Item { Id = item, Pos = p, Prev = p });
+        Items.Insert(i, new Item { Id = item, Pos = p, Prev = prev, Arrived = w.Tick });
     }
 
     public override void Tick(World w)
     {
-        foreach (var it in Items) it.Prev = it.Pos;
+        // An item handed over earlier in this same tick has already moved; it must not move twice.
+        foreach (var it in Items) if (it.Arrived != w.Tick) it.Prev = it.Pos;
         Working = Items.Count > 0;
         if (Items.Count == 0) return;
 
@@ -135,6 +137,7 @@ public sealed class Belt : Entity
         for (int i = 0; i < Items.Count; i++)
         {
             var it = Items[i];
+            if (it.Arrived == w.Tick) continue;
             float limit = i == 0 ? cap : Items[i - 1].Pos - Spacing;
             it.Pos = Mathf.Max(it.Pos, Mathf.Min(it.Pos + speed, limit));
             if (i != 0 || it.Pos < 1f) continue;
@@ -374,7 +377,7 @@ public sealed class Crossing : Entity
     }
 
     public override void Accept(World w, string item, Vector2I from, float overflow = 0) =>
-        Lanes[DirIndex(Pos - from)].Add(new Item { Id = item });
+        Lanes[DirIndex(Pos - from)].Add(new Item { Id = item, Prev = -Speed });
 
     public override void Tick(World w)
     {
@@ -472,7 +475,7 @@ public sealed class Splitter : Entity
     public Vector2I OutTile(int k) => Pos + Dirs[(Rot + Turn[k]) % 4];
     public override bool OutputsTo(Vector2I t) => t != Back && (t - Pos).LengthSquared() == 1;
     public override bool CanAccept(World w, string item, Vector2I from) => from == Back && (Lane.Count == 0 || Lane[^1].Pos >= Spacing);
-    public override void Accept(World w, string item, Vector2I from, float overflow = 0) => Lane.Add(new Item { Id = item });
+    public override void Accept(World w, string item, Vector2I from, float overflow = 0) => Lane.Add(new Item { Id = item, Prev = -Speed });
 
     public override void Tick(World w)
     {
@@ -524,7 +527,7 @@ public sealed class Tunnel : Entity
 
     public override bool OutputsTo(Vector2I t) => Exit && t == Front;
     public override bool CanAccept(World w, string item, Vector2I from) => !Exit && from == Back && (Lane.Count == 0 || Lane[^1].Pos >= Spacing);
-    public override void Accept(World w, string item, Vector2I from, float overflow = 0) => Lane.Add(new Item { Id = item });
+    public override void Accept(World w, string item, Vector2I from, float overflow = 0) => Lane.Add(new Item { Id = item, Prev = -Speed });
 
     public override void Tick(World w)
     {
