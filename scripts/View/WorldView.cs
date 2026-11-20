@@ -58,6 +58,7 @@ public sealed partial class WorldView : Node2D
     public List<string> Hotbar() => Defs.HotbarOrder.Where(W.IsUnlocked).ToList();
 
     public Action<Entity> Inspect; // clicked a building with nothing selected
+    public Action<GameEvent> OnEvent; // every world event, as the view drains them
 
     public void Select(string building)
     {
@@ -227,6 +228,7 @@ public sealed partial class WorldView : Node2D
     {
         while (W.Events.TryDequeue(out var e))
         {
+            OnEvent?.Invoke(e);
             var at = Center(e.Tile);
             switch (e.Kind)
             {
@@ -587,6 +589,14 @@ public sealed partial class WorldView : Node2D
         DrawRect(box, new Color("fff7e8"));
         DrawRect(new Rect2(box.Position + new Vector2(w / 2f - 1, 9), new Vector2(2, 2)), Sprites.Ink);
         Sprites.DrawText(this, box.Position + new Vector2(2, 2), glyph, col);
+    }
+
+    // A small cheer in the middle of the view (tutorial step done).
+    public void Cheer()
+    {
+        if (!J("production")) return;
+        foreach (var col in new[] { "f2a65a", "f7c948", "62b86a", "5aa9e8" })
+            _juice.Burst(Cam.Position, new Color(col), 6, 80, 2, 120, 1.1f);
     }
 
     // Milestone reached: confetti over the Hub, a big shake. The HUD adds the flash and slow motion.

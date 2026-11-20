@@ -50,6 +50,21 @@ public partial class Main
         await Wait(0.25);
         Check(!_hud.HasPanel, "Esc closes the window");
 
+        // Tutorial: restart it on this save, then mine by hand; the factory here ticks off later steps by itself.
+        _world.Tutorial = 0;
+        bool CardShows(string text) => FindAll<Label>(_hud).Any(l => l.IsVisibleInTree() && l.Text.Contains(text));
+        await Wait(0.3);
+        Check(CardShows("Getting started  1/7"), "tutorial card shows step 1");
+        Shot("02b_tutorial");
+        var ore = Enumerable.Range(-30, 60).SelectMany(x => Enumerable.Range(-30, 60).Select(y => new Vector2I(x, y))).First(t => _world.OreAt(t) != null && _world.At(t) == null);
+        _world.HandMine(ore);
+        await Wait(4);
+        Check(_world.Tutorial == 1 && CardShows("Build a miner"), $"mining by hand ticks step 1; this save has no miner, so it waits there (step {_world.Tutorial})");
+        Shot("02c_tutorial_progress");
+        FindAll<Button>(_hud).First(b => b.Text == "Hide").EmitSignal(BaseButton.SignalName.Pressed);
+        await Wait(0.2);
+        Check(_world.Tutorial == -1 && !CardShows("Getting started"), "Hide puts the tutorial away");
+
         _world.AutoSell.Add("iron_plate");
         _world.Reserve["iron_plate"] = 400;
         long coins = _world.Coins;

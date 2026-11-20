@@ -113,6 +113,7 @@ public sealed partial class Hud : Control
         AddChild(_flash);
 
         View.Inspect = Inspect;
+        BuildTutorial();
         _seenMilestone = W.MilestoneIndex;
         RebuildHotbar();
         RebuildTracker();
@@ -158,6 +159,7 @@ public sealed partial class Hud : Control
         _coinRow.Visible = S.StatOn("coins");
         _hints.Visible = !_mini && S.StatOn("hints");
         _tracker.Visible = S.StatOn("milestone") && !W.Free;
+        ShowTutorial();
     }
 
     void RebuildHotbar()
@@ -254,6 +256,7 @@ public sealed partial class Hud : Control
         float dt = (float)delta;
         CheckMilestone();
         UpdateTracker();
+        UpdateTutorial();
         bool showStorage = S.StatOn("storage");
         foreach (var id in Defs.Items.Keys)
         {

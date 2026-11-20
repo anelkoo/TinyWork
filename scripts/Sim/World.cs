@@ -25,6 +25,7 @@ public sealed class SaveData
     public List<string> AutoSell = new();
     public Dictionary<string, int> Reserve = new();
     public Dictionary<string, int> Upgrades = new();
+    public int Tutorial; // tutorial steps done; -1 = hidden
 }
 
 public sealed class EntityData
@@ -61,6 +62,7 @@ public sealed class World
     public readonly Dictionary<string, int> Reserve = new();     // kept back from auto-sell
     public readonly Dictionary<string, int> Upgrades = new();
     public const int DefaultReserve = 50;
+    public int Tutorial; // first-start tutorial: steps done, -1 = hidden
 
     public bool Free => Mode == "sandbox";
     public Milestone CurrentMilestone => !Free && MilestoneIndex < Defs.Milestones.Length ? Defs.Milestones[MilestoneIndex] : null;
@@ -496,6 +498,7 @@ public sealed class World
         var s = new SaveData { Version = SaveVersion, Name = Name, Mode = Mode, Flat = Flat, Seed = Seed, Tick = Tick, SavedAt = DateTime.Now.ToString("yyyy-MM-dd HH:mm") };
         foreach (var kv in Storage) s.Storage[kv.Key] = kv.Value;
         s.MilestoneIndex = MilestoneIndex;
+        s.Tutorial = Tutorial;
         s.Coins = Coins;
         foreach (var kv in Delivered) s.Delivered[kv.Key] = kv.Value;
         s.AutoSell.AddRange(AutoSell);
@@ -516,7 +519,7 @@ public sealed class World
     public static World FromSave(SaveData s)
     {
         if (s.Version > SaveVersion) throw new InvalidOperationException("This save was made by a newer version of Tiny Works.");
-        var w = new World(s.Seed) { Name = s.Name, Mode = s.Mode ?? "normal", Flat = s.Flat, Tick = s.Tick, MilestoneIndex = s.MilestoneIndex, Coins = s.Coins };
+        var w = new World(s.Seed) { Name = s.Name, Mode = s.Mode ?? "normal", Flat = s.Flat, Tick = s.Tick, MilestoneIndex = s.MilestoneIndex, Coins = s.Coins, Tutorial = s.Tutorial };
         foreach (var kv in s.Storage) w.Storage[kv.Key] = kv.Value;
         foreach (var kv in s.Delivered ?? new()) w.Delivered[kv.Key] = kv.Value;
         foreach (var i in s.AutoSell ?? new()) w.AutoSell.Add(i);
