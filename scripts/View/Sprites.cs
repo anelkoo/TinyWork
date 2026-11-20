@@ -277,12 +277,18 @@ public static class Sprites
         return c;
     }
 
-    // Left edge to just past the centre: drawn over a belt where another belt joins from that side.
+    // A T-junction piece: the joining belt's last few pixels, drawn over the main belt at the side it joins from.
+    // Its track replaces the main belt's rail there, so the side line flows in through an opening.
     static Canvas PaintStub(Color chev)
     {
-        var c = PaintBelt(1, chev);
-        c.R(11, 0, T - 11, T, new Color(0, 0, 0, 0));
-        c.R(10, 2, 1, 12, Ink);
+        var c = new Canvas(T, T);
+        var rail = new Color("7a8094"); var track = new Color("34333f");
+        c.R(0, 2, 6, 12, Ink);
+        c.R(0, 3, 6, 1, rail.Lightened(0.3f)); c.R(0, 4, 6, 1, rail);
+        c.R(0, 11, 6, 1, rail); c.R(0, 12, 6, 1, rail.Darkened(0.25f));
+        c.R(0, 5, 6, 6, track);
+        c.P(5, 4, track); c.P(5, 11, track); // round the corners into the main track
+        for (int d = 0; d < 3; d++) { c.P(1 + d, 6 + d, chev); c.P(1 + d, 9 - d, chev); }
         return c;
     }
 

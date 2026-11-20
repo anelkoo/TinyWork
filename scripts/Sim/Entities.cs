@@ -63,7 +63,9 @@ public abstract class Entity
 public sealed class Belt : Entity
 {
     public const float Spacing = 0.25f;
-    public sealed class Item { public string Id; public float Pos, Prev; public long Arrived = -1; }
+    // Side: for an item that came in from the side, the direction it came from. SideLeft is drawing only: how far
+    // (in tiles) it is still drawn out towards that side, shrinking every tick, so it glides in instead of jumping.
+    public sealed class Item { public string Id; public float Pos, Prev; public long Arrived = -1; public Vector2 Side; public float SideLeft, PrevSide; }
     public readonly List<Item> Items = new(); // front first (Pos descending)
 
     // 2, 3 and 4 tiles/s at 20 ticks/s. Must stay below Spacing.
@@ -114,17 +116,32 @@ public sealed class Belt : Entity
     public override void Accept(World w, string item, Vector2I from, float overflow = 0)
     {
         float p = EntryFor(w, from), prev = p;
+        var it = new Item { Id = item, Arrived = w.Tick };
         // Entering from behind: Prev sits one tick back, over the edge, so the item glides on instead of pausing a tick.
         if (p == 0) { p = overflow; prev = overflow - Speed; }
+        else if ((from - Pos).LengthSquared() == 1) // from the side: starts at the side edge and slides to the middle
+        {
+            it.Side = from - Pos;
+            it.SideLeft = Mathf.Max(0, 0.5f - overflow);
+            it.PrevSide = it.SideLeft + Speed;
+        }
+        it.Pos = p;
+        it.Prev = prev;
         int i = 0;
         while (i < Items.Count && Items[i].Pos > p) i++;
-        Items.Insert(i, new Item { Id = item, Pos = p, Prev = prev, Arrived = w.Tick });
+        Items.Insert(i, it);
     }
 
     public override void Tick(World w)
     {
         // An item handed over earlier in this same tick has already moved; it must not move twice.
-        foreach (var it in Items) if (it.Arrived != w.Tick) it.Prev = it.Pos;
+        foreach (var it in Items)
+        {
+            if (it.Arrived == w.Tick) continue;
+            it.Prev = it.Pos;
+            it.PrevSide = it.SideLeft;
+            it.SideLeft = it.SideLeft - Speed > 1e-4f ? it.SideLeft - Speed : 0;
+        }
         Working = Items.Count > 0;
         if (Items.Count == 0) return;
 
@@ -467,7 +484,9 @@ public sealed class Hub : Entity
 public sealed class Splitter : Entity
 {
     public const float Speed = 0.2f, Spacing = 0.25f;
-    public sealed class Item { public string Id; public float Pos, Prev; }
+    public const int GiveUpTicks = 20; // a chosen output still blocked after this long: pick another
+    // Out: the output an item committed to when it reached the centre (-1 before), so it is drawn going the right way.
+    public sealed class Item { public string Id; public float Pos, Prev; public int Out = -1, Wait; }
     public readonly List<Item> Lane = new(); // front first
     public int Next; // the output that gets the next item: 0 front, 1 right, 2 left
     static readonly int[] Turn = { 0, 1, 3 };
@@ -476,6 +495,20 @@ public sealed class Splitter : Entity
     public override bool OutputsTo(Vector2I t) => t != Back && (t - Pos).LengthSquared() == 1;
     public override bool CanAccept(World w, string item, Vector2I from) => from == Back && (Lane.Count == 0 || Lane[^1].Pos >= Spacing);
     public override void Accept(World w, string item, Vector2I from, float overflow = 0) => Lane.Add(new Item { Id = item, Prev = -Speed });
+
+    // Round robin over the outputs that can take the item now; if none can, the next one that exists at all.
+    int Pick(World w, string item)
+    {
+        for (int pass = 0; pass < 2; pass++)
+            for (int k = 0; k < 3; k++)
+            {
+                int o = (Next + k) % 3;
+                if (w.At(OutTile(o)) is not { } t || pass == 0 && !t.CanAccept(w, item, Pos)) continue;
+                Next = (o + 1) % 3;
+                return o;
+            }
+        return -1;
+    }
 
     public override void Tick(World w)
     {
@@ -486,17 +519,24 @@ public sealed class Splitter : Entity
             it.Prev = it.Pos;
             float limit = i == 0 ? 1f : Lane[i - 1].Pos - Spacing;
             it.Pos = Mathf.Max(it.Pos, Mathf.Min(it.Pos + Speed, limit));
+            if (it.Out < 0 && it.Pos >= 0.5f) it.Out = Pick(w, it.Id);
         }
         if (Lane.Count == 0 || Lane[0].Pos < 1f) return;
-        for (int k = 0; k < 3; k++)
+        var front = Lane[0];
+        var target = front.Out >= 0 ? w.At(OutTile(front.Out)) : null;
+        bool ok = target != null && target.CanAccept(w, front.Id, Pos);
+        if (!ok && (target == null || ++front.Wait > GiveUpTicks))
         {
-            int o = (Next + k) % 3;
-            if (w.At(OutTile(o)) is not { } next || !next.CanAccept(w, Lane[0].Id, Pos)) continue;
-            next.Accept(w, Lane[0].Id, Pos);
-            Lane.RemoveAt(0);
-            Next = (o + 1) % 3;
-            return;
+            front.Wait = 0;
+            for (int k = 1; k <= 3 && !ok; k++) // switch only to an output that can take it right now
+            {
+                int o = (Math.Max(front.Out, 0) + k) % 3;
+                if (w.At(OutTile(o)) is { } t && t.CanAccept(w, front.Id, Pos)) { front.Out = o; target = t; ok = true; }
+            }
         }
+        if (!ok) return;
+        target.Accept(w, front.Id, Pos);
+        Lane.RemoveAt(0);
     }
 
     public override string Status => Idle > StallTicks && Lane.Count > 0 ? "blocked" : null;
@@ -506,13 +546,16 @@ public sealed class Splitter : Entity
     {
         d.Items = Lane.Select(i => i.Id).ToList();
         d.Pos = Lane.Select(i => i.Pos).ToList();
+        d.Ints = Lane.Select(i => i.Out).ToList();
         d.Bn = Next;
     }
 
     public override void Load(EntityData d)
     {
         Next = d.Bn % 3;
-        if (d.Items != null) for (int i = 0; i < d.Items.Count; i++) Lane.Add(new Item { Id = d.Items[i], Pos = d.Pos[i], Prev = d.Pos[i] });
+        if (d.Items != null)
+            for (int i = 0; i < d.Items.Count; i++)
+                Lane.Add(new Item { Id = d.Items[i], Pos = d.Pos[i], Prev = d.Pos[i], Out = d.Ints != null && i < d.Ints.Count && d.Ints[i] is >= -1 and < 3 ? d.Ints[i] : -1 });
     }
 }
 

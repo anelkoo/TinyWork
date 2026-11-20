@@ -20,7 +20,8 @@ public sealed class Settings
     public string LastPole = "pole";      // and the pole slot with the pole tier used last
     public int MiniW = 400, MiniH = 300;
     public int NormalX = -1, NormalY = -1, NormalW = 1280, NormalH = 720;
-    public int FpsFocused = 60, FpsBackground = 60;
+    public int FpsFocused = 60, FpsBackground = 60; // 0 = no limit
+    public bool VSync = true;
     public string HideKey = "F8", ModeKey = "F7"; // Godot key names, e.g. "Ctrl+Shift+F8"
     public float SfxVolume = 0.8f, MusicVolume = 0.6f;
     // Juice families: place, production, screen, ui. Each can be off in normal or mini mode.

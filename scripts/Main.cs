@@ -106,6 +106,7 @@ public partial class Main : Node
         _win.FpsFocused = _s.FpsFocused;
         _win.FpsBackground = _s.FpsBackground;
         _win.ApplyFps();
+        DisplayServer.WindowSetVsyncMode(_s.VSync ? DisplayServer.VSyncMode.Enabled : DisplayServer.VSyncMode.Disabled);
         _win.Reanchor();
         _keys.Bind("hide", ParseCombo(_s.HideKey, Key.F8));
         _keys.Bind("mode", ParseCombo(_s.ModeKey, Key.F7));

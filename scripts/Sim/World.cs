@@ -42,6 +42,7 @@ public sealed class EntityData
     public float P;
     public List<string> Items;
     public List<float> Pos;
+    public List<int> Ints;
     public Dictionary<string, int> Inv;
 }
 
@@ -520,6 +521,17 @@ public sealed class World
         Version++;
         Emit("removed", e.Pos, e.Type);
         return true;
+    }
+
+    // Swaps a belt for a crossing (a belt line being drawn straight across it). Items on the belt go to storage.
+    public bool MakeCrossing(Vector2I tile)
+    {
+        if (At(tile) is not Belt || !IsUnlocked("crossing")) return false;
+        if (!Free)
+            foreach (var (item, n) in Defs.Buildings["crossing"].Cost)
+                if (Storage.GetValueOrDefault(item) + (Defs.Buildings[At(tile).Type].Cost.FirstOrDefault(c => c.Item == item).Count) < n) return false;
+        Remove(tile);
+        return Place("crossing", tile, 0) != null;
     }
 
     // Turns a building in place, keeping its contents.

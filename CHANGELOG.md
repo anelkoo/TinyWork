@@ -4,10 +4,21 @@ Everything that changed since the last release goes under "Unreleased". A new re
 
 ## Unreleased
 
+## v0.0.4 Beta (2026-11-20)
+
 - Settings sliders keep their place: the percentage next to them has a fixed width.
 - Poles are a tier family like the belts: Power Pole, Big Pole (milestone 2) and Super Pole (milestone 3) share one hotbar slot (key 0, press again for the next tier, the last tier is remembered). Better poles wire further (7, 12, 18 tiles) and power a bigger area (5x5, 7x7, 9x9).
 - Potions have a strength to pick, for example Coin Rush x1.5, x2 or x3. Stronger costs more. Strengths never add up: the strongest one runs first, and weaker ones wait and take over after it. Potions from v0.0.3 saves load at their old strength.
 - Numbers like 10.7k use a dot in every language setting.
+- Hover info: a card at the top centre shows what the mouse is over. For a building that's its contents, recipe progress, power and problems; for an ore patch it says how to mine it. It can be turned off under Settings, Stats.
+- The milestone box moved to the bottom right.
+- VSync can be switched on or off in the settings.
+- Type in any FPS limit (0 = no limit), for focused and for mini or background.
+- Items fed in from the side of a belt glide in from the edge. They used to jump half a tile to the middle.
+- Splitters pick the output when an item reaches the centre, so items no longer slide one way and appear on another belt. If that output stays full for a second, the item switches to a free one, so a splitter never jams.
+- Drawing a belt line straight across another running line places a crossing there, instead of turning that belt and bending the other line into yours.
+- Belt joins look like T-pieces: the joining belt runs into an opening in the main belt's rail.
+- Checkboxes no longer turn into big orange blocks when ticked.
 
 ## v0.0.3 Beta (2026-11-20)
 

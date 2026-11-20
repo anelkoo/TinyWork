@@ -254,6 +254,7 @@ public partial class Main
         Put("chest", -4, 8); Put("furnace", -3, 8); // in the way on the surface
         var exit = Put("tunnel", -2, 8);
         Put("belt", -1, 8); Put("splitter", 0, 8);
+        ((Chest)Put("chest", -1, 5)).Inv["copper_plate"] = 50; Put("inserter", -1, 6, 1); Put("belt", -1, 7, 1); // a T-join from above
         Put("belt", 1, 8); Put("belt", 2, 8); var cFront = (Chest)Put("chest", 3, 8);
         Put("belt", 0, 9, 1); var cDown = (Chest)Put("chest", 0, 10);
         Put("pump", -6, 12); Put("pipe", -5, 12); Put("pipe", -4, 12);
@@ -270,6 +271,12 @@ public partial class Main
         Check(cFront.Count > 0 && cDown.Count > 0, $"plates came through the tunnel and the splitter (front {cFront.Count}, down {cDown.Count})");
         Check(_world.FluidOf(outPipe) is { Fluid: "black_goo", Amount: > 0 }, $"refinery made black goo from pumped water ({_world.FluidOf(outPipe)?.Fluid} {_world.FluidOf(outPipe)?.Amount})");
         Shot("15_step5_surface");
+        var over = _view.GetCanvasTransform() * (new Vector2(3.5f, 12.5f) * 16); // the refinery
+        Input.ParseInputEvent(new InputEventMouseMotion { Position = over, GlobalPosition = over });
+        await Wait(0.3);
+        Check(FindAll<Label>(_hud).Any(l => l.IsVisibleInTree() && l.Text == "Refinery")
+              && FindAll<Label>(_hud).Any(l => l.IsVisibleInTree() && l.Text.Contains("Makes 20 Black Goo")), "hovering a building shows its info card");
+        Shot("15b_hover_card");
         Key(Godot.Key.V);
         await Wait(0.3);
         Check(_view.Underground, "V switches to the underground view");

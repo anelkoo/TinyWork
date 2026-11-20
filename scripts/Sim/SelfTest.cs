@@ -39,6 +39,8 @@ public static class SelfTest
         Test("potions from v0.0.3 saves still load", LegacyPotions);
         Test("better deals and bigger generators upgrades work", NewUpgrades);
         Test("big poles wire far, but only to each other", BigPoles);
+        Test("drawing across a line makes a crossing; splitter commits and never jams", CrossAndSplit);
+        Test("side-loaded items glide in from the side edge", SideGlide);
         Test("older saves still load and run", LegacySaves);
         GD.Print(_fails == 0 ? "SELFTEST PASS" : $"SELFTEST FAIL ({_fails})");
         return _fails;
@@ -571,6 +573,43 @@ public static class SelfTest
         var far = w.Place("miner", new(31, 3), 0);
         Check(w.NetOf(near) == w.NetOf(a), "a super pole powers a machine 4 tiles away");
         Check(w.NetOf(far) == null, "a small pole doesn't power a machine 3 tiles away");
+    }
+
+    static void CrossAndSplit()
+    {
+        var w = World.New("t", "normal", false, 1);
+        w.AddStorage("iron_plate", 100);
+        Belts(w, 1, (5, 0), (5, 1), (5, 2));
+        long iron = w.Storage["iron_plate"];
+        Check(w.MakeCrossing(new(5, 1)) && w.At(new(5, 1)) is Crossing, "belt swapped for a crossing");
+        Check(w.Storage["iron_plate"] == iron + 1 - 4, "the belt is refunded and the crossing paid");
+        Check(!w.MakeCrossing(new(9, 9)), "nothing to swap on an empty tile");
+        // A splitter whose chosen output fills up switches to another one instead of jamming.
+        var s = Sandbox();
+        var src = (Chest)s.Place("chest", new(0, 0), 0);
+        src.Inv["iron_plate"] = 60;
+        s.Place("inserter", new(1, 0), 0);
+        s.Place("splitter", new(2, 0), 0);
+        var front = (Chest)s.Place("chest", new(3, 0), 0);
+        front.Inv["stone"] = Chest.Cap - 1; // room for one more only
+        var side = (Chest)s.Place("chest", new(2, 1), 0);
+        for (int i = 0; i < 4000; i++) s.Step();
+        Check(front.Count == Chest.Cap && side.Count == 59, $"overflow goes to the side: front {front.Count}, side {side.Count}");
+        foreach (var sp in s.Entities.OfType<Splitter>()) Check(sp.Lane.Count == 0, "splitter jammed");
+    }
+
+    static void SideGlide()
+    {
+        var w = Sandbox();
+        Belts(w, 0, (0, 0), (1, 0), (2, 0));
+        Belts(w, 3, (1, 2), (1, 1)); // feeds (1,0) from below
+        var main = (Belt)w.At(new(1, 0));
+        ((Belt)w.At(new(1, 2))).Accept(w, "iron_ore", new(1, 3));
+        Belt.Item arrived = null;
+        for (int t = 0; t < 40 && arrived == null; t++) { w.Step(); arrived = main.Items.FirstOrDefault(); }
+        Check(arrived != null && arrived.Side == new Vector2(0, 1) && arrived.SideLeft > 0.3f, $"a side item starts out at the side edge (side {arrived?.Side}, left {arrived?.SideLeft})");
+        for (int t = 0; t < 10; t++) w.Step();
+        Check(arrived.SideLeft == 0, "and reaches the middle within a few ticks");
     }
 
     static void CoinRush()

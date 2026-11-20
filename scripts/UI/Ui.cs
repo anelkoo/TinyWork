@@ -41,7 +41,16 @@ public static class Ui
         t.SetStylebox("focus", "LineEdit", Box(Colors.Transparent, Accent));
         t.SetColor("font_color", "LineEdit", Text);
         t.SetColor("font_color", "Label", Text);
+        // Checkboxes would inherit the button boxes (a big orange block when ticked); they only get a soft hover.
+        foreach (var type in new[] { "CheckBox", "CheckButton" })
+        {
+            foreach (var state in new[] { "normal", "pressed", "focus", "disabled" }) t.SetStylebox(state, type, new StyleBoxEmpty());
+            t.SetStylebox("hover", type, Box(BtnHover with { A = 0.6f }, Colors.Transparent, 0, 6, 4));
+            t.SetStylebox("hover_pressed", type, Box(BtnHover with { A = 0.6f }, Colors.Transparent, 0, 6, 4));
+        }
         t.SetColor("font_color", "CheckBox", Text);
+        t.SetColor("font_pressed_color", "CheckBox", Text);
+        t.SetColor("font_focus_color", "CheckBox", Text);
         t.SetColor("font_hover_color", "CheckBox", Accent);
         t.SetStylebox("panel", "TooltipPanel", Box(Panel, Accent, 1, 6, 6));
         t.SetColor("font_color", "TooltipLabel", Text);

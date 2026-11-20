@@ -117,6 +117,7 @@ public sealed partial class Hud : Control
         AddChild(_flash);
 
         View.Inspect = Inspect;
+        BuildHoverCard();
         BuildTutorial();
         Resized += FitHotbar;
         _seenMilestone = W.MilestoneIndex;
@@ -153,14 +154,15 @@ public sealed partial class Hud : Control
         ApplyStats();
     }
 
-    // Shrink the tracker to its content, then pin it: top centre normally, under the buttons in mini
-    // (the buttons take the top centre there).
+    // Shrink the tracker to its content, then pin it: bottom right above the hotbar line normally (the top
+    // centre belongs to the hover card), under the buttons in mini.
     void PlaceTracker()
     {
         _tracker.ResetSize();
-        _tracker.SetAnchorsAndOffsetsPreset(_mini ? LayoutPreset.TopRight : LayoutPreset.CenterTop);
-        _tracker.GrowHorizontal = _mini ? GrowDirection.Begin : GrowDirection.Both;
-        _tracker.Position += _mini ? new Vector2(-4, 46) : new Vector2(0, 10);
+        _tracker.SetAnchorsAndOffsetsPreset(_mini ? LayoutPreset.TopRight : LayoutPreset.BottomRight);
+        _tracker.GrowHorizontal = GrowDirection.Begin;
+        _tracker.GrowVertical = _mini ? GrowDirection.End : GrowDirection.Begin;
+        _tracker.Position += _mini ? new Vector2(-4, 46) : new Vector2(-10, -122); // clear of the hotbar, key hints and toasts
     }
 
     // Which HUD pieces show is a setting (each "stat" can be turned off).
@@ -316,6 +318,7 @@ public sealed partial class Hud : Control
         UpdateTracker();
         UpdateTutorial();
         UpdatePotionTimers();
+        UpdateHoverCard();
         bool showStorage = S.StatOn("storage");
         foreach (var id in Defs.Items.Keys)
         {

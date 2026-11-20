@@ -9,7 +9,6 @@ namespace TinyWorks.UI;
 // Fills a panel with every setting. Each change is applied and saved right away via `apply`.
 public static class SettingsUi
 {
-    static readonly int[] FpsChoices = { 30, 60, 120, 144, 0 };
 
     static Control Slider(string name, double min, double max, float value, Action<float> set, Action apply)
     {
@@ -35,6 +34,9 @@ public static class SettingsUi
         Section(body, "Frame rate");
         body.AddChild(Line("When focused", Fps(s.FpsFocused, v => { s.FpsFocused = v; apply(); })));
         body.AddChild(Line("Mini or in background", Fps(s.FpsBackground, v => { s.FpsBackground = v; apply(); })));
+        var vsync = new CheckBox { Text = "VSync: no tearing, but never faster than your screen", ButtonPressed = s.VSync, FocusMode = Control.FocusModeEnum.None };
+        vsync.Toggled += on => { s.VSync = on; apply(); };
+        body.AddChild(vsync);
 
         Section(body, "Keys (work from any app on Windows and X11)");
         body.AddChild(Line("Hide / show window", KeyButton(() => s.HideKey, v => { s.HideKey = v; apply(); }, keys)));
@@ -60,7 +62,7 @@ public static class SettingsUi
         body.AddChild(head);
 
         Section(body, "Show on screen");
-        foreach (var (key, name) in new[] { ("storage", "Storage counts"), ("coins", "Coins"), ("milestone", "Milestone progress"), ("bottleneck", "Bottleneck bubbles over machines"), ("hints", "Key hints") })
+        foreach (var (key, name) in new[] { ("storage", "Storage counts"), ("coins", "Coins"), ("milestone", "Milestone progress"), ("bottleneck", "Bottleneck bubbles over machines"), ("tooltips", "Info card for what the mouse is over"), ("hints", "Key hints") })
         {
             var cb = new CheckBox { Text = name, ButtonPressed = s.StatOn(key), FocusMode = Control.FocusModeEnum.None };
             cb.Toggled += on => { s.Stats[key] = on; apply(); };
@@ -103,13 +105,12 @@ public static class SettingsUi
         return row;
     }
 
-    static OptionButton Fps(int current, Action<int> set)
+    // Any number from 5 to 1000; 0 means no limit. Applies as soon as you press Enter or click away.
+    static SpinBox Fps(int current, Action<int> set)
     {
-        var o = new OptionButton { FocusMode = Control.FocusModeEnum.None };
-        foreach (var f in FpsChoices) o.AddItem(f == 0 ? "Unlimited" : $"{f} fps");
-        o.Selected = Math.Max(0, Array.IndexOf(FpsChoices, current));
-        o.ItemSelected += i => set(FpsChoices[i]);
-        return o;
+        var box = new SpinBox { MinValue = 0, MaxValue = 1000, Step = 1, Value = current, Suffix = "fps", CustomMinimumSize = new Vector2(130, 0), TooltipText = "Type any number. 0 = no limit." };
+        box.ValueChanged += v => { int f = (int)v; set(f is > 0 and < 5 ? 5 : f); };
+        return box;
     }
 
     // Click, then press the new key (with Ctrl/Shift/Alt if wanted). Esc cancels. Hotkeys pause meanwhile.

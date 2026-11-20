@@ -26,6 +26,7 @@ public sealed partial class WorldView : Node2D
     public string Selected;
     public int Rot;
     public Camera2D Cam;
+    public Vector2I HoverTile => _hover;
     public bool Underground; // V: dims the surface and shows what runs below it
 
     readonly Juice _juice = new();
@@ -187,7 +188,16 @@ public sealed partial class WorldView : Node2D
 
     void PlaceOne(Vector2I tile, bool first)
     {
-        if (Defs.IsBelt(Selected) && W.At(tile) is Belt existing) { W.SetRot(tile, Rot); _lastBelt = existing; return; }
+        if (Defs.IsBelt(Selected) && W.At(tile) is Belt existing)
+        {
+            // Dragging straight across another running line: a crossing, so both lines keep going.
+            // Turning that belt instead would bend the other line into this one and its items would jump.
+            bool otherLine = !first && existing.Rot % 2 != Rot % 2 && W.At(existing.Back)?.OutputsTo(tile) == true;
+            if (otherLine && W.MakeCrossing(tile)) { _lastBelt = null; Toast?.Invoke("Crossing placed where the lines meet"); return; }
+            W.SetRot(tile, Rot);
+            _lastBelt = existing;
+            return;
+        }
         var e = W.Place(Selected, tile, Rot);
         if (e is Belt) _lastBelt = e;
         if (e == null && first && W.At(tile) == null)
@@ -375,7 +385,7 @@ public sealed partial class WorldView : Node2D
             var input = b.InputFrom(W);
             foreach (var it in b.Items)
             {
-                var p = BeltPoint(b, input, Mathf.Lerp(it.Prev, it.Pos, f));
+                var p = BeltPoint(b, input, Mathf.Lerp(it.Prev, it.Pos, f)) + it.Side * Mathf.Lerp(it.PrevSide, it.SideLeft, f) * T;
                 DrawTexture(Sprites.Items[it.Id], Px(p - Vector2.One * 4));
             }
         }
@@ -431,10 +441,10 @@ public sealed partial class WorldView : Node2D
                     break;
                 case Splitter sp:
                     Sprite(Sprites.BeltFrames["belt"][frame], c, Angle(sp.Rot), Vector2.One);
-                    var outDir = (Vector2)(sp.OutTile(sp.Next) - sp.Pos);
                     foreach (var it in sp.Lane)
                     {
                         float k = Mathf.Lerp(it.Prev, it.Pos, f);
+                        var outDir = (Vector2)(it.Out >= 0 ? sp.OutTile(it.Out) - sp.Pos : sp.Dir);
                         var ip = k < 0.5f ? c - (Vector2)sp.Dir * (0.5f - k) * T : c + outDir * (k - 0.5f) * T;
                         DrawTexture(Sprites.Items[it.Id], Px(ip - Vector2.One * 4));
                     }
