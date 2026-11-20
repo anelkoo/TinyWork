@@ -107,7 +107,7 @@ public sealed partial class Hud
 
     static string Clock(long ticks)
     {
-        long s = ticks / Engine.PhysicsTicksPerSecond;
+        long s = ticks / World.TicksPerSecond;
         return $"{s / 60}:{s % 60:00}";
     }
 

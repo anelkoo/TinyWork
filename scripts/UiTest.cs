@@ -31,14 +31,22 @@ public partial class Main
         void Check(bool ok, string what) { if (!ok) _uiFails++; GD.Print($"UITEST {(ok ? "ok  " : "FAIL")} {what}"); }
         void Key(Key k) { Input.ParseInputEvent(new InputEventKey { Keycode = k, Pressed = true }); Input.ParseInputEvent(new InputEventKey { Keycode = k, Pressed = false }); }
         T Find<T>() where T : Entity => _world.Entities.OfType<T>().First();
+        void CtrlKey(Key k, bool shift = false) { Input.ParseInputEvent(new InputEventKey { Keycode = k, CtrlPressed = true, ShiftPressed = shift, Pressed = true }); Input.ParseInputEvent(new InputEventKey { Keycode = k, CtrlPressed = true, Pressed = false }); }
 
         LoadGame(_s.LastSlot);
         await Wait(0.35);
         Shot("01_celebration");
+        Check(FindAll<Label>(_hud).Any(l => l.IsVisibleInTree() && l.Text.StartsWith("Welcome back to")), "the welcome-back card shows last session's stats");
+        await Wait(1.5);
+        Shot("01b_welcome");
+        FindAll<Button>(_hud).First(b => b.Text == "Let's go").EmitSignal(BaseButton.SignalName.Pressed);
+        await Wait(0.1);
+        Check(!FindAll<Label>(_hud).Any(l => l.IsVisibleInTree() && l.Text.StartsWith("Welcome back to")), "Let's go puts the card away");
+        Check(FindAll<AudioStreamPlayer>(_sfx).Any(p => p.Playing && p.Stream is AudioStreamWav { LoopMode: AudioStreamWav.LoopModeEnum.Forward }), "the music loop plays");
         await Wait(2.5);
         Shot("02_game");
         Check(_world.MilestoneIndex == 1, "milestone 1 reached from the prepared save");
-        int expected = Defs.Buildings.Keys.Count(k => k != "hub" && (Defs.TiersOf(k)?[0] ?? k) == k); // a tier family shares one slot, no Hub
+        int expected = Defs.Buildings.Keys.Count(k => k != "hub" && System.Array.IndexOf(Defs.SandboxOnly, k) < 0 && (Defs.TiersOf(k)?[0] ?? k) == k); // a tier family shares one slot; no Hub, no sandbox tools
         Check(_view.Hotbar().Count == expected, $"every building is on the hotbar ({_view.Hotbar().Count} of {expected} slots)");
         Key(Godot.Key.Key0);
         await Wait(0.1);
@@ -241,6 +249,63 @@ public partial class Main
         Check(FindAll<Label>(_hud).Any(l => l.Text.StartsWith("Saved \"") && l.Modulate.A > 0.5f), "Save Now says it saved");
         Shot("09d_saved");
 
+        // Step 6: game speed, stats, undo, copy and paste, blueprints, cosmetics.
+        Key(Godot.Key.Space);
+        await Wait(0.2);
+        long pausedAt = _world.Tick;
+        await Wait(0.4);
+        Check(_world.Paused && _world.Tick == pausedAt, $"Space pauses the game (tick {pausedAt} -> {_world.Tick})");
+        Key(Godot.Key.Period);
+        await Wait(0.2);
+        Check(_world.Tick == pausedAt + 1, $". steps exactly one tick ({pausedAt} -> {_world.Tick})");
+        Shot("19_paused");
+        FindAll<Button>(_hud).First(b => b.Text == "4x").EmitSignal(BaseButton.SignalName.Pressed);
+        await Wait(0.5);
+        Check(!_world.Paused && _world.Speed == 4 && Engine.PhysicsTicksPerSecond == 80, $"4x runs 80 ticks a second ({Engine.PhysicsTicksPerSecond})");
+        FindAll<Button>(_hud).First(b => b.Text == "1x").EmitSignal(BaseButton.SignalName.Pressed);
+        await Wait(0.2);
+        Key(Godot.Key.P);
+        await Wait(0.5);
+        Check(_hud.HasPanel && FindAll<Label>(_hud).Any(l => l.Text == "Coins earned"), "P opens the stats window");
+        Shot("20_stats");
+        Key(Godot.Key.Escape);
+        await Wait(0.2);
+        var spot = new Vector2I(-12, -12);
+        _world.BeginAction(); _world.Place("chest", spot, 0); _world.EndAction();
+        CtrlKey(Godot.Key.Z);
+        await Wait(0.1);
+        Check(_world.At(spot) == null, "Ctrl+Z takes the chest back");
+        CtrlKey(Godot.Key.Z, shift: true);
+        await Wait(0.1);
+        Check(_world.At(spot) is Chest, "Ctrl+Shift+Z puts it back");
+        CtrlKey(Godot.Key.V);
+        await Wait(0.1);
+        Check(!_view.Underground, "Ctrl+V never toggles the underground view");
+        _view.StartPaste(_world.Copy(new Rect2I(2, -1, 3, 2)));
+        var mouse = _view.GetCanvasTransform() * (new Vector2(-10.5f, 4.5f) * 16);
+        Input.ParseInputEvent(new InputEventMouseMotion { Position = mouse, GlobalPosition = mouse });
+        await Wait(0.3);
+        Check(_view.Pasting && _view.Clip.Count > 0, $"a copy follows the mouse ({_view.Clip?.Count} parts)");
+        Shot("21_paste_ghost");
+        Key(Godot.Key.B);
+        await Wait(0.4);
+        Check(_hud.HasPanel && FindAll<LineEdit>(_hud).Any(), "B opens blueprints with a name field for the current copy");
+        Shot("22_blueprints");
+        Key(Godot.Key.Escape);
+        Key(Godot.Key.Escape);
+        await Wait(0.2);
+        Check(!_view.Pasting, "Esc puts the copy away");
+        _world.Coins += 5000;
+        Check(_world.BuyCosmetic("hat_party") && _world.BuyCosmetic("belt_mint") && _world.BuyCosmetic("fx_rainbow"), "bought a hat, a belt colour and a particle style");
+        _hud.OpenHub(Hud.ShopTab);
+        await Wait(0.5);
+        foreach (var sc in FindAll<ScrollContainer>(_hud)) sc.ScrollVertical = 100000;
+        await Wait(0.2);
+        Shot("23_cosmetics_shop");
+        _hud.ClosePanel();
+        await Wait(0.3);
+        Shot("24_hub_hat");
+
         // Step 5: underground belt, splitter, pipes, underground pipe, pump and refinery, built in an empty corner.
         _world.MilestoneIndex = 3;
         Entity Put(string type, int x, int y, int rot = 0)
@@ -302,7 +367,7 @@ public partial class Main
         Check(GetViewport().GetVisibleRect().Size == new Vector2(400, 300), $"window is mini sized ({GetViewport().GetVisibleRect().Size})");
         Shot("10_mini_game");
         var slots = FindAll<Button>(_hud).Where(b => b.HasMeta("id")).ToList();
-        Check(slots.Count == Defs.HotbarOrder.Length && slots.Max(b => b.GetGlobalRect().End.X) <= 400 && slots.Min(b => b.GetGlobalRect().Position.X) >= 0, $"all {slots.Count} hotbar slots fit in the mini window");
+        Check(slots.Count == _view.Hotbar().Count && slots.Max(b => b.GetGlobalRect().End.X) <= 400 && slots.Min(b => b.GetGlobalRect().Position.X) >= 0, $"all {slots.Count} hotbar slots fit in the mini window");
         _hud.OpenHub(Hud.SellTab);
         await Wait(0.5);
         Shot("11_mini_hub");

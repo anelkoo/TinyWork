@@ -58,7 +58,7 @@ public sealed partial class Hud
 
     void ShowTutorial()
     {
-        if (_tutCard != null) _tutCard.Visible = TutorialActive && !_mini && !W.Free;
+        if (_tutCard != null) _tutCard.Visible = TutorialActive && !_mini && !W.Free && _welcome == null; // same corner as the welcome card
     }
 
     void UpdateTutorial()

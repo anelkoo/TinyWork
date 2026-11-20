@@ -151,6 +151,36 @@ public static class Sprites
         foreach (var p in Defs.Potions) Potions[p.Id] = PaintPotion(p.Color).Tex();
         Icons["miner"] = Miner; Icons["furnace"] = Furnace; Icons["hub"] = Hub; Icons["assembler"] = Assembler; Icons["chest"] = Chest;
         Icons["inserter"] = PaintInserterIcon().Tex();
+        Icons["source"] = PaintSource().Tex();
+        Icons["void"] = PaintVoid().Tex();
+    }
+
+    // Sandbox item source: a green crate with a chute on the right, where items come out.
+    static Canvas PaintSource()
+    {
+        var c = new Canvas(T, T);
+        var green = new Color("62b86a");
+        c.Box(1, 2, 12, 12, green, Ink);
+        c.R(4, 5, 6, 6, green.Darkened(0.35f));          // window for the item it makes
+        c.Box(12, 5, 4, 6, MetalDark, Ink);              // chute
+        c.P(14, 7, Glow); c.P(14, 8, Glow);
+        return c;
+    }
+
+    // Sandbox item void: a dark swirl that swallows anything.
+    static Canvas PaintVoid()
+    {
+        var c = new Canvas(T, T);
+        var purple = new Color("6b4a8f");
+        for (int y = 0; y < T; y++)
+            for (int x = 0; x < T; x++)
+            {
+                float d = new Vector2(x - 7.5f, y - 7.5f).Length();
+                if (d > 7.2f) continue;
+                c.P(x, y, d > 6.2f ? Ink : d > 4.5f ? purple : d > 2.5f ? purple.Darkened(0.5f) : new Color("100c16"));
+            }
+        c.R(3, 6, 2, 1, Glow); c.R(11, 9, 2, 1, Glow); // two specks, so it visibly turns
+        return c;
     }
 
     // A belt running into a riveted box that deals items out front, left and right. Output to the right.

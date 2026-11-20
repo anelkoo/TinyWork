@@ -15,7 +15,24 @@ public sealed partial class Sfx : Node
     int _next;
 
     public float Volume = 0.8f; // 0..1, already includes the mini-mode reduction
-    public bool Muted;
+    bool _muted;
+    float _musicVolume;
+    AudioStreamPlayer _music;
+
+    public bool Muted { get => _muted; set { _muted = value; UpdateMusic(); } }
+    public float MusicVolume { get => _musicVolume; set { _musicVolume = value; UpdateMusic(); } }
+
+    // The loop is built on first use, so a game started with music at 0 never spends time on it.
+    void UpdateMusic()
+    {
+        if (!IsInsideTree()) return;
+        bool on = !_muted && _musicVolume > 0;
+        if (on && _music == null) AddChild(_music = new AudioStreamPlayer { Stream = MusicLoop() });
+        if (_music == null) return;
+        _music.VolumeDb = Mathf.LinearToDb(Mathf.Max(_musicVolume, 0.0001f));
+        if (on && !_music.Playing) _music.Play();
+        _music.StreamPaused = !on;
+    }
 
     public override void _Ready()
     {
@@ -33,6 +50,52 @@ public sealed partial class Sfx : Node
         _sounds["coin"] = Notes(new[] { 1320f, 1760f }, 0.05f, 0.2f);
         _sounds["zap"] = Synth(1800, 300, 0.12f, noise: 0.55f, vol: 0.22f);
         _sounds["milestone"] = Notes(new[] { 523f, 659f, 784f, 1047f, 784f, 1047f }, 0.09f, 0.28f); // C-E-G-C jingle
+        UpdateMusic();
+    }
+
+    // A calm 32 s loop made in code: soft sine pads over C, Am, F and G, a low root, and a few music-box notes
+    // from the pentatonic scale. Everything wraps around the end, so the loop has no seam.
+    static AudioStreamWav MusicLoop()
+    {
+        const float Bar = 4f;
+        int n = (int)(Rate * Bar * 8);
+        var buf = new float[n];
+        float[][] chords = { new[] { 261.6f, 329.6f, 392f }, new[] { 220f, 261.6f, 329.6f }, new[] { 174.6f, 220f, 261.6f }, new[] { 196f, 246.9f, 293.7f } };
+        float[] scale = { 523.3f, 587.3f, 659.3f, 784f, 880f, 1046.5f };
+        var rng = new Random(7);
+        int barLen = (int)(Rate * Bar), fade = (int)(Rate * 0.8f);
+        for (int b = 0; b < 8; b++)
+        {
+            var chord = chords[b % 4];
+            int start = b * barLen;
+            for (int i = -fade; i < barLen + fade; i++) // pads overlap the next bar a little, wrapping at the end
+            {
+                float env = i < 0 ? (i + fade) / (float)fade * 0.5f : i > barLen ? (barLen + fade - i) / (float)fade * 0.5f : Mathf.Min(1, 0.5f + i / (float)fade);
+                float t = (start + i) / (float)Rate, v = 0;
+                foreach (var f in chord) v += Mathf.Sin(Mathf.Tau * f * t) * 0.05f;
+                v += Mathf.Sin(Mathf.Tau * chord[0] / 2 * t) * 0.06f;
+                buf[((start + i) % n + n) % n] += v * env;
+            }
+            for (int beat = 0; beat < 8; beat++) // up to eight half-beat notes per bar, about half of them played
+            {
+                if (rng.NextDouble() < 0.45) continue;
+                float f = scale[rng.Next(scale.Length)];
+                int at = start + beat * barLen / 8, len = (int)(Rate * 1.6f);
+                for (int i = 0; i < len; i++)
+                {
+                    float t = i / (float)Rate, env = Mathf.Min(1, i / (Rate * 0.01f)) * Mathf.Exp(-t * 3f);
+                    buf[(at + i) % n] += (Mathf.Sin(Mathf.Tau * f * t) + 0.25f * Mathf.Sin(Mathf.Tau * f * 2 * t)) * 0.07f * env;
+                }
+            }
+        }
+        var data = new byte[n * 2];
+        for (int i = 0; i < n; i++)
+        {
+            short v = (short)(Mathf.Clamp(buf[i], -1, 1) * short.MaxValue);
+            data[i * 2] = (byte)v;
+            data[i * 2 + 1] = (byte)(v >> 8);
+        }
+        return new AudioStreamWav { Data = data, Format = AudioStreamWav.FormatEnum.Format16Bits, MixRate = Rate, Stereo = false, LoopMode = AudioStreamWav.LoopModeEnum.Forward, LoopBegin = 0, LoopEnd = n };
     }
 
     // Short square-wave melody, one note after another.

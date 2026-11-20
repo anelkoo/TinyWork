@@ -29,9 +29,24 @@ public sealed class SaveData
     public List<PotionSave> PotionStacks = new();
     public long CoinsEarned;
     public int Tutorial; // tutorial steps done; -1 = hidden
+    public SessionStats LastSession; // the session that wrote this save, for the "welcome back" card
+    public List<string> Cosmetics = new();
+    public Dictionary<string, string> Equipped = new();
 }
 
 public sealed class PotionSave { public string Id; public float Strength; public long Ticks; }
+
+// What happened while the game was open. Nothing is ever earned while it is closed.
+public sealed class SessionStats { public double Seconds; public long Coins, Made, Delivered, Built; public int Milestones; }
+
+// One building in a copy or a blueprint, relative to the copied area's centre.
+public sealed class BpPart
+{
+    public string Type, Config;
+    public int X, Y, Rot;
+    public bool Exit;
+    public BpPart Turned() => new() { Type = Type, Config = Config, X = -Y, Y = X, Rot = (Rot + 1) % 4, Exit = Exit }; // 90° clockwise
+}
 
 public sealed class EntityData
 {
@@ -69,6 +84,56 @@ public sealed class World
     public readonly Dictionary<string, int> Upgrades = new();
     public const int DefaultReserve = 50;
     public int Tutorial; // first-start tutorial: steps done, -1 = hidden
+
+    // Game speed is not saved: every load starts at 1x and running.
+    public bool Paused, StepOnce;
+    public int Speed = 1;
+
+    public SessionStats Session = new(), LastSession;
+
+    // ---------- Stats ----------
+    // Everything made, and the coins earned, is counted in 10 s buckets; the last 10 minutes stay for the graph.
+    public const int TicksPerSecond = 20, StatBucketTicks = 10 * TicksPerSecond, StatBuckets = 60;
+    public const string CoinKey = "$coins";
+    public readonly List<Dictionary<string, long>> History = new(); // oldest first
+    Dictionary<string, long> _bucket = new();
+
+    public void Made(string item, long n)
+    {
+        _bucket[item] = _bucket.GetValueOrDefault(item) + n;
+        if (item != CoinKey) Session.Made += n;
+    }
+
+    // Average over the last minute, or over what there is so far.
+    public float PerMinute(string key)
+    {
+        int k = Math.Min(6, History.Count);
+        long sum = 0;
+        for (int i = History.Count - k; i < History.Count; i++) sum += History[i].GetValueOrDefault(key);
+        return k == 0 ? 0 : sum * 6f / k;
+    }
+
+    // ---------- Cosmetics ----------
+    public readonly HashSet<string> Owned = new();
+    public readonly Dictionary<string, string> Equipped = new(); // slot -> cosmetic id
+    public Cosmetic Worn(string slot) => Equipped.TryGetValue(slot, out var id) ? Defs.CosmeticById(id) : null;
+
+    public bool BuyCosmetic(string id)
+    {
+        if (Defs.CosmeticById(id) is not { } c || Owned.Contains(id) || Coins < c.Cost) return false;
+        Coins -= c.Cost;
+        Owned.Add(id);
+        Equipped[c.Slot] = id;
+        Emit("upgraded", Vector2I.Zero, id);
+        return true;
+    }
+
+    // null takes the slot back to plain.
+    public void Wear(string slot, string id)
+    {
+        if (id == null) Equipped.Remove(slot);
+        else if (Owned.Contains(id) && Defs.CosmeticById(id)?.Slot == slot) Equipped[slot] = id;
+    }
 
     public bool Free => Mode == "sandbox";
     public Milestone CurrentMilestone => !Free && MilestoneIndex < Defs.Milestones.Length ? Defs.Milestones[MilestoneIndex] : null;
@@ -146,12 +211,14 @@ public sealed class World
     public void Deliver(string item, Vector2I from)
     {
         AddStorage(item, 1);
+        Session.Delivered++;
         Emit("delivered", from, item);
         if (CurrentMilestone is not { } m) return;
         foreach (var (i, n) in m.Need)
             if (i == item && Delivered.GetValueOrDefault(i) < n) Delivered[i] = Delivered.GetValueOrDefault(i) + 1;
         foreach (var (i, n) in m.Need) if (Delivered.GetValueOrDefault(i) < n) return;
         MilestoneIndex++;
+        Session.Milestones++;
         Delivered.Clear();
         Emit("milestone", from, m.Name);
     }
@@ -168,6 +235,8 @@ public sealed class World
             long paid = (long)Math.Round(excess * def.Price * SellMultiplier);
             Coins += paid;
             CoinsEarned += paid;
+            Session.Coins += paid;
+            Made(CoinKey, paid);
             Emit("sold", Vector2I.Zero, item, paid);
         }
     }
@@ -332,7 +401,7 @@ public sealed class World
             net.Capacity = cap;
             net.Satisfaction = cap <= 0 ? 0 : demand <= 0 ? 1 : Mathf.Min(1, cap / demand);
             if (demand <= 0 || capable == 0) continue;
-            float perGenKJ = demand * net.Satisfaction / capable / Engine.PhysicsTicksPerSecond;
+            float perGenKJ = demand * net.Satisfaction / capable / World.TicksPerSecond;
             foreach (var g in net.Gens) if (g.CanSupply) g.Draw(perGenKJ);
         }
     }
@@ -349,6 +418,79 @@ public sealed class World
         }
         if (Tick % 20 == 0) AutoSellPass();
         StepPotions();
+        if (Tick % StatBucketTicks == 0)
+        {
+            History.Add(_bucket);
+            _bucket = new();
+            if (History.Count > StatBuckets) History.RemoveAt(0);
+        }
+    }
+
+    // ---------- Undo ----------
+    // While an action is open (one mouse drag, one key, one paste), every place, remove and turn is recorded,
+    // so the whole action undoes in one step. Contents are never restored: removing already refunded them.
+    public sealed record Op(string Kind, string Type, Vector2I Pos, int Rot, string Config = null, bool Exit = false, int From = 0)
+    {
+        public Op Inverse() => Kind switch { "placed" => this with { Kind = "removed" }, "removed" => this with { Kind = "placed" }, _ => this with { Rot = From, From = Rot } };
+    }
+
+    public const int UndoLimit = 100;
+    List<Op> _recording;
+    readonly List<List<Op>> _undo = new(), _redo = new();
+
+    public void BeginAction() { EndAction(); _recording = new(); }
+
+    public void EndAction()
+    {
+        if (_recording is { Count: > 0 })
+        {
+            _undo.Add(_recording);
+            _redo.Clear();
+            if (_undo.Count > UndoLimit) _undo.RemoveAt(0);
+        }
+        _recording = null;
+    }
+
+    // Both return how many buildings couldn't come back (tile taken or not enough materials), or -1 if there was nothing.
+    public int Undo() => Replay(_undo, _redo, true);
+    public int Redo() => Replay(_redo, _undo, false);
+
+    int Replay(List<List<Op>> from, List<List<Op>> to, bool back)
+    {
+        EndAction();
+        if (from.Count == 0) return -1;
+        var ops = from[^1];
+        from.RemoveAt(from.Count - 1);
+        var steps = back ? ops.Select(o => o.Inverse()).Reverse().ToList() : ops;
+        int failed = 0;
+        // Removals first so a tile is free again, then placements with underground entrances before their exits.
+        foreach (var o in steps.Where(o => o.Kind == "removed"))
+            if (At(o.Pos) is { } e && e.Pos == o.Pos && e.Type == o.Type) Remove(o.Pos);
+        foreach (var o in steps.Where(o => o.Kind == "placed").OrderBy(o => o.Exit))
+            if (Place(o.Type, o.Pos, o.Rot, config: o.Config) == null) failed++;
+        foreach (var o in steps.Where(o => o.Kind == "rotated")) SetRot(o.Pos, o.Rot);
+        to.Add(ops);
+        return failed;
+    }
+
+    // ---------- Copy and paste ----------
+    public List<BpPart> Copy(Rect2I area)
+    {
+        var center = area.Position + area.Size / 2;
+        var parts = new List<BpPart>();
+        foreach (var e in Entities)
+            if (e is not Hub && area.HasPoint(e.Pos))
+                parts.Add(new BpPart { Type = e.Type, Config = e.Config, X = e.Pos.X - center.X, Y = e.Pos.Y - center.Y, Rot = e.Rot, Exit = e.Exit });
+        return parts;
+    }
+
+    // Places what fits and returns how many parts didn't (tile taken, locked or not enough materials).
+    public int Paste(List<BpPart> parts, Vector2I at)
+    {
+        int failed = 0;
+        foreach (var p in parts.OrderBy(p => p.Exit))
+            if (!Defs.Buildings.ContainsKey(p.Type) || Place(p.Type, at + new Vector2I(p.X, p.Y), p.Rot, config: p.Config) == null) failed++;
+        return failed;
     }
 
     // ---------- Undergrounds ----------
@@ -480,7 +622,7 @@ public sealed class World
     public bool CanPlace(string type, Vector2I pos, out string why)
     {
         var def = Defs.Buildings[type];
-        if (!IsUnlocked(type)) { why = $"Unlocks with milestone {Defs.UnlockTier(type)}"; return false; }
+        if (!IsUnlocked(type)) { why = Defs.LockedWhy(type); return false; }
         for (int x = 0; x < def.Size; x++)
             for (int y = 0; y < def.Size; y++)
                 if (Grid.ContainsKey(pos + new Vector2I(x, y))) { why = "Something is in the way"; return false; }
@@ -492,7 +634,8 @@ public sealed class World
         return true;
     }
 
-    public Entity Place(string type, Vector2I pos, int rot, bool force = false)
+    // config: a recipe, filter or source item to start with (copies, undo).
+    public Entity Place(string type, Vector2I pos, int rot, bool force = false, string config = null)
     {
         if (!force && !CanPlace(type, pos, out _)) return null;
         if (!force && !Free)
@@ -501,9 +644,12 @@ public sealed class World
         e.Type = type;
         e.Pos = pos;
         e.Rot = rot;
+        e.Config = config;
         // An underground piece becomes the exit of the nearest unpaired entrance behind it, if there is one.
         e.Exit = EntranceFor(type, pos, rot) != null;
         Add(e);
+        if (!force) Session.Built++;
+        _recording?.Add(new Op("placed", type, pos, rot, e.Config, e.Exit));
         Emit("placed", pos, type);
         return e;
     }
@@ -511,6 +657,7 @@ public sealed class World
     public bool Remove(Vector2I tile)
     {
         if (!Grid.TryGetValue(tile, out var e) || e is Hub) return false;
+        _recording?.Add(new Op("removed", e.Type, e.Pos, e.Rot, e.Config, e.Exit));
         var refund = new List<string>();
         e.Contents(refund);
         foreach (var i in refund) AddStorage(i, 1);
@@ -543,6 +690,7 @@ public sealed class World
     public void SetRot(Vector2I tile, int rot)
     {
         if (At(tile) is not { } e || e is Hub || e.Rot == rot) return;
+        _recording?.Add(new Op("rotated", e.Type, e.Pos, rot, From: e.Rot));
         e.Rot = rot;
         Version++;
         Emit("rotated", e.Pos, e.Type);
@@ -552,6 +700,7 @@ public sealed class World
     {
         if (Grid.ContainsKey(t) || OreAt(t) is not { } ore) return false;
         AddStorage(ore, HandYield);
+        Made(ore, HandYield);
         Emit("mined", t, ore, HandYield);
         return true;
     }
@@ -588,6 +737,9 @@ public sealed class World
         s.AutoSell.Sort(StringComparer.Ordinal);
         foreach (var kv in Reserve) s.Reserve[kv.Key] = kv.Value;
         foreach (var kv in Upgrades) s.Upgrades[kv.Key] = kv.Value;
+        s.LastSession = Session;
+        s.Cosmetics.AddRange(Owned.OrderBy(x => x, StringComparer.Ordinal));
+        foreach (var kv in Equipped) s.Equipped[kv.Key] = kv.Value;
         EnsureFluids();
         SpreadFluids();
         foreach (var e in Entities)
@@ -612,6 +764,9 @@ public sealed class World
         foreach (var i in s.AutoSell ?? new()) w.AutoSell.Add(i);
         foreach (var kv in s.Reserve ?? new()) w.Reserve[kv.Key] = kv.Value;
         foreach (var kv in s.Upgrades ?? new()) w.Upgrades[kv.Key] = kv.Value;
+        w.LastSession = s.LastSession;
+        foreach (var id in s.Cosmetics ?? new()) if (Defs.CosmeticById(id) != null) w.Owned.Add(id);
+        foreach (var kv in s.Equipped ?? new()) w.Wear(kv.Key, kv.Value);
         foreach (var d in s.Entities)
         {
             if (!Defs.Buildings.ContainsKey(d.Type) || Entity.Create(d.Type) is not { } e) { GD.PushWarning($"Unknown building '{d.Type}' skipped"); continue; }

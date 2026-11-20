@@ -21,7 +21,10 @@ public sealed partial class Hud : Control
     VBoxContainer _storage;
     PanelContainer _storagePanel, _tracker;
     HBoxContainer _bar, _coinRow;
-    Label _coins, _toast, _hints, _trackerTitle;
+    Label _coins, _coinRate, _toast, _hints, _trackerTitle;
+    readonly List<Button> _speedBtns = new(); // pause, 1x, 2x, 4x, step
+    readonly List<Control> _bigOnly = new();  // top-row buttons hidden in the mini window
+    string _shownSpeed;
     VBoxContainer _trackerRows;
     Button _miniBtn;
     ColorRect _flash;
@@ -46,7 +49,8 @@ public sealed partial class Hud : Control
         _storagePanel.AddChild(_storage);
         AddChild(_storagePanel);
         _coins = Ui.MakeLabel("0", 16, new Color("f7c948"));
-        _coinRow = Ui.Row(Ui.Icon(Sprites.Coin), _coins);
+        _coinRate = Ui.MakeLabel("", 12, Ui.Muted);
+        _coinRow = Ui.Row(Ui.Icon(Sprites.Coin), _coins, _coinRate);
         _coinRow.TooltipText = "Coins: turn on auto-sell in the Hub to earn them";
         _storage.AddChild(_coinRow);
         _potionRows = new VBoxContainer();
@@ -88,12 +92,33 @@ public sealed partial class Hud : Control
         top.GrowHorizontal = GrowDirection.Begin;
         top.Position += new Vector2(-10, 10);
         AddChild(top);
+        foreach (var (text, tip, act) in new (string, string, Action)[]
+        {
+            ("Pause", "Pause and resume (Space)", () => W.Paused = !W.Paused),
+            ("1x", "Normal speed", () => { W.Speed = 1; W.Paused = false; }),
+            ("2x", "Double speed", () => { W.Speed = 2; W.Paused = false; }),
+            ("4x", "Four times as fast", () => { W.Speed = 4; W.Paused = false; }),
+            ("Step", "One tick forward while paused (.)", () => { W.Paused = true; W.StepOnce = true; }),
+        })
+        {
+            var b = Ui.MakeButton(text, act, Sfx);
+            b.TooltipText = tip;
+            b.CustomMinimumSize = new Vector2(text.Length > 2 ? 0 : 40, 0);
+            _speedBtns.Add(b);
+        }
+        var gap = new Control { CustomMinimumSize = new Vector2(10, 0) };
         var build = Ui.MakeButton("Build", OpenBuildMenu, Sfx);
         build.TooltipText = "All buildings (Q)";
+        var stats = Ui.MakeButton("Stats", OpenStats, Sfx);
+        stats.TooltipText = "Production per item and coins per minute (P)";
+        var bps = Ui.MakeButton("Blueprints", OpenBlueprints, Sfx);
+        bps.TooltipText = "Saved copies, shared by every save (B). Ctrl+C copies an area";
         _miniBtn = Ui.MakeButton("Mini", () => ToggleMini?.Invoke(), Sfx);
         var menu = Ui.MakeButton("Menu", () => OpenMenu?.Invoke(), Sfx);
         menu.TooltipText = "Save, settings, main menu, quit (Esc)";
-        foreach (var b in new[] { build, _miniBtn, menu }) { b.FocusMode = FocusModeEnum.None; top.AddChild(b); }
+        _bigOnly.AddRange(_speedBtns);
+        _bigOnly.AddRange(new Control[] { gap, stats, bps });
+        foreach (var b in _speedBtns.Concat(new Control[] { gap, build, stats, bps, _miniBtn, menu })) { b.FocusMode = FocusModeEnum.None; top.AddChild(b); }
 
         _toast = Ui.MakeLabel("", 16, Ui.Accent);
         _toast.SetAnchorsAndOffsetsPreset(LayoutPreset.CenterBottom);
@@ -104,7 +129,7 @@ public sealed partial class Hud : Control
         _toast.AddThemeConstantOverride("outline_size", 6);
         AddChild(_toast);
 
-        _hints = Ui.MakeLabel("Click ore to mine   Click a building to open it   1-0 build (again: next tier)   Q all buildings   R rotate   Right-click remove   V underground   F7 mini   F8 hide", 13, Ui.Text);
+        _hints = Ui.MakeLabel("Click ore to mine   Click a building to open it   1-0 build (again: next tier)   Q all buildings   R rotate   Right-click remove   Ctrl+Z undo   Ctrl+C copy   V underground   Space pause   F7 mini   F8 hide", 13, Ui.Text);
         _hints.SetAnchorsAndOffsetsPreset(LayoutPreset.BottomLeft);
         _hints.GrowVertical = GrowDirection.Begin;
         _hints.Position += new Vector2(10, -66);
@@ -119,6 +144,7 @@ public sealed partial class Hud : Control
         View.Inspect = Inspect;
         BuildHoverCard();
         BuildTutorial();
+        BuildWelcome();
         Resized += FitHotbar;
         _seenMilestone = W.MilestoneIndex;
         RebuildHotbar();
@@ -143,6 +169,7 @@ public sealed partial class Hud : Control
         if (mini == _mini) return;
         _mini = mini;
         _miniBtn.Text = mini ? "Big" : "Mini";
+        foreach (var c in _bigOnly) c.Visible = !mini;
         _miniBtn.TooltipText = mini ? "Back to the normal window (F7)" : "Switch to the small always-on-top window (F7)";
         foreach (var r in _rows.Values) r.Count.AddThemeFontSizeOverride("font_size", mini ? 12 : 16);
         _coins.AddThemeFontSizeOverride("font_size", mini ? 12 : 16);
@@ -319,6 +346,7 @@ public sealed partial class Hud : Control
         UpdateTutorial();
         UpdatePotionTimers();
         UpdateHoverCard();
+        UpdateSpeed();
         bool showStorage = S.StatOn("storage");
         foreach (var id in Defs.Items.Keys)
         {
@@ -337,6 +365,9 @@ public sealed partial class Hud : Control
         if (Math.Abs(coins - W.Coins) < 0.5) coins = W.Coins;
         _coinsShown = coins;
         _coins.Text = Compact((long)Math.Round(coins));
+        float rate = W.PerMinute(World.CoinKey);
+        _coinRate.Visible = S.StatOn("coinrate") && rate > 0;
+        _coinRate.Text = $"+{Compact((long)Math.Round(rate))}/min";
 
         if (_shownSel != View.Selected)
         {
@@ -409,6 +440,7 @@ public sealed partial class Hud : Control
             case Chest c: OpenChest(c); break;
             case Pipe p: OpenPipe(p); break;
             case Pole or Generator: OpenPower(e); break;
+            case ItemSource src: PickItem("Item source", "Makes this item out of nothing and hands it to the tile in front.", src.Item, false, id => src.Item = id); break;
         }
     }
 
@@ -452,14 +484,14 @@ public sealed partial class Hud : Control
         grid.AddThemeConstantOverride("h_separation", 6);
         grid.AddThemeConstantOverride("v_separation", 6);
         body.AddChild(grid);
-        foreach (var id in Defs.BuildOrder)
+        foreach (var id in Defs.BuildOrder.Concat(W.Free ? Defs.SandboxOnly : Array.Empty<string>()))
         {
             var def = Defs.Buildings[id];
             bool open = W.IsUnlocked(id);
             var b = new Button { Text = def.Name, Icon = Sprites.Icons[id], ExpandIcon = true, Disabled = !open, CustomMinimumSize = new Vector2(_mini ? 150 : 124, 44), Alignment = HorizontalAlignment.Left };
             b.AddThemeConstantOverride("icon_max_width", 24);
             b.TooltipText = open ? $"Costs {Ui.Cost(def.Cost)}" : $"Unlocks with milestone {Defs.UnlockTier(id)}";
-            b.Pressed += () => { View.Selected = id; Sfx.Play("click"); ClosePanel(); };
+            b.Pressed += () => { View.StopClip(); View.Selected = id; Sfx.Play("click"); ClosePanel(); };
             Ui.Squishy(b);
             grid.AddChild(b);
         }
@@ -534,7 +566,7 @@ public sealed partial class Hud : Control
             refresh.Add(() => buy.Disabled = W.Coins < World.RawCost(ore));
             body.AddChild(Ui.Row(Ui.Icon(Sprites.Items[ore], 20), Ui.Grow(Ui.MakeLabel(Defs.Items[ore].Name, 14)), buy));
         }
-        body.AddChild(Ui.MakeLabel("Cosmetics arrive in a later update.", 12, Ui.Muted));
+        FillCosmetics(body, refresh);
     }
 
     void OpenRecipePicker(Assembler a)
@@ -560,23 +592,30 @@ public sealed partial class Hud : Control
         body.AddChild(note);
     }
 
-    void OpenFilterPicker(Inserter ins)
+    void OpenFilterPicker(Inserter ins) =>
+        PickItem("Inserter filter", "Only pick up this item. Without a filter it takes anything the target accepts.", ins.Filter, true, id => W.SetFilter(ins, id));
+
+    // A grid of every item; allowNone adds a "No filter" button that sets null.
+    void PickItem(string title, string infoText, string current, bool allowNone, Action<string> set)
     {
-        var body = OpenPanel("Inserter filter", 460);
-        var info = Ui.MakeLabel("Only pick up this item. Without a filter it takes anything the target accepts.", 13, Ui.Muted);
+        var body = OpenPanel(title, 460);
+        var info = Ui.MakeLabel(infoText, 13, Ui.Muted);
         info.AutowrapMode = TextServer.AutowrapMode.WordSmart;
         body.AddChild(info);
-        var none = Ui.MakeButton("No filter", () => { W.SetFilter(ins, null); ClosePanel(); }, Sfx);
-        if (ins.Filter == null) none.AddThemeStyleboxOverride("normal", Ui.Box(Ui.BtnHover, Ui.Accent, 3));
-        body.AddChild(none);
+        if (allowNone)
+        {
+            var none = Ui.MakeButton("No filter", () => { set(null); ClosePanel(); }, Sfx);
+            if (current == null) none.AddThemeStyleboxOverride("normal", Ui.Box(Ui.BtnHover, Ui.Accent, 3));
+            body.AddChild(none);
+        }
         var grid = new GridContainer { Columns = _mini ? 5 : 8 };
         body.AddChild(grid);
         foreach (var (id, def) in Defs.Items.Where(x => !x.Value.Fluid))
         {
             var b = new Button { Icon = Sprites.Items[id], ExpandIcon = true, CustomMinimumSize = new Vector2(40, 40), TooltipText = def.Name };
             b.AddThemeConstantOverride("icon_max_width", 22);
-            if (ins.Filter == id) b.AddThemeStyleboxOverride("normal", Ui.Box(Ui.BtnHover, Ui.Accent, 3));
-            b.Pressed += () => { W.SetFilter(ins, id); Sfx.Play("click"); ClosePanel(); };
+            if (current == id) b.AddThemeStyleboxOverride("normal", Ui.Box(Ui.BtnHover, Ui.Accent, 3));
+            b.Pressed += () => { set(id); Sfx.Play("click"); ClosePanel(); };
             Ui.Squishy(b);
             grid.AddChild(b);
         }

@@ -42,6 +42,10 @@ public static class SelfTest
         Test("drawing across a line makes a crossing; splitter commits and never jams", CrossAndSplit);
         Test("side-loaded items glide in from the side edge", SideGlide);
         Test("older saves still load and run", LegacySaves);
+        Test("undo and redo give back exactly what they took", UndoRedo);
+        Test("a turned copy of an underground pair stays paired", PasteTurned);
+        Test("item source feeds an item void without loss; locked outside sandbox", SourceVoid);
+        Test("production counters match what miners made and the session lands in the save", StatsAndPause);
         GD.Print(_fails == 0 ? "SELFTEST PASS" : $"SELFTEST FAIL ({_fails})");
         return _fails;
     }
@@ -159,6 +163,7 @@ public static class SelfTest
             for (int i = 0; i < 1000; i++) { a.Step(); b.Step(); }
             var sa = a.ToSave(); var sb = b.ToSave();
             sa.SavedAt = sb.SavedAt = null;
+            sa.LastSession = sb.LastSession = null; // session stats restart on load by design
             Check(Persist.Serialize(sa) == Persist.Serialize(sb), $"loaded world diverged from the original ({make.Method.Name})");
         }
     }
@@ -439,6 +444,81 @@ public static class SelfTest
         Belts(w, 0, (6, 0), (7, 0), (8, 0), (9, 0));
         w.Place("splitter", new(7, 2), 0); // an idle splitter too, for the round trip
         return w;
+    }
+
+    static void UndoRedo()
+    {
+        var w = World.New("t", "normal", false, 1);
+        w.AddStorage("iron_plate", 100);
+        w.AddStorage("copper_plate", 20);
+        w.MilestoneIndex = 1; // assemblers unlocked
+        long plates = w.Storage["iron_plate"];
+        w.BeginAction();
+        Belts(w, 0, (5, 0), (6, 0), (7, 0));
+        w.SetRot(new(7, 0), 1);
+        w.EndAction();
+        w.BeginAction();
+        var asm = w.Place("assembler", new(5, 2), 0, config: "gear");
+        w.EndAction();
+        Check(asm is Assembler { RecipeId: "gear" }, "placing with a config should set the recipe");
+        w.BeginAction(); w.Remove(new(5, 2)); w.EndAction();
+        Check(w.Undo() == 0 && w.At(new(5, 2)) is Assembler { RecipeId: "gear" }, "undoing a removal should bring the assembler back with its recipe");
+        Check(w.Undo() == 0 && w.At(new(5, 2)) == null, "undoing the placement should remove it");
+        Check(w.Undo() == 0 && w.At(new(5, 0)) == null && w.At(new(7, 0)) == null, "one undo should take back the whole belt drag");
+        Check(w.Storage["iron_plate"] == plates, $"undo should refund everything: {w.Storage["iron_plate"]} != {plates}");
+        Check(w.Undo() == -1, "nothing left to undo");
+        Check(w.Redo() == 0 && w.At(new(7, 0)) is Belt { Rot: 1 } && w.At(new(5, 0)) is Belt, "redo should replay the drag, turn included");
+        Check(w.Storage["iron_plate"] == plates - 3, "redo should pay again");
+        w.Storage["iron_plate"] = 0;
+        w.Storage.Remove("copper_plate");
+        Check(w.Redo() == 1, "redo without materials should report the building it couldn't place");
+    }
+
+    static void PasteTurned()
+    {
+        var w = Sandbox();
+        w.Place("tunnel", new(0, 0), 0);
+        w.Place("tunnel", new(3, 0), 0);
+        w.Place("inserter", new(1, 1), 0, config: "gear");
+        var clip = w.Copy(new Rect2I(0, 0, 4, 2)).Select(p => p.Turned()).ToList();
+        Check(clip.Count == 3, $"expected 3 parts, got {clip.Count}");
+        var at = new Vector2I(20, 20);
+        Check(w.Paste(clip, at) == 0, "turned paste should fit on empty ground");
+        var pieces = w.Entities.OfType<Tunnel>().Where(t => t.Pos.X >= 10).ToList();
+        Check(pieces.Count == 2 && pieces.All(t => t.Rot == 1), "pasted tunnels should face down");
+        var entrance = pieces.Single(t => !t.Exit);
+        Check(w.Partner(entrance) is { Exit: true }, "pasted tunnels should still be a pair");
+        Check(w.Entities.OfType<Inserter>().Any(i => i.Pos.X >= 10 && i.Filter == "gear"), "the inserter's filter should come along");
+        Check(w.Paste(clip, at) == 3, "pasting onto itself should place nothing");
+    }
+
+    static void SourceVoid()
+    {
+        var w = Sandbox();
+        var src = (ItemSource)w.Place("source", new(0, 0), 0, config: "gear");
+        Belts(w, 0, (1, 0), (2, 0), (3, 0));
+        var sink = (ItemVoid)w.Place("void", new(4, 0), 0);
+        long made = 0;
+        for (int i = 0; i < 400; i++) { w.Step(); if (src.Working) made++; }
+        Check(sink.Eaten > 50, $"only {sink.Eaten} items reached the void");
+        Check(made == sink.Eaten + OnBelts(w), $"items lost: made {made}, eaten {sink.Eaten}, on belts {OnBelts(w)}");
+        var normal = World.New("t", "normal", false, 1);
+        Check(!normal.CanPlace("source", new(9, 9), out var why) && why.Contains("sandbox"), "item source must stay a sandbox tool");
+    }
+
+    static void StatsAndPause()
+    {
+        var w = Sandbox();
+        w.ForcedOre[new(0, 0)] = "iron_ore";
+        var m = (Miner)w.Place("miner", new(0, 0), 0);
+        w.Place("chest", new(1, 0), 0);
+        for (int i = 0; i < World.StatBucketTicks * 3; i++) w.Step();
+        long counted = w.History.Sum(b => b.GetValueOrDefault("iron_ore"));
+        Check(w.History.Count == 3 && counted == m.Produced, $"counted {counted} ore in {w.History.Count} buckets, miner made {m.Produced}");
+        Check(Math.Abs(w.PerMinute("iron_ore") - counted * 2) < 0.01f, $"per minute should be {counted * 2}, got {w.PerMinute("iron_ore")}");
+        var save = w.ToSave();
+        var back = World.FromSave(Persist.Deserialize(Persist.Serialize(save)));
+        Check(back.LastSession?.Made == counted && back.Session.Made == 0, "the save should carry last session's stats, and a fresh session should start at 0");
     }
 
     static void Tunnels()

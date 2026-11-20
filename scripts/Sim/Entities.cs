@@ -31,6 +31,7 @@ public abstract class Entity
     public virtual string Status => null;                           // "starved", "blocked", "norecipe" or null
     public virtual void Save(EntityData d) { }
     public virtual void Load(EntityData d) { }
+    public virtual string Config { get => null; set { } } // what a copy or undo carries over: recipe, filter, source item
 
     public static Entity Create(string type) => type switch
     {
@@ -49,6 +50,8 @@ public abstract class Entity
         "pump" => new Pump(),
         "refinery" => new Refinery(),
         "hub" => new Hub(),
+        "source" => new ItemSource(),
+        "void" => new ItemVoid(),
         _ => null,
     };
 
@@ -195,7 +198,7 @@ public sealed class Miner : Entity
     public override void Tick(World w)
     {
         var ore = w.OreAt(Pos);
-        if (Buffer == null && ore != null && (Progress += w.SpeedOf(this)) >= Interval) { Progress -= Interval; Buffer = ore; Produced++; }
+        if (Buffer == null && ore != null && (Progress += w.SpeedOf(this)) >= Interval) { Progress -= Interval; Buffer = ore; Produced++; w.Made(ore, 1); }
         Working = Buffer == null && ore != null;
         if (Buffer != null && w.At(Front) is { } t && t.CanAccept(w, Buffer, Pos)) { t.Accept(w, Buffer, Pos); Buffer = null; }
     }
@@ -235,6 +238,7 @@ public sealed class Furnace : Entity
         if (InN == 0) In = null;
         Out = r.Out;
         OutN += r.OutCount;
+        w.Made(Out, r.OutCount);
         w.Emit("crafted", Pos, Out);
     }
 
@@ -268,6 +272,7 @@ public class Assembler : Entity
     public float Progress;
 
     public Recipe Recipe => RecipeId == null ? null : Defs.RecipeById(RecipeId);
+    public override string Config { get => RecipeId; set => RecipeId = Defs.RecipeById(value)?.Machine == Type ? value : null; }
 
     public override bool CanAccept(World w, string item, Vector2I from)
     {
@@ -288,6 +293,7 @@ public class Assembler : Entity
         Progress -= r.Ticks;
         foreach (var (i, n) in r.In) AddInv(Inv, i, -n);
         OutN += r.OutCount;
+        w.Made(r.Out, r.OutCount);
         w.Emit("crafted", Pos, r.Out);
     }
 
@@ -372,6 +378,7 @@ public sealed class Inserter : Entity
 
     public override void Contents(List<string> into) { if (Held != null) into.Add(Held); }
     public override void Save(EntityData d) { d.A = Held; d.P = Arm; d.B = Filter; }
+    public override string Config { get => Filter; set => Filter = Defs.Items.ContainsKey(value ?? "") ? value : null; }
     public override void Load(EntityData d) { Held = d.A; Arm = d.P; Filter = d.B; }
 }
 
@@ -654,4 +661,29 @@ public sealed class Refinery : Assembler
         base.Contents(into);
         into.RemoveAll(Defs.IsFluid);
     }
+}
+
+// Sandbox: makes the chosen item out of nothing, as fast as the tile in front takes it.
+public sealed class ItemSource : Entity
+{
+    public string Item;
+    public override string Config { get => Item; set => Item = Defs.Items.TryGetValue(value ?? "", out var d) && !d.Fluid ? value : null; }
+
+    public override void Tick(World w)
+    {
+        Working = Item != null && w.At(Front) is { } t && t.CanAccept(w, Item, Pos);
+        if (Working) w.At(Front).Accept(w, Item, Pos);
+    }
+
+    public override string Status => Item == null ? "norecipe" : null;
+    public override void Save(EntityData d) => d.A = Item;
+    public override void Load(EntityData d) => Config = d.A;
+}
+
+// Sandbox: swallows every item handed to it.
+public sealed class ItemVoid : Entity
+{
+    public long Eaten;
+    public override bool CanAccept(World w, string item, Vector2I from) => true;
+    public override void Accept(World w, string item, Vector2I from, float overflow = 0) => Eaten++;
 }

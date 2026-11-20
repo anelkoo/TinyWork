@@ -10,6 +10,8 @@ public sealed record BuildingDef(string Id, string Name, int Size, (string Item,
 // Unlock: null = available from the start, otherwise a key some milestone unlocks.
 public sealed record Recipe(string Id, string Machine, (string Item, int Count)[] In, string Out, int OutCount, int Ticks, string Unlock = null);
 public sealed record Milestone(string Name, (string Item, int Count)[] Need, string[] Unlocks);
+// Bought once with coins, then worn in its slot: belt, machine, hat or particle.
+public sealed record Cosmetic(string Id, string Slot, string Name, int Cost, Color Color);
 public sealed record Upgrade(string Id, string Name, string Description, int Max, int BaseCost);
 // A temporary boost bought with coins. Price per minute is multiplied by World.PriceLevel, which grows with progress.
 // Strengths are the multipliers you can brew; the price scales with the bonus (strength - 1) relative to Default.
@@ -29,6 +31,8 @@ public static class Defs
     public static readonly string[] BuildOrder = { "belt", "fast_belt", "express_belt", "crossing", "inserter", "miner", "furnace", "assembler", "chest", "pole", "big_pole", "super_pole", "generator", "splitter", "tunnel", "pipe", "pipe_tunnel", "pump", "refinery" };
     // Every building has a hotbar slot, locked ones greyed out, so slots never shift when something unlocks.
     // Keys 1-9 and 0 reach the first ten. Pressing a tiered slot again (belts, poles) steps through its unlocked tiers.
+    // Sandbox tools: no milestone unlocks them, so outside sandbox they stay locked and hidden.
+    public static readonly string[] SandboxOnly = { "source", "void" };
     public static readonly string[] HotbarOrder = { "belt", "inserter", "miner", "furnace", "crossing", "splitter", "tunnel", "assembler", "chest", "pole", "generator", "pipe", "pipe_tunnel", "pump", "refinery" };
 
     // Power (kW) a machine draws while it works. Power only ever speeds things up: see World.PowerBoost.
@@ -68,6 +72,23 @@ public static class Defs
         new("quick_arms", "Arm Tonic", "Inserters swing {0} as fast", new Color("5aa9e8"), 8, new[] { 1.25f, 1.5f, 2f }, 1.5f),
         new("rock_crusher", "Rock Crusher", "Mining by hand gives {0} ore", new Color("62b86a"), 4, new[] { 2f, 5f, 10f }, 5f),
     };
+    public static readonly Cosmetic[] Cosmetics =
+    {
+        new("belt_mint", "belt", "Mint", 400, new Color("9fe0c0")),
+        new("belt_rose", "belt", "Rose", 400, new Color("f4b0c4")),
+        new("belt_dusk", "belt", "Dusk", 900, new Color("a7aaf0")),
+        new("machine_sky", "machine", "Sky", 600, new Color("b9dcf5")),
+        new("machine_moss", "machine", "Moss", 600, new Color("c4e2ad")),
+        new("machine_gold", "machine", "Gold", 1500, new Color("f7dc8a")),
+        new("hat_party", "hat", "Party Hat", 300, new Color("e8665a")),
+        new("hat_top", "hat", "Top Hat", 800, new Color("2a2433")),
+        new("hat_crown", "hat", "Crown", 2000, new Color("f7c948")),
+        new("fx_rainbow", "particle", "Rainbow", 500, new Color("b98cf0")),
+        new("fx_gold", "particle", "Gold Dust", 900, new Color("f7c948")),
+        new("fx_snow", "particle", "Snow", 900, new Color("e6f0ff")),
+    };
+    public static Cosmetic CosmeticById(string id) => System.Array.Find(Cosmetics, c => c.Id == id);
+
     public const int PotionMaxMinutes = 120; // per potion and strength; buying more extends it up to this
     public static Potion PotionById(string id) => System.Array.Find(Potions, p => p.Id == id);
     // "x1.5", "x2": multipliers as players read them, the same in every language setting.
@@ -112,6 +133,8 @@ public static class Defs
         Building("pump", "Pump", 1, ("iron_plate", 8), ("gear", 2));
         Building("refinery", "Refinery", 1, ("steel_plate", 5), ("circuit", 5), ("brick", 10));
         Building("hub", "Hub", 3);
+        Building("source", "Item Source", 1);
+        Building("void", "Item Void", 1);
 
         Recipes.Add(new("iron_plate", "furnace", new[] { ("iron_ore", 1) }, "iron_plate", 1, 40));
         Recipes.Add(new("copper_plate", "furnace", new[] { ("copper_ore", 1) }, "copper_plate", 1, 40));
@@ -136,6 +159,9 @@ public static class Defs
     public static bool IsFluid(string id) => id != null && Items.TryGetValue(id, out var d) && d.Fluid;
     public static Recipe RecipeById(string id) => Recipes.FirstOrDefault(r => r.Id == id);
     public static int UpgradeCost(Upgrade u, int level) => u.BaseCost << level;
+
+    public static string LockedWhy(string type) =>
+        System.Array.IndexOf(SandboxOnly, type) >= 0 ? $"{Buildings[type].Name} is a sandbox tool" : $"{Buildings[type].Name} unlocks with milestone {UnlockTier(type)}";
 
     // The milestone (1-based tier) that unlocks a building or recipe, 0 if it is there from the start.
     public static int UnlockTier(string key)

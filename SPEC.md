@@ -123,7 +123,7 @@ Each step ends in something playable:
    - Refinery recipes: water + coal → black goo; black goo + coal → plastic; black goo → sparkgas; sparkgas + stone → sulfur. Generators next to a sparkgas pipe burn it (200 kJ per unit).
    - New items: plastic and sulfur, plus the fluids water, black goo and sparkgas.
    - Milestones 4 to 6 are still to be defined. The new buildings are in the Q menu only, because the 9 hotbar slots are full (the customizable hotbar comes in step 6).
-6. Undo, copy/paste, blueprints, Sandbox tools, stats.
+6. Undo, copy/paste, blueprints, Sandbox tools, stats. Done in v0.0.5, together with game speed, the welcome-back card, music and the cosmetics shop. The music is synthesized in code instead of coming from a CC0 source, and music tracks are not in the shop.
 7. Installers and packages. Done: `.uild.ps1 -Version <ver>` builds a Windows installer (Inno Setup, per user, no admin) and a portable zip, a `.deb` (Debian/Ubuntu), a `.pkg.tar.zst` (Arch), an AppImage (other distros) and a Linux tar.gz. All are self-contained, with no .NET or ICU needed. The packaging files are in `packaging/`, and the icon is the Hub (`--export-icon`). The Arch package has not been installed on a real Arch system yet.
 
 Juice and sound get added to each system as it lands.

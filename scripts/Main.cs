@@ -131,6 +131,7 @@ public partial class Main : Node
         _worldVp.ProcessMode = pm;
         _uiRoot.ProcessMode = pm;
         _sfx.Volume = _s.SfxVolume * (mini ? 0.5f : 1f);
+        _sfx.MusicVolume = _s.MusicVolume * (mini ? 0.5f : 1f);
     }
 
     void ShowTitle()
@@ -177,7 +178,7 @@ public partial class Main : Node
         _hud.ToggleMini += _win.ToggleMode;
         _sinceSave = 0;
         OnWindowChanged();
-        SaveNow();
+        SaveNow(); // the welcome card already has last session's stats (World.LastSession)
     }
 
     void EndGame()
@@ -185,6 +186,7 @@ public partial class Main : Node
         SaveNow();
         CloseMenu();
         Engine.TimeScale = 1;
+        Engine.PhysicsTicksPerSecond = World.TicksPerSecond;
         _view.QueueFree();
         _hud.QueueFree();
         _view = null;
@@ -236,19 +238,28 @@ public partial class Main : Node
             if (_menu != null || !_view.HandleKey(Key.Escape)) ToggleMenu();
         }
         else if (_menu != null) return;
+        else if (k.CtrlPressed) { if (!_view.HandleCtrl(k.Keycode, k.ShiftPressed)) return; } // never falls through: Ctrl+V is not V
         else if (k.Keycode == Key.Q) _hud.OpenBuildMenu();
+        else if (k.Keycode == Key.B) _hud.OpenBlueprints();
+        else if (k.Keycode == Key.P) _hud.OpenStats();
         else if (!_view.HandleKey(k.Keycode)) return;
         GetViewport().SetInputAsHandled();
     }
 
     public override void _PhysicsProcess(double delta)
     {
-        _world?.Step();
+        // Faster game speed means more physics ticks per second, one step each, so drawing stays smooth.
+        if (_world != null)
+        {
+            Engine.PhysicsTicksPerSecond = World.TicksPerSecond * (_world.Paused ? 1 : _world.Speed);
+            if (!_world.Paused || _world.StepOnce) { _world.StepOnce = false; _world.Step(); }
+        }
         if (_win?.Hidden == true) _world?.Events.Clear(); // nobody sees effects while hidden; don't replay them all on show
     }
 
     public override void _Process(double delta)
     {
+        if (_world != null) _world.Session.Seconds += delta;
         if (_world == null || (_sinceSave += delta) < AutosaveSeconds) return;
         SaveNow();
     }

@@ -62,7 +62,7 @@ public static class SettingsUi
         body.AddChild(head);
 
         Section(body, "Show on screen");
-        foreach (var (key, name) in new[] { ("storage", "Storage counts"), ("coins", "Coins"), ("milestone", "Milestone progress"), ("bottleneck", "Bottleneck bubbles over machines"), ("tooltips", "Info card for what the mouse is over"), ("hints", "Key hints") })
+        foreach (var (key, name) in new[] { ("storage", "Storage counts"), ("coins", "Coins"), ("coinrate", "Coins per minute"), ("milestone", "Milestone progress"), ("bottleneck", "Bottleneck bubbles over machines"), ("tooltips", "Info card for what the mouse is over"), ("hints", "Key hints") })
         {
             var cb = new CheckBox { Text = name, ButtonPressed = s.StatOn(key), FocusMode = Control.FocusModeEnum.None };
             cb.Toggled += on => { s.Stats[key] = on; apply(); };
@@ -75,6 +75,10 @@ public static class SettingsUi
         vol.ValueChanged += v => { s.SfxVolume = (float)v; volLabel.Text = $"{v:P0}"; apply(); };
         vol.DragEnded += _ => sfx.Play("click");
         body.AddChild(Line("Effects volume", vol, volLabel));
+        var musicLabel = Percent(s.MusicVolume);
+        var music = new HSlider { MinValue = 0, MaxValue = 1, Step = 0.05, Value = s.MusicVolume, CustomMinimumSize = new Vector2(140, 0), SizeFlagsVertical = Control.SizeFlags.ShrinkCenter };
+        music.ValueChanged += v => { s.MusicVolume = (float)v; musicLabel.Text = $"{v:P0}"; apply(); };
+        body.AddChild(Line("Music volume", music, musicLabel));
 
         Section(body, "Start");
         var skip = new CheckBox { Text = "Skip the title screen and open the last save", ButtonPressed = s.SkipTitle, FocusMode = Control.FocusModeEnum.None };

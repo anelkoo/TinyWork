@@ -51,6 +51,22 @@ public static class Persist
 
     public static void SaveSettings(Settings s) => WriteAtomic(SettingsPath, JsonSerializer.Serialize(s, Json));
 
+    // Blueprints are shared by every save. Parts of buildings this version doesn't know are dropped on load.
+    static string BlueprintsPath => Path.Combine(Root, "blueprints.json");
+
+    public static SortedDictionary<string, List<BpPart>> LoadBlueprints()
+    {
+        try
+        {
+            var all = File.Exists(BlueprintsPath) ? JsonSerializer.Deserialize<SortedDictionary<string, List<BpPart>>>(File.ReadAllText(BlueprintsPath), Json) ?? new() : new();
+            foreach (var parts in all.Values) parts.RemoveAll(p => p?.Type == null || !Defs.Buildings.ContainsKey(p.Type) || p.Type == "hub");
+            return all;
+        }
+        catch (Exception e) { GD.PushWarning($"Blueprints unreadable: {e.Message}"); return new(); }
+    }
+
+    public static void SaveBlueprints(SortedDictionary<string, List<BpPart>> all) => WriteAtomic(BlueprintsPath, JsonSerializer.Serialize(all, Json));
+
     public static void SaveSlot(string slot, SaveData data) =>
         WriteAtomic(Path.Combine(SavesDir, slot + ".json"), JsonSerializer.Serialize(data, Json));
 

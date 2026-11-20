@@ -60,17 +60,34 @@ public sealed partial class WorldView : Node2D
     bool J(string family) => S.JuiceOn(family, Mini);
     static Vector2 Center(Vector2I tile) => tile * T + Vector2.One * T / 2;
 
-    // shortcut: the hotbar is simply every unlocked building in a fixed order; make it customizable if 9 slots run out.
-    public List<string> Hotbar() => Defs.HotbarOrder.ToList();
+    // Every building in a fixed order; sandbox adds its tools at the end.
+    public List<string> Hotbar() => Defs.HotbarOrder.Concat(W.Free ? Defs.SandboxOnly : Array.Empty<string>()).ToList();
+
+    // Copy and paste: Ctrl+C, then drag a box. The copy follows the mouse until Esc or right-click.
+    public List<BpPart> Clip;   // the last copy (also what a blueprint loads into)
+    public bool Pasting;        // Clip follows the mouse and a click places it
+    bool _boxing;               // waiting for (or dragging) the copy box
+    Vector2I? _boxStart;
+
+    public void StartPaste(List<BpPart> parts)
+    {
+        Clip = parts;
+        Pasting = parts is { Count: > 0 };
+        _boxing = false;
+        Selected = null;
+    }
+
+    public void StopClip() { Pasting = _boxing = false; _boxStart = null; }
 
     public Action<Entity> Inspect; // clicked a building with nothing selected
     public Action<GameEvent> OnEvent; // every world event, as the view drains them
 
     public void Select(string building)
     {
+        StopClip();
         if (!W.IsUnlocked(building))
         {
-            Toast?.Invoke($"{Defs.Buildings[building].Name} unlocks with milestone {Defs.UnlockTier(building)}");
+            Toast?.Invoke(Defs.LockedWhy(building));
             Sfx.Play("error");
             return;
         }
@@ -102,9 +119,17 @@ public sealed partial class WorldView : Node2D
         if (slot >= 0 && slot < bar.Count) { Select(bar[slot]); return true; }
         switch (k)
         {
+            case Key.R when Pasting: Clip = Clip.Select(p => p.Turned()).ToList(); Sfx.Play("rotate"); return true;
             case Key.R when Selected != null: Rot = (Rot + 1) % 4; Sfx.Play("rotate"); return true;
-            case Key.R: W.Rotate(_hover); return true;
-            case Key.X: W.Remove(_hover); return true;
+            case Key.R: W.BeginAction(); W.Rotate(_hover); W.EndAction(); return true;
+            case Key.X: W.BeginAction(); W.Remove(_hover); W.EndAction(); return true;
+            case Key.Space:
+                W.Paused = !W.Paused;
+                Toast?.Invoke(W.Paused ? "Paused. Space resumes, . steps one tick" : $"Running at {W.Speed}x");
+                Sfx.Play("click");
+                return true;
+            case Key.Period when W.Paused: W.StepOnce = true; return true;
+            case Key.Escape when Pasting || _boxing: StopClip(); return true;
             case Key.V:
                 Underground = !Underground;
                 Toast?.Invoke(Underground ? "Underground view: belts and pipes below the surface" : "Surface view");
@@ -113,6 +138,32 @@ public sealed partial class WorldView : Node2D
             case Key.Escape when Selected != null: Selected = null; return true;
         }
         return false;
+    }
+
+    // Ctrl shortcuts. Returns true when used.
+    public bool HandleCtrl(Key k, bool shift)
+    {
+        switch (k)
+        {
+            case Key.Z when !shift: Undid(W.Undo(), "undo"); return true;
+            case Key.Z or Key.Y: Undid(W.Redo(), "redo"); return true;
+            case Key.C:
+                Selected = null;
+                StopClip();
+                _boxing = true;
+                Toast?.Invoke("Drag a box over what you want to copy");
+                Sfx.Play("click");
+                return true;
+            case Key.V when Clip is { Count: > 0 }: StartPaste(Clip); Sfx.Play("click"); return true;
+            case Key.V: Toast?.Invoke("Nothing copied yet: Ctrl+C, then drag a box"); return true;
+        }
+        return false;
+    }
+
+    void Undid(int failed, string what)
+    {
+        if (failed < 0) { Toast?.Invoke($"Nothing to {what}"); Sfx.Play("error"); return; }
+        if (failed > 0) Toast?.Invoke($"{failed} building{(failed == 1 ? "" : "s")} couldn't come back: the tile is taken or materials ran out");
     }
 
     public override void _UnhandledInput(InputEvent e)
@@ -129,17 +180,35 @@ public sealed partial class WorldView : Node2D
                 _hover = EventTile(mb);
                 switch (mb.ButtonIndex)
                 {
+                    case MouseButton.Left when mb.Pressed && _boxing: _boxStart = _hover; break;
+                    case MouseButton.Left when _boxing && _boxStart is { } from:
+                        var area = new Rect2I(new Vector2I(Math.Min(from.X, _hover.X), Math.Min(from.Y, _hover.Y)), (from - _hover).Abs() + Vector2I.One);
+                        var parts = W.Copy(area);
+                        StopClip();
+                        if (parts.Count == 0) { Toast?.Invoke("Nothing to copy there"); Sfx.Play("error"); break; }
+                        StartPaste(parts);
+                        Toast?.Invoke($"Copied {parts.Count} building{(parts.Count == 1 ? "" : "s")}. Click to paste, R turns it, Esc stops");
+                        Sfx.Play("open");
+                        break;
+                    case MouseButton.Left when mb.Pressed && Pasting:
+                        W.BeginAction();
+                        int failed = W.Paste(Clip, _hover);
+                        W.EndAction();
+                        if (failed > 0) { Toast?.Invoke($"{failed} of {Clip.Count} didn't fit: the tile is taken or materials ran out"); Sfx.Play("error"); }
+                        break;
                     case MouseButton.Left when mb.Pressed:
-                        if (Selected != null) { _painting = true; _lastBelt = null; _lastPaint = _hover; PlaceOne(_hover, true); }
+                        if (Selected != null) { W.BeginAction(); _painting = true; _lastBelt = null; _lastPaint = _hover; PlaceOne(_hover, true); }
                         else if (W.At(_hover) is { } clicked) { Inspect?.Invoke(clicked); Sfx.Play("open"); }
                         else W.HandMine(_hover);
                         break;
-                    case MouseButton.Left: _painting = false; break;
+                    case MouseButton.Left: _painting = false; W.EndAction(); break;
+                    case MouseButton.Right when mb.Pressed && (Pasting || _boxing): StopClip(); break;
                     case MouseButton.Right when mb.Pressed:
+                        W.BeginAction();
                         if (!W.Remove(_hover) && Selected != null) Selected = null;
                         _erasing = true;
                         break;
-                    case MouseButton.Right: _erasing = false; break;
+                    case MouseButton.Right: _erasing = false; W.EndAction(); break;
                     case MouseButton.Middle: _panning = mb.Pressed; break;
                     case MouseButton.WheelUp or MouseButton.WheelDown when Blocked?.Invoke() == true: break;
                     case MouseButton.WheelUp when mb.Pressed: ZoomStep(+1); break;
@@ -223,6 +292,13 @@ public sealed partial class WorldView : Node2D
         Cam.Position = J("screen") ? Cam.Position.Lerp(_camTarget, 1 - Mathf.Exp(-20 * _dt)) : _camTarget;
         Cam.Offset = _juice.ShakeOffset;
 
+        _juice.Recolor = W.Worn("particle")?.Id switch
+        {
+            "fx_rainbow" => _ => Color.FromHsv(GD.Randf(), 0.55f, 1),
+            "fx_gold" => c => new Color("f7c948").Lerp(Colors.White, GD.Randf() * 0.4f) with { A = c.A },
+            "fx_snow" => c => new Color("e6f0ff").Lerp(new Color("a9d2f2"), GD.Randf()) with { A = c.A },
+            _ => null,
+        };
         StreamChunks();
         DrainEvents();
         _juice.Update(_dt);
@@ -357,10 +433,12 @@ public sealed partial class WorldView : Node2D
         return new Vector2(1 + a, 1 - a);
     }
 
+    Color _mod = Colors.White; // cosmetic colour for whatever is being drawn
+
     void Sprite(Texture2D tex, Vector2 center, float angle, Vector2 scale, Color? mod = null)
     {
         DrawSetTransform(center.Round(), angle, scale);
-        DrawTexture(tex, -tex.GetSize() / 2, mod ?? Colors.White);
+        DrawTexture(tex, -tex.GetSize() / 2, mod ?? _mod);
         DrawSetTransform(Vector2.Zero, 0, Vector2.One);
     }
 
@@ -372,12 +450,14 @@ public sealed partial class WorldView : Node2D
     public override void _Draw()
     {
         var view = ViewRect().Grow(T * 3);
-        float f = (float)Engine.GetPhysicsInterpolationFraction();
+        float f = W.Paused ? 1 : (float)Engine.GetPhysicsInterpolationFraction(); // paused: nothing moves, so nothing may twitch
         int frame = (int)(_time * 16) % 4;
         bool prod = J("production");
 
+        _mod = W.Worn("belt")?.Color ?? Colors.White;
         foreach (var e in W.Entities)
             if (e is Belt b && view.HasPoint(Center(b.Pos))) DrawBelt(b, frame);
+        var machineTint = W.Worn("machine")?.Color ?? Colors.White;
 
         foreach (var e in W.Entities)
         {
@@ -395,6 +475,7 @@ public sealed partial class WorldView : Node2D
             if (e is Belt || !view.Grow(T * 2).HasPoint(Center(e.Pos))) continue;
             var c = Center(e.Pos);
             var sq = Squash(e);
+            _mod = e is Hub ? Colors.White : machineTint;
             // Powered machines fizz with tiny sparks, so you can see the bonus is on.
             if (prod && e.Working && W.PowerBoost(e) > 1.05f && GD.Randf() < _dt * 1.5f)
                 _juice.Burst(c + new Vector2(GD.Randf() * 10 - 5, -6), Sprites.Spark, 1, 12, 1, -10, 0.4f);
@@ -498,10 +579,19 @@ public sealed partial class WorldView : Node2D
                     float p = J("production") ? _hubPulse : 0;
                     Sprite(Sprites.Hub, hc + new Vector2(0, p * 2), 0, sq * new Vector2(1 + p * 0.08f, 1 - p * 0.06f));
                     DrawEyes(hc + new Vector2(0, p * 2));
+                    DrawHat(hc + new Vector2(0, p * 2 - 24));
+                    break;
+                case ItemSource src:
+                    Sprite(Sprites.Icons["source"], c, Angle(src.Rot), sq);
+                    if (src.Item != null) DrawTexture(Sprites.Items[src.Item], (c - Vector2.One * 4).Round());
+                    break;
+                case ItemVoid:
+                    Sprite(Sprites.Icons["void"], c, J("production") ? _time * 2 : 0, sq);
                     break;
             }
         }
 
+        _mod = Colors.White;
         if (Underground) DrawUnderground(view, f);
 
         foreach (var g in _gone) // removed buildings shrink and spin away
@@ -725,15 +815,63 @@ public sealed partial class WorldView : Node2D
         }
     }
 
+    static bool Turns(string type) => Defs.IsBelt(type) || type is "miner" or "inserter" or "splitter" or "tunnel" or "pipe_tunnel" or "pump" or "refinery" or "source";
+
+    // A hat on top of the Hub, if one is worn. at = the middle of the Hub's top edge.
+    void DrawHat(Vector2 at)
+    {
+        if (W.Worn("hat") is not { } hat) return;
+        at = at.Round();
+        switch (hat.Id)
+        {
+            case "hat_party":
+                DrawColoredPolygon(new[] { at + new Vector2(-7, 1), at + new Vector2(7, 1), at + new Vector2(0, -14) }, Sprites.Ink);
+                DrawColoredPolygon(new[] { at + new Vector2(-5, 0), at + new Vector2(5, 0), at + new Vector2(0, -12) }, hat.Color);
+                DrawRect(new Rect2(at + new Vector2(-3, -5), new Vector2(6, 2)), new Color("f7c948"));
+                DrawRect(new Rect2(at + new Vector2(-2, -16), new Vector2(4, 4)), new Color("fff7e8"));
+                break;
+            case "hat_top":
+                DrawRect(new Rect2(at + new Vector2(-10, -2), new Vector2(20, 4)), Sprites.Ink);
+                DrawRect(new Rect2(at + new Vector2(-6, -14), new Vector2(12, 13)), Sprites.Ink);
+                DrawRect(new Rect2(at + new Vector2(-5, -13), new Vector2(10, 11)), new Color("3d3647"));
+                DrawRect(new Rect2(at + new Vector2(-5, -5), new Vector2(10, 2)), new Color("e8665a"));
+                break;
+            default: // crown
+                var pts = new[] { at + new Vector2(-9, 1), at + new Vector2(9, 1), at + new Vector2(9, -9), at + new Vector2(5, -4), at + new Vector2(0, -11), at + new Vector2(-5, -4), at + new Vector2(-9, -9) };
+                DrawColoredPolygon(pts, Sprites.Ink);
+                DrawColoredPolygon(pts.Select(p => at + (p - at) * 0.8f + new Vector2(0, 0.5f)).ToArray(), hat.Color);
+                DrawRect(new Rect2(at + new Vector2(-1, -4), new Vector2(2, 2)), new Color("e8665a"));
+                break;
+        }
+    }
+
     void DrawCursor()
     {
         var c = Center(_hover);
+        if (_boxing) // the copy box, or a hint of it before the drag starts
+        {
+            var a = _boxStart ?? _hover;
+            var box = new Rect2(new Vector2(Math.Min(a.X, _hover.X), Math.Min(a.Y, _hover.Y)) * T, ((Vector2)(a - _hover).Abs() + Vector2.One) * T);
+            DrawRect(box, Sprites.Glow with { A = 0.15f });
+            DrawRect(box.Grow(-0.5f), Sprites.Glow with { A = 0.8f }, false, 1);
+            return;
+        }
+        if (Pasting)
+        {
+            foreach (var p in Clip)
+            {
+                var t = _hover + new Vector2I(p.X, p.Y);
+                bool ok = W.CanPlace(p.Type, t, out _);
+                Sprite(Sprites.Icons[p.Type], Center(t), Turns(p.Type) ? Angle(p.Rot) : 0, new Vector2(p.Exit ? -1 : 1, 1), ok ? new Color(1, 1, 1, 0.55f) : new Color(1, 0.4f, 0.4f, 0.55f));
+            }
+            return;
+        }
         if (Selected != null)
         {
             bool ok = W.CanPlace(Selected, _hover, out _);
             float wob = J("place") ? 1 + 0.06f * Mathf.Sin(_time * 7) : 1;
             var tint = ok ? new Color(1, 1, 1, 0.6f) : new Color(1, 0.4f, 0.4f, 0.6f);
-            float ang = Defs.IsBelt(Selected) || Selected is "miner" or "inserter" or "splitter" or "tunnel" or "pipe_tunnel" or "pump" or "refinery" ? Angle(Rot) : 0;
+            float ang = Turns(Selected) ? Angle(Rot) : 0;
             // An underground piece that would pair shows as an exit, with a line back to its entrance.
             var entrance = W.EntranceFor(Selected, _hover, Rot);
             if (entrance != null) DrawLine(Center(entrance.Pos), c, Sprites.Glow with { A = 0.7f }, 2);

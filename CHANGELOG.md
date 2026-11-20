@@ -4,6 +4,19 @@ Everything that changed since the last release goes under "Unreleased". A new re
 
 ## Unreleased
 
+## v0.0.5 Beta (2026-11-20)
+
+- Game speed: Pause, 1x, 2x, 4x and Step buttons at the top, in normal and sandbox saves. Space pauses and resumes, and the full stop key moves one tick forward while paused. Every save starts at 1x.
+- Undo and redo: Ctrl+Z undoes the last thing you built, removed or turned, and Ctrl+Y or Ctrl+Shift+Z redoes it. A whole dragged belt line or a whole paste counts as one step. Undo refunds and redo pays as usual; if something can't come back because the tile is taken or materials ran out, a message says how many.
+- Copy and paste: Ctrl+C, then drag a box over buildings. The copy follows the mouse, R turns it, a click places it (as often as you like), Esc or right-click puts it away and Ctrl+V brings it back. Recipes, inserter filters and underground pairs come along.
+- Blueprints (B, or the Blueprints button): give the current copy a name to keep it. Blueprints are shared by every save.
+- Sandbox tools: the Item Source makes any item you pick and hands it to the tile in front, and the Item Void swallows whatever it's given. They're only in sandbox saves.
+- Stats window (P, or the Stats button): coins per minute and how much of each item your factory makes per minute, each with a bar graph of the last 10 minutes.
+- Coins per minute shows next to your coins. It can be turned off under Settings, Show on screen.
+- Welcome back: opening a save shows a card with what happened last session (play time, items made and delivered, coins, buildings, milestones). Nothing is earned while the game is closed.
+- Music: a calm looping tune, made in code like the sound effects. It has its own volume slider, plays quieter in the mini window and stops while the window is hidden.
+- Cosmetics in the Hub shop: belt colours (Mint, Rose, Dusk), machine colours (Sky, Moss, Gold), Hub hats (Party Hat, Top Hat, Crown) and particle styles (Rainbow, Gold Dust, Snow). Buy once, then switch freely, or go back to Plain.
+- The hover card sits a little lower, under the new buttons at the top.
 - Linux (Arch and others): the mini window shrinks again when the mouse leaves it. On Wayland desktops the game stopped seeing the mouse once it left the window, so the mini window stayed big. Hover now uses the window's own enter and leave events.
 
 ## v0.0.4 Beta (2026-11-20)

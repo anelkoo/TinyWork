@@ -56,7 +56,7 @@ public sealed partial class Hud
         _hoverCard.SetAnchorsAndOffsetsPreset(_mini ? LayoutPreset.CenterBottom : LayoutPreset.CenterTop);
         _hoverCard.GrowHorizontal = GrowDirection.Both;
         _hoverCard.GrowVertical = _mini ? GrowDirection.Begin : GrowDirection.End;
-        _hoverCard.Position += _mini ? new Vector2(0, -40) : new Vector2(0, 10);
+        _hoverCard.Position += _mini ? new Vector2(0, -40) : new Vector2(0, 58); // under the top button row
         if (newTarget && Ui.Enabled) Ui.PopIn(_hoverCard);
     }
 
@@ -70,7 +70,7 @@ public sealed partial class Hud
         switch (e)
         {
             case Belt b:
-                lines.Add($"Moves up to {b.Speed * Engine.PhysicsTicksPerSecond / Belt.Spacing:0} items/s");
+                lines.Add($"Moves up to {b.Speed * World.TicksPerSecond / Belt.Spacing:0} items/s");
                 lines.Add(b.Items.Count == 0 ? "Empty" : $"Carrying {b.Items.Count} item{(b.Items.Count == 1 ? "" : "s")}");
                 break;
             case Splitter sp:
@@ -92,7 +92,7 @@ public sealed partial class Hud
                 break;
             case Miner m:
                 var under = W.OreAt(m.Pos);
-                lines.Add(under == null ? "No ore here" : $"Mines {N(under)}: one every {Miner.Interval / W.SpeedOf(m) / Engine.PhysicsTicksPerSecond:0.0}s");
+                lines.Add(under == null ? "No ore here" : $"Mines {N(under)}: one every {Miner.Interval / W.SpeedOf(m) / World.TicksPerSecond:0.0}s");
                 if (m.Buffer != null) lines.Add($"Waiting to drop {N(m.Buffer)}");
                 break;
             case Furnace f:
@@ -127,7 +127,7 @@ public sealed partial class Hud
                 if (pi.Type == "pipe_tunnel") lines.Add(W.Partner(pi) == null ? $"No partner within {Defs.PipeTunnelRange} tiles" : "Connected underground");
                 break;
             case Pump pu:
-                lines.Add($"Pumps {W.PumpRate * W.SpeedOf(pu) * Engine.PhysicsTicksPerSecond:0} water/s into the pipe in front");
+                lines.Add($"Pumps {W.PumpRate * W.SpeedOf(pu) * World.TicksPerSecond:0} water/s into the pipe in front");
                 break;
             case Hub:
                 lines.Add("Central storage: everything delivered here");

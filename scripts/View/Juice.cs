@@ -15,6 +15,7 @@ public sealed class Juice
     float _trauma;
 
     public Vector2 ShakeOffset { get; private set; }
+    public System.Func<Color, Color> Recolor; // a particle style from the shop, or null for the natural colours
 
     public void Burst(Vector2 at, Color c, int n, float speed = 40, float size = 2, float grav = 120, float life = 0.45f)
     {
@@ -22,7 +23,7 @@ public sealed class Juice
         for (int i = 0; i < n; i++)
         {
             var dir = Vector2.FromAngle(_rng.RandfRange(0, Mathf.Tau));
-            _parts.Add(new Particle { P = at, V = dir * _rng.RandfRange(0.3f, 1f) * speed + new Vector2(0, -speed * 0.4f), Life = life * _rng.RandfRange(0.7f, 1.2f), Size = size, Grav = grav, C = c });
+            _parts.Add(new Particle { P = at, V = dir * _rng.RandfRange(0.3f, 1f) * speed + new Vector2(0, -speed * 0.4f), Life = life * _rng.RandfRange(0.7f, 1.2f), Size = size, Grav = grav, C = Recolor?.Invoke(c) ?? c });
             _parts[^1] = _parts[^1] with { Max = _parts[^1].Life };
         }
     }

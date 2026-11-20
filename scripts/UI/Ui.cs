@@ -90,7 +90,7 @@ public static class Ui
     public static Button MakeButton(string text, Action onPress, Sfx sfx = null)
     {
         var b = new Button { Text = text, CustomMinimumSize = new Vector2(0, 36) };
-        b.Pressed += () => { sfx?.Play("click"); onPress(); };
+        b.Pressed += () => { sfx?.Play("click"); onPress?.Invoke(); };
         Squishy(b);
         return b;
     }
