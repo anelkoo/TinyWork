@@ -4,6 +4,8 @@ Everything that changed since the last release goes under "Unreleased". A new re
 
 ## Unreleased
 
+- Linux (Arch and others): the mini window shrinks again when the mouse leaves it. On Wayland desktops the game stopped seeing the mouse once it left the window, so the mini window stayed big. Hover now uses the window's own enter and leave events.
+
 ## v0.0.4 Beta (2026-11-20)
 
 - Settings sliders keep their place: the percentage next to them has a fixed width.

@@ -45,7 +45,7 @@ public sealed partial class AppWindow : Node
         W.Size = r.Size;
         W.Position = r.Position;
     }
-    bool _focused = true, _switching;
+    bool _focused = true, _switching, _mouseInside;
     Window W => GetWindow();
 
     public override void _Ready()
@@ -57,6 +57,11 @@ public sealed partial class AppWindow : Node
         // Transparency is switched on in the project settings (Windows can't add it to a window later);
         // the normal window just paints an opaque background.
         W.TransparentBg = false;
+        // The window's own enter/leave events, not the global cursor position: under XWayland (most Linux
+        // desktops now) an X11 app stops seeing the cursor once it leaves its window, so the last position
+        // inside stays frozen and the mini window would never shrink again.
+        W.MouseEntered += () => _mouseInside = true;
+        W.MouseExited += () => _mouseInside = false;
         ApplyFps();
     }
 
@@ -122,13 +127,15 @@ public sealed partial class AppWindow : Node
     }
 
     // Mini window hover: grow from the anchored corner and fade in while the mouse is over it.
-    // Polls the OS cursor, so it works even when another app has focus.
+    // Works while another app has focus too: enter/leave events arrive for unfocused windows.
     public override void _Process(double delta)
     {
         if (Mode != WindowMode.Mini || Hidden) return;
-        var mouse = (Vector2)(DisplayServer.MouseGetPosition() - W.Position);
-        bool over = (_hoverTarget > 0 ? new Rect2(Vector2.Zero, W.Size) : VisibleRect(1 / HoverScale)).HasPoint(mouse)
-                    || _hoverTarget > 0 && Input.IsMouseButtonPressed(MouseButton.Left); // don't shrink mid edge-drag
+        var mouse = W.GetMousePosition(); // window pixels; only trusted while the mouse is inside
+        // A held button keeps it big only while the mouse is still inside: after a window-manager resize drag
+        // the release often never reaches the game, and a "still pressed" button would keep it big forever.
+        bool over = _mouseInside && ((_hoverTarget > 0 ? new Rect2(Vector2.Zero, W.Size) : VisibleRect(1 / HoverScale)).HasPoint(mouse)
+                                     || _hoverTarget > 0 && Input.IsMouseButtonPressed(MouseButton.Left));
         float target = over ? 1 : 0;
         if (target != _hoverTarget)
         {
