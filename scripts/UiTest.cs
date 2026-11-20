@@ -184,6 +184,42 @@ public partial class Main
         Key(Godot.Key.Key1);
         await Wait(0.1);
         Check(_view.Selected == null, "a third press puts the belt away");
+        Key(Godot.Key.Key1);
+        await Wait(0.1);
+        Check(_view.Selected == "fast_belt", $"1 starts with the belt tier used last (got {_view.Selected})");
+        Key(Godot.Key.Escape);
+        await Wait(0.1);
+
+        // The mouse wheel over an open window scrolls it and never zooms the map; a fast spin zooms one step.
+        void Wheel(MouseButton b)
+        {
+            var at = GetViewport().GetVisibleRect().Size / 2;
+            Input.ParseInputEvent(new InputEventMouseButton { ButtonIndex = b, Pressed = true, Position = at, GlobalPosition = at });
+            Input.ParseInputEvent(new InputEventMouseButton { ButtonIndex = b, Pressed = false, Position = at, GlobalPosition = at });
+        }
+        float zoom = _view.ZoomTarget;
+        OpenSettings((t, w) => _hud.OpenPanel(t, w)); // long enough to scroll
+        await Wait(0.3);
+        var scroll = FindAll<ScrollContainer>(_hud).First();
+        for (int i = 0; i < 40; i++) { Wheel(MouseButton.WheelDown); await Wait(0.03); } // past the bottom
+        for (int i = 0; i < 60; i++) { Wheel(MouseButton.WheelUp); await Wait(0.03); }   // and back past the top
+        await Wait(0.3);
+        Check(_view.ZoomTarget == zoom, $"scrolling past the end of a window doesn't zoom the map ({zoom} -> {_view.ZoomTarget}, scrolled {scroll.ScrollVertical})");
+        _hud.ClosePanel();
+        await Wait(0.2);
+        Wheel(MouseButton.WheelUp);
+        Wheel(MouseButton.WheelUp);
+        await Wait(0.3);
+        Check(_view.ZoomTarget == zoom + 0.5f, $"two quick wheel clicks zoom one half step ({zoom} -> {_view.ZoomTarget})");
+        _view.SetCamera(_view.CamTarget, zoom);
+
+        // Save Now: a green message once the file is really on disk.
+        ToggleMenu();
+        await Wait(0.3);
+        FindAll<Button>(_uiRoot).First(b => b.Text == "Save Now").EmitSignal(BaseButton.SignalName.Pressed);
+        await Wait(0.3);
+        Check(FindAll<Label>(_hud).Any(l => l.Text.StartsWith("Saved \"") && l.Modulate.A > 0.5f), "Save Now says it saved");
+        Shot("09d_saved");
 
         // Step 5: underground belt, splitter, pipes, underground pipe, pump and refinery, built in an empty corner.
         _world.MilestoneIndex = 3;
@@ -207,6 +243,7 @@ public partial class Main
         _world.SetRecipe(rf, "black_goo");
         Put("inserter", 3, 13, 3); ((Chest)Put("chest", 3, 14)).Inv["coal"] = 50;
         Put("pipe", 4, 12); Put("pipe", 5, 12); var outPipe = (Pipe)Put("pipe", 5, 11);
+        Put("big_pole", 6, 9); Put("big_pole", 6 + 14, 9); // wired across the scene
         Check(exit.Exit && _world.Partner(exit) != null && pexit.Exit && _world.Partner(pexit) != null, "underground pieces paired up");
         _view.SetCamera(new Vector2(-1.5f, 10.5f) * 16, 3);
         await Wait(5);
@@ -238,7 +275,7 @@ public partial class Main
         Check(GetViewport().GetVisibleRect().Size == new Vector2(400, 300), $"window is mini sized ({GetViewport().GetVisibleRect().Size})");
         Shot("10_mini_game");
         var slots = FindAll<Button>(_hud).Where(b => b.HasMeta("id")).ToList();
-        Check(slots.Count == 15 && slots.Max(b => b.GetGlobalRect().End.X) <= 400 && slots.Min(b => b.GetGlobalRect().Position.X) >= 0, $"all {slots.Count} hotbar slots fit in the mini window");
+        Check(slots.Count == Defs.HotbarOrder.Length && slots.Max(b => b.GetGlobalRect().End.X) <= 400 && slots.Min(b => b.GetGlobalRect().Position.X) >= 0, $"all {slots.Count} hotbar slots fit in the mini window");
         _hud.OpenHub(Hud.SellTab);
         await Wait(0.5);
         Shot("11_mini_hub");

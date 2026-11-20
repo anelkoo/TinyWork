@@ -36,6 +36,7 @@ public static class SelfTest
         Test("coin rush doubles sales, then wears off", CoinRush);
         Test("potions stack up to the cap and cost more later in the game", PotionPrices);
         Test("better deals and bigger generators upgrades work", NewUpgrades);
+        Test("big poles wire far, but only to each other", BigPoles);
         Test("older saves still load and run", LegacySaves);
         GD.Print(_fails == 0 ? "SELFTEST PASS" : $"SELFTEST FAIL ({_fails})");
         return _fails;
@@ -547,6 +548,18 @@ public static class SelfTest
         var refunds = new List<string>();
         foreach (var e in w.Entities) e.Contents(refunds);
         Check(!refunds.Any(Defs.IsFluid), "fluids must never be refunded as items");
+    }
+
+    static void BigPoles()
+    {
+        var w = Sandbox();
+        var a = (Pole)w.Place("big_pole", new(0, 0), 0);
+        var b = (Pole)w.Place("big_pole", new(Defs.BigWireRange, 0), 0);
+        var small = (Pole)w.Place("pole", new(Defs.BigWireRange + 10, 0), 0);
+        Check(w.NetOf(a) == w.NetOf(b), "two big poles 18 apart should share a network");
+        Check(w.NetOf(small) != w.NetOf(b), "a small pole 10 away from a big one must not link (small range wins)");
+        w.Place("pole", new(Defs.BigWireRange + 5, 0), 0);
+        Check(w.NetOf(small) == w.NetOf(b), "a small pole 5 away links to a big one");
     }
 
     static void CoinRush()

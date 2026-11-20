@@ -9,6 +9,7 @@ public static class Ui
 {
     public static readonly Color Panel = new("262a35f0"), Btn = new("343a48"), BtnHover = new("414859"), Border = new("4a5163");
     public static readonly Color Text = new("f4ede1"), Muted = new("b8b2a7"), Accent = new("f2a65a"), Ink = new("2a2433");
+    public static readonly Color Good = new("7fd17a"), Bad = new("f07167");
 
     public static StyleBoxFlat Box(Color bg, Color border, int bw = 2, int radius = 8, int pad = 8)
     {

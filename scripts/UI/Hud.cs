@@ -123,11 +123,14 @@ public sealed partial class Hud : Control
         RebuildTracker();
     }
 
-    public void Toast(string text)
+    public void Toast(string text) => Toast(text, Ui.Accent, 2.5f);
+
+    public void Toast(string text, Color color, float seconds)
     {
         if (string.IsNullOrEmpty(text)) return;
         _toast.Text = text;
-        _toastT = 2.5f;
+        _toast.AddThemeColorOverride("font_color", color);
+        _toastT = seconds;
         if (Ui.Enabled) { _toast.PivotOffset = _toast.Size / 2; _toast.Scale = Vector2.One * 1.25f; CreateTween().TweenProperty(_toast, "scale", Vector2.One, 0.3).SetTrans(Tween.TransitionType.Back).SetEase(Tween.EaseType.Out); }
     }
 
@@ -355,7 +358,8 @@ public sealed partial class Hud : Control
         ClosePanel();
         var dim = new ColorRect { Color = new Color(0, 0, 0, 0.35f) };
         dim.SetAnchorsAndOffsetsPreset(LayoutPreset.FullRect);
-        dim.GuiInput += e => { if (e is InputEventMouseButton { Pressed: true }) ClosePanel(); };
+        // A click outside closes the window; the wheel does not (it scrolls past the end of a list up to here).
+        dim.GuiInput += e => { if (e is InputEventMouseButton { Pressed: true, ButtonIndex: MouseButton.Left or MouseButton.Right }) ClosePanel(); };
         AddChild(dim);
         var center = new CenterContainer { MouseFilter = MouseFilterEnum.Ignore };
         center.SetAnchorsAndOffsetsPreset(LayoutPreset.FullRect);

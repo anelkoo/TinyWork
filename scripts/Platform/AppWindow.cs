@@ -5,7 +5,7 @@ namespace TinyWorks.Platform;
 public enum WindowMode { Normal, Mini }
 public enum ScreenCorner { TopLeft, TopRight, BottomLeft, BottomRight }
 
-// Owns the OS window: normal vs. mini mode, hide/show, mini opacity and mini edge-resize.
+// Owns the OS window: normal vs. mini mode, hide/show, mini opacity, mini hover and mini edge-resize.
 // The simulation keeps ticking while hidden; only rendering stops.
 public sealed partial class AppWindow : Node
 {
@@ -15,7 +15,7 @@ public sealed partial class AppWindow : Node
     public bool Hidden { get; private set; }
     public ScreenCorner MiniCorner = ScreenCorner.BottomRight;
     public int MiniMargin = 16;
-    public Vector2I MiniSize = new(400, 300);
+    public Vector2I MiniSize = new(400, 300); // idle size; the window itself is MiniSize * HoverScale
     public int FpsFocused = 60, FpsBackground = 60;
 
     // Opacity fades one composited texture, so overlapping sprites don't stack their alpha.
@@ -23,8 +23,17 @@ public sealed partial class AppWindow : Node
     float _miniOpacity = 0.85f;
     public float MiniOpacity { get => _miniOpacity; set { _miniOpacity = Mathf.Clamp(value, 0.2f, 1f); ApplyOpacity(); } }
     public float MiniIdleOpacity = 0.5f, HoverScale = 1.25f; // mini window: faded when the mouse is away, bigger when it's over it
-    float _hover; // 0 = mouse away, 1 = over the mini window; eases between
-    float Scale => 1 + (HoverScale - 1) * _hover;
+
+    // Hover grows the mini window without resizing the OS window (that is slow and choppy): the window always has
+    // its hovered size, and while idle the picture is drawn scaled down into the anchored corner. The empty rest
+    // is transparent and lets clicks through to whatever is behind it.
+    float _hover, _hoverTarget;    // 0 = idle, 1 = hovered; moves linearly, eased when applied
+    const float HoverTime = 0.12f; // seconds for a whole grow or shrink
+    float Ease => 1 - Mathf.Pow(1 - _hover, 3);
+    float ContentScale => Mathf.Lerp(1 / HoverScale, 1, Ease);
+    Vector2I BigSize => (Vector2I)((Vector2)MiniSize * HoverScale).Round();
+    bool AnchorRight => MiniCorner is ScreenCorner.TopRight or ScreenCorner.BottomRight;
+    bool AnchorBottom => MiniCorner is ScreenCorner.BottomLeft or ScreenCorner.BottomRight;
 
     Rect2I? _normalRect;
 
@@ -42,9 +51,12 @@ public sealed partial class AppWindow : Node
     public override void _Ready()
     {
         ProcessMode = ProcessModeEnum.Always;
-        // Remember the mini size only when the user resizes it, not while SetMode itself resizes the window.
-        // While hovered the window is scaled up, so store what the user picked at normal scale.
-        W.SizeChanged += () => { if (Mode == WindowMode.Mini && !Hidden && !_switching) MiniSize = (Vector2I)((Vector2)W.Size / Scale).Round(); };
+        // Remember the mini size only when the user resizes it, not while this class resizes the window.
+        // The window is always the hovered size, so store what it means at idle scale.
+        W.SizeChanged += () => { if (Mode == WindowMode.Mini && !Hidden && !_switching) MiniSize = (Vector2I)((Vector2)W.Size / HoverScale).Round(); };
+        // Transparency is switched on in the project settings (Windows can't add it to a window later);
+        // the normal window just paints an opaque background.
+        W.TransparentBg = false;
         ApplyFps();
     }
 
@@ -88,24 +100,24 @@ public sealed partial class AppWindow : Node
             int screen = W.CurrentScreen; // anchor to the monitor the window is on
             W.Mode = Window.ModeEnum.Windowed;
             W.Borderless = true;
-            W.Transparent = true;
             W.TransparentBg = true;
             W.AlwaysOnTop = true;
-            _hover = 0;
-            W.Size = MiniSize;
-            W.Position = AnchoredPosition(screen, MiniSize);
+            _hover = _hoverTarget = 0;
+            W.Size = BigSize;
+            W.Position = AnchoredPosition(screen, BigSize);
         }
         else
         {
             W.AlwaysOnTop = false;
             W.TransparentBg = false;
-            W.Transparent = false;
             W.Borderless = false;
+            SetPassthrough(false);
             if (_normalRect is { } r) { W.Size = r.Size; W.Position = r.Position; }
         }
         Mode = m;
         _switching = false;
         ApplyOpacity();
+        ApplyHover();
         EmitSignal(SignalName.Changed);
     }
 
@@ -114,34 +126,60 @@ public sealed partial class AppWindow : Node
     public override void _Process(double delta)
     {
         if (Mode != WindowMode.Mini || Hidden) return;
-        bool over = new Rect2I(W.Position, W.Size).HasPoint(DisplayServer.MouseGetPosition())
-                    || _hover > 0 && Input.IsMouseButtonPressed(MouseButton.Left); // don't shrink mid edge-drag
+        var mouse = (Vector2)(DisplayServer.MouseGetPosition() - W.Position);
+        bool over = (_hoverTarget > 0 ? new Rect2(Vector2.Zero, W.Size) : VisibleRect(1 / HoverScale)).HasPoint(mouse)
+                    || _hoverTarget > 0 && Input.IsMouseButtonPressed(MouseButton.Left); // don't shrink mid edge-drag
         float target = over ? 1 : 0;
-        if (_hover != target)
+        if (target != _hoverTarget)
         {
-            _hover = Mathf.Abs(_hover - target) < 0.02f ? target : Mathf.Lerp(_hover, target, 1 - Mathf.Exp(-18 * (float)delta));
-            ApplyOpacity();
+            _hoverTarget = target;
+            if (target > 0) SetPassthrough(false); // the whole window takes the mouse while it is big
         }
-        var size = (Vector2I)((Vector2)MiniSize * Scale).Round();
-        if (size == W.Size) return;
-        _switching = true;
-        W.Size = size;
-        W.Position = AnchoredPosition(W.CurrentScreen, size);
-        _switching = false;
+        if (_hover == _hoverTarget) return;
+        _hover = Mathf.MoveToward(_hover, _hoverTarget, (float)delta / HoverTime);
+        ApplyOpacity();
+        ApplyHover();
     }
 
-    // Settings changed the corner or size: move the mini window there right away.
+    // The part of the window the picture covers at a given scale, in window pixels.
+    Rect2 VisibleRect(float scale)
+    {
+        var size = (Vector2)W.Size * scale;
+        return new Rect2(new Vector2(AnchorRight ? W.Size.X - size.X : 0, AnchorBottom ? W.Size.Y - size.Y : 0), size);
+    }
+
+    void ApplyHover()
+    {
+        if (Faded == null) return;
+        bool mini = Mode == WindowMode.Mini;
+        Faded.PivotOffset = new Vector2(AnchorRight ? Faded.Size.X : 0, AnchorBottom ? Faded.Size.Y : 0);
+        Faded.Scale = Vector2.One * (mini ? ContentScale : 1);
+        if (mini && _hover == 0) SetPassthrough(true); // shrunk: only the small picture takes the mouse
+    }
+
+    void SetPassthrough(bool idle)
+    {
+        if (!idle || HoverScale <= 1.001f) { DisplayServer.WindowSetMousePassthrough(System.Array.Empty<Vector2>()); return; }
+        var r = VisibleRect(1 / HoverScale);
+        DisplayServer.WindowSetMousePassthrough(new[] { r.Position, new Vector2(r.End.X, r.Position.Y), r.End, new Vector2(r.Position.X, r.End.Y) });
+    }
+
+    // Settings changed the corner, size or hover size: resize and move the mini window right away.
     public void Reanchor()
     {
         if (Mode != WindowMode.Mini || Hidden) return;
-        W.Position = AnchoredPosition(W.CurrentScreen, W.Size);
+        _switching = true;
+        W.Size = BigSize;
+        W.Position = AnchoredPosition(W.CurrentScreen, BigSize);
+        _switching = false;
+        ApplyHover();
     }
 
     Vector2I AnchoredPosition(int screen, Vector2I size)
     {
         var u = DisplayServer.ScreenGetUsableRect(screen);
-        int x = MiniCorner is ScreenCorner.TopLeft or ScreenCorner.BottomLeft ? u.Position.X + MiniMargin : u.End.X - size.X - MiniMargin;
-        int y = MiniCorner is ScreenCorner.TopLeft or ScreenCorner.TopRight ? u.Position.Y + MiniMargin : u.End.Y - size.Y - MiniMargin;
+        int x = AnchorRight ? u.End.X - size.X - MiniMargin : u.Position.X + MiniMargin;
+        int y = AnchorBottom ? u.End.Y - size.Y - MiniMargin : u.Position.Y + MiniMargin;
         return new Vector2I(x, y);
     }
 
@@ -153,8 +191,7 @@ public sealed partial class AppWindow : Node
         var p = (Vector2I)mb.Position;
         var s = W.Size;
         bool l = p.X < grip, r = p.X >= s.X - grip, t = p.Y < grip, b = p.Y >= s.Y - grip;
-        bool anchorRight = MiniCorner is ScreenCorner.TopRight or ScreenCorner.BottomRight;
-        bool anchorBottom = MiniCorner is ScreenCorner.BottomLeft or ScreenCorner.BottomRight;
+        bool anchorRight = AnchorRight, anchorBottom = AnchorBottom;
         bool h = anchorRight ? l : r, v = anchorBottom ? t : b;
         if (!h && !v) return;
         var edge = (h, v, anchorRight, anchorBottom) switch
@@ -176,7 +213,7 @@ public sealed partial class AppWindow : Node
     {
         if (Faded == null) return;
         var c = Faded.Modulate;
-        c.A = Mode == WindowMode.Mini ? Mathf.Lerp(Mathf.Min(MiniIdleOpacity, _miniOpacity), _miniOpacity, _hover) : 1f;
+        c.A = Mode == WindowMode.Mini ? Mathf.Lerp(Mathf.Min(MiniIdleOpacity, _miniOpacity), _miniOpacity, Ease) : 1f;
         Faded.Modulate = c;
     }
 

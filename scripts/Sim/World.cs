@@ -241,7 +241,9 @@ public sealed class World
     public float PowerBoost(Entity e) => _netOf.TryGetValue(e, out var n) ? 1 + n.Satisfaction : 1;
     public float SpeedOf(Entity e) => MachineSpeed * PowerBoost(e);
 
-    static bool InWireRange(Pole a, Pole b) => ((Vector2)(a.Pos - b.Pos)).Length() <= Defs.WireRange;
+    public static bool InWireRange(Entity a, string bType, Vector2I bPos) =>
+        ((Vector2)(a.Pos - bPos)).Length() <= Math.Min(Defs.WireRangeOf(a.Type), Defs.WireRangeOf(bType));
+    static bool InWireRange(Pole a, Pole b) => InWireRange(a, b.Type, b.Pos);
 
     void EnsureNets()
     {

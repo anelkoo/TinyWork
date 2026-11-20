@@ -45,6 +45,7 @@ public static class Sprites
     public static readonly Dictionary<string, ImageTexture[]> BeltFrames = new(); // per belt type, 4 animation frames
     public static readonly Dictionary<string, ImageTexture> BeltCurves = new();
     public static readonly Dictionary<string, ImageTexture> Stubs = new(); // half belt joining from a side
+    public static ImageTexture BigPole;
     public static ImageTexture Crossing, Pole, Generator, Splitter, Tunnel, PipeTunnel, Pump, Refinery;
     public static readonly Color PipeBody = new("7f8796");
     public static readonly Color Wire = new("3a2a24"), Spark = new("fff3a0");
@@ -58,6 +59,20 @@ public static class Sprites
         c.R(6, 2, 4, 14, Ink); c.R(7, 3, 2, 12, wood); c.P(7, 4, wood.Lightened(0.3f));
         c.R(2, 3, 12, 3, Ink); c.R(3, 4, 10, 1, wood.Lightened(0.15f));
         c.R(3, 1, 2, 3, Ink); c.P(3, 2, Glow); c.R(11, 1, 2, 3, Ink); c.P(12, 2, Glow); // insulators
+        return c;
+    }
+
+    // Steel lattice mast, taller than the wooden pole, with a wide crossbar and glowing insulators.
+    static Canvas PaintBigPole()
+    {
+        var c = new Canvas(T, T);
+        var steel = new Color("8a93a6");
+        c.R(4, 14, 8, 2, new Color(0, 0, 0, 0.25f)); // shadow
+        c.R(5, 2, 6, 14, Ink); c.R(6, 3, 4, 12, steel.Darkened(0.25f));
+        for (int y = 3; y < 15; y += 3) { c.P(6, y, steel); c.P(7, y + 1, steel); c.P(8, y + 1, steel); c.P(9, y + 2, steel); } // bracing
+        c.R(0, 1, 16, 3, Ink); c.R(1, 2, 14, 1, steel.Lightened(0.2f));                 // crossbar
+        c.R(0, 0, 3, 2, Ink); c.P(1, 0, Glow); c.R(13, 0, 3, 2, Ink); c.P(14, 0, Glow);  // insulators
+        c.P(7, 0, Ink); c.P(8, 0, Ink); c.P(7, 1, Accent); c.P(8, 1, Accent);            // beacon
         return c;
     }
 
@@ -119,6 +134,7 @@ public static class Sprites
         Icons["splitter"] = Splitter; Icons["tunnel"] = Tunnel; Icons["pipe_tunnel"] = PipeTunnel; Icons["pump"] = Pump; Icons["refinery"] = Refinery;
         Icons["pipe"] = PaintPipeIcon().Tex();
         Icons["pole"] = Pole;
+        Icons["big_pole"] = BigPole = PaintBigPole().Tex();
         Icons["generator"] = Generator;
         Belt = BeltFrames["belt"];
         BeltCurve = BeltCurves["belt"];

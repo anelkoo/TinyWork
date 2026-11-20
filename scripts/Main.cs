@@ -48,7 +48,8 @@ public partial class Main : Node
         }
 
         // Everything renders into one full-res viewport, so mini-mode opacity fades a single texture.
-        var outer = new SubViewportContainer { Stretch = true };
+        // Linear only matters while the mini window scales the picture; at scale 1 every pixel lands exactly.
+        var outer = new SubViewportContainer { Stretch = true, TextureFilter = CanvasItem.TextureFilterEnum.Linear };
         outer.SetAnchorsAndOffsetsPreset(Control.LayoutPreset.FullRect);
         AddChild(outer);
         // SubViewports filter linearly by default, whatever the project setting says; that blurred every pixel.
@@ -170,6 +171,7 @@ public partial class Main : Node
         _hud = new Hud { View = _view, Sfx = _sfx, S = _s };
         _uiRoot.AddChild(_hud);
         _view.Toast = _hud.Toast;
+        _view.Blocked = () => _hud.HasPanel || _menu != null;
         _hud.OpenMenu += ToggleMenu;
         _hud.ToggleMini += _win.ToggleMode;
         _sinceSave = 0;
@@ -197,7 +199,12 @@ public partial class Main : Node
         box.AddThemeConstantOverride("separation", 8);
         box.AddChild(Ui.MakeLabel(_world.Name, 20));
         box.AddChild(Ui.MakeButton("Resume", CloseMenu, _sfx));
-        box.AddChild(Ui.MakeButton("Save Now", () => { if (SaveNow()) _hud.Toast("Saved"); CloseMenu(); }, _sfx));
+        box.AddChild(Ui.MakeButton("Save Now", () =>
+        {
+            CloseMenu();
+            if (SaveNow(verify: true)) { _hud.Toast($"Saved \"{_world.Name}\" at {DateTime.Now:HH:mm:ss}", Ui.Good, 3); _sfx.Play("coin"); }
+            else _sfx.Play("error");
+        }, _sfx));
         box.AddChild(Ui.MakeButton("Settings", () => { CloseMenu(); OpenSettings((t, wd) => _hud.OpenPanel(t, wd)); }, _sfx));
         box.AddChild(Ui.MakeButton("Main Menu", EndGame, _sfx));
         box.AddChild(Ui.MakeButton("Quit", QuitGame, _sfx));
@@ -250,7 +257,8 @@ public partial class Main : Node
         if (what == NotificationWMCloseRequest) QuitGame();
     }
 
-    bool SaveNow()
+    // verify: read the file back, so "Saved" is only shown when it really is on disk.
+    bool SaveNow(bool verify = false)
     {
         _sinceSave = 0;
         bool ok = true;
@@ -263,8 +271,9 @@ public partial class Main : Node
                 data.CamY = _view.CamTarget.Y;
                 data.Zoom = _view.ZoomTarget;
                 Persist.SaveSlot(_slot, data);
+                if (verify && Persist.LoadSlot(_slot).Entities.Count != data.Entities.Count) throw new System.IO.IOException("the file on disk doesn't match the game");
             }
-            catch (Exception e) { ok = false; _hud?.Toast("Save failed: " + e.Message); GD.PushError(e.ToString()); }
+            catch (Exception e) { ok = false; _hud?.Toast("Save failed: " + e.Message, Ui.Bad, 6); GD.PushError(e.ToString()); }
         }
         _s.WindowMode = _win.Mode.ToString();
         _s.MiniOpacity = _win.MiniOpacity;

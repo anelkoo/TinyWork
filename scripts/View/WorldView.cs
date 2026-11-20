@@ -10,7 +10,12 @@ namespace TinyWorks.View;
 public sealed partial class WorldView : Node2D
 {
     const int T = Sprites.T;
-    static readonly float[] Zooms = { 0.5f, 1, 2, 3, 4 };
+    // Half steps keep every art pixel a whole number of screen pixels (zoom x PixelScale), so nothing gets uneven.
+    static readonly float[] Zooms = { 0.5f, 1, 1.5f, 2, 2.5f, 3, 3.5f, 4 };
+    const float ZoomCooldown = 0.12f; // a fast wheel spin moves one step at a time, not five
+    float _lastZoom = -1;
+    public Func<bool> Blocked;
+    string _beltStart; // a menu is open: the wheel belongs to it, never to the map
     const float PixelScale = 2; // screen pixels per art pixel at zoom 1
 
     public World W;
@@ -70,12 +75,16 @@ public sealed partial class WorldView : Node2D
         }
         if (Defs.IsBelt(building) && Defs.IsBelt(Selected))
         {
-            // Pressing the belt key again steps through the unlocked tiers, then puts the belt away.
+            // Pressing the belt key again steps through the unlocked tiers, then puts the belt away
+            // once it would come back round to the tier it started with.
             var tiers = new[] { "belt", "fast_belt", "express_belt" }.Where(W.IsUnlocked).ToList();
-            int i = tiers.IndexOf(Selected);
-            Selected = i >= 0 && i + 1 < tiers.Count ? tiers[i + 1] : null;
+            var next = tiers[(tiers.IndexOf(Selected) + 1) % tiers.Count];
+            Selected = next == _beltStart ? null : next;
         }
+        else if (Defs.IsBelt(building)) // the belt key starts with the tier used last
+            Selected = _beltStart = Defs.IsBelt(S.LastBelt) && W.IsUnlocked(S.LastBelt) ? S.LastBelt : "belt";
         else Selected = Selected == building ? null : building;
+        if (Defs.IsBelt(Selected)) S.LastBelt = Selected;
         Sfx.Play("click");
     }
 
@@ -126,6 +135,7 @@ public sealed partial class WorldView : Node2D
                         break;
                     case MouseButton.Right: _erasing = false; break;
                     case MouseButton.Middle: _panning = mb.Pressed; break;
+                    case MouseButton.WheelUp or MouseButton.WheelDown when Blocked?.Invoke() == true: break;
                     case MouseButton.WheelUp when mb.Pressed: ZoomStep(+1); break;
                     case MouseButton.WheelDown when mb.Pressed: ZoomStep(-1); break;
                     default: return;
@@ -141,7 +151,10 @@ public sealed partial class WorldView : Node2D
 
     void ZoomStep(int dir)
     {
+        if (_time - _lastZoom < ZoomCooldown) return;
+        _lastZoom = _time;
         int i = Array.IndexOf(Zooms, _targetZoom);
+        if (i < 0) i = Array.FindLastIndex(Zooms, z => z <= _targetZoom); // a zoom saved by an older version
         int j = Mathf.Clamp(i + dir, 0, Zooms.Length - 1);
         if (i == j) return;
         // keep the point under the mouse where it is
@@ -190,7 +203,7 @@ public sealed partial class WorldView : Node2D
             (Input.IsKeyPressed(Key.S) || Input.IsKeyPressed(Key.Down) ? 1 : 0) - (Input.IsKeyPressed(Key.W) || Input.IsKeyPressed(Key.Up) ? 1 : 0));
         if (GetWindow().HasFocus()) _camTarget += move.Normalized() * 520 * _dt / Cam.Zoom.X;
 
-        float z = J("screen") ? Mathf.Lerp(Cam.Zoom.X / PixelScale, _targetZoom, 1 - Mathf.Exp(-14 * _dt)) : _targetZoom;
+        float z = J("screen") ? Mathf.Lerp(Cam.Zoom.X / PixelScale, _targetZoom, 1 - Mathf.Exp(-8 * _dt)) : _targetZoom;
         Cam.Zoom = Vector2.One * z * PixelScale;
         Cam.Position = J("screen") ? Cam.Position.Lerp(_camTarget, 1 - Mathf.Exp(-20 * _dt)) : _camTarget;
         Cam.Offset = _juice.ShakeOffset;
@@ -406,7 +419,7 @@ public sealed partial class WorldView : Node2D
                     DrawCrossing(x, c, f);
                     break;
                 case Pole:
-                    Sprite(Sprites.Pole, c, 0, sq);
+                    Sprite(e.Type == "big_pole" ? Sprites.BigPole : Sprites.Pole, c, 0, sq);
                     break;
                 case Splitter sp:
                     Sprite(Sprites.BeltFrames["belt"][frame], c, Angle(sp.Rot), Vector2.One);
@@ -568,7 +581,7 @@ public sealed partial class WorldView : Node2D
         }
     }
 
-    static Vector2 PoleTop(Entity p) => Center(p.Pos) + new Vector2(0, -6);
+    static Vector2 PoleTop(Entity p) => Center(p.Pos) + new Vector2(0, p.Type == "big_pole" ? -8 : -6);
 
     // A sagging wire, swaying a little. Live wires are copper coloured, dead ones dark.
     void DrawWire(Vector2 a, Vector2 b, bool live)
@@ -587,8 +600,8 @@ public sealed partial class WorldView : Node2D
     }
 
     // Poles the new pole would wire to: its 3 nearest within range (same rule as the simulation).
-    IEnumerable<Pole> WireTargets(Vector2I at) => W.Entities.OfType<Pole>()
-        .Where(p => p.Pos != at && ((Vector2)(p.Pos - at)).Length() <= Defs.WireRange)
+    IEnumerable<Pole> WireTargets(Vector2I at, string type) => W.Entities.OfType<Pole>()
+        .Where(p => p.Pos != at && World.InWireRange(p, type, at))
         .OrderBy(p => (p.Pos - at).LengthSquared()).Take(3);
 
     void DrawPoleArea(Vector2I at, Color col)
@@ -706,10 +719,10 @@ public sealed partial class WorldView : Node2D
             var entrance = W.EntranceFor(Selected, _hover, Rot);
             if (entrance != null) DrawLine(Center(entrance.Pos), c, Sprites.Glow with { A = 0.7f }, 2);
             Sprite(Sprites.Icons[Selected], c, ang, new Vector2(entrance != null ? -wob : wob, wob), tint);
-            if (Selected == "pole") // where it powers and which poles it would wire to
+            if (Selected is "pole" or "big_pole") // where it powers and which poles it would wire to
             {
                 DrawPoleArea(_hover, Sprites.Glow);
-                foreach (var p in WireTargets(_hover)) DrawWire(c + new Vector2(0, -6), PoleTop(p), true);
+                foreach (var p in WireTargets(_hover, Selected)) DrawWire(c + new Vector2(0, Selected == "big_pole" ? -8 : -6), PoleTop(p), true);
             }
             if (Selected == "inserter") // show which way it hands items
             {

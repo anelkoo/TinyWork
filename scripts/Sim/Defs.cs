@@ -22,23 +22,25 @@ public static class Defs
     public static readonly List<Recipe> Recipes = new();
     public static readonly string[] Ores = { "iron_ore", "copper_ore", "stone", "coal" };
     public static readonly string[] BaseUnlocks = { "belt", "crossing", "inserter", "miner", "furnace", "pole", "generator" };
-    public static readonly string[] BuildOrder = { "belt", "fast_belt", "express_belt", "crossing", "inserter", "miner", "furnace", "assembler", "chest", "pole", "generator", "splitter", "tunnel", "pipe", "pipe_tunnel", "pump", "refinery" };
+    public static readonly string[] BuildOrder = { "belt", "fast_belt", "express_belt", "crossing", "inserter", "miner", "furnace", "assembler", "chest", "pole", "big_pole", "generator", "splitter", "tunnel", "pipe", "pipe_tunnel", "pump", "refinery" };
     // Every building has a hotbar slot, locked ones greyed out, so slots never shift when something unlocks.
     // Keys 1-9 and 0 reach the first ten. Key 1 cycles through the unlocked belt tiers, so faster belts need no slot.
-    public static readonly string[] HotbarOrder = { "belt", "inserter", "miner", "furnace", "crossing", "splitter", "tunnel", "assembler", "chest", "pole", "generator", "pipe", "pipe_tunnel", "pump", "refinery" };
+    public static readonly string[] HotbarOrder = { "belt", "inserter", "miner", "furnace", "crossing", "splitter", "tunnel", "assembler", "chest", "pole", "big_pole", "generator", "pipe", "pipe_tunnel", "pump", "refinery" };
 
     // Power (kW) a machine draws while it works. Power only ever speeds things up: see World.PowerBoost.
     public static readonly Dictionary<string, float> PowerUse = new() { ["miner"] = 90, ["furnace"] = 90, ["assembler"] = 75, ["inserter"] = 15, ["pump"] = 30, ["refinery"] = 120 };
     public const float GeneratorKW = 600, CoalKJ = 4000, SparkgasKJ = 200; // kJ per unit
     public const int TunnelRange = 5, PipeTunnelRange = 10; // how far apart an entrance and its exit may be
     public const float PipeCap = 100, PumpRate = 1; // fluid units per pipe tile, units per tick
-    public const int WireRange = 7, PoleReach = 2; // poles link up to 7 tiles apart and power a 5x5 square
+    public const int WireRange = 7, BigWireRange = 18, PoleReach = 2; // poles power a 5x5 square; big poles wire much further
+    // Two poles link when they are within the shorter of their two ranges, so small poles never reach 18 tiles.
+    public static int WireRangeOf(string pole) => pole == "big_pole" ? BigWireRange : WireRange;
     public static readonly Dictionary<string, long> StarterKit = new() { ["iron_plate"] = 40, ["stone"] = 16 };
 
     public static readonly Milestone[] Milestones =
     {
         new("First Plates", new[] { ("iron_plate", 40), ("copper_plate", 20) }, new[] { "assembler", "chest", "splitter", "tunnel" }),
-        new("Gears Turning", new[] { ("gear", 40), ("copper_wire", 60) }, new[] { "fast_belt", "steel" }),
+        new("Gears Turning", new[] { ("gear", 40), ("copper_wire", 60) }, new[] { "fast_belt", "steel", "big_pole" }),
         new("Smart Factory", new[] { ("circuit", 30), ("steel_plate", 15) }, new[] { "express_belt", "pipe", "pipe_tunnel", "pump", "refinery" }),
     };
 
@@ -90,6 +92,7 @@ public static class Defs
         Building("assembler", "Assembler", 1, ("iron_plate", 10), ("copper_plate", 5));
         Building("chest", "Chest", 1, ("iron_plate", 4));
         Building("pole", "Power Pole", 1, ("iron_plate", 2), ("copper_plate", 1));
+        Building("big_pole", "Big Pole", 1, ("steel_plate", 2), ("copper_plate", 4));
         Building("generator", "Generator", 1, ("iron_plate", 10), ("stone", 5));
         Building("splitter", "Splitter", 1, ("iron_plate", 5), ("gear", 2));
         Building("tunnel", "Underground Belt", 1, ("iron_plate", 6), ("gear", 3));
