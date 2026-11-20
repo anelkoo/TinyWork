@@ -53,7 +53,7 @@ public sealed partial class Hud : Control
             var count = Ui.MakeLabel("0");
             var row = Ui.Row(Ui.Icon(Sprites.Items[id]), count);
             row.Visible = false;
-            row.TooltipText = Defs.Items[id].Name;
+            row.TooltipText = HowToMake(id);
             _storage.AddChild(row);
             _rows[id] = (row, count, 0);
         }
@@ -199,13 +199,30 @@ public sealed partial class Hud : Control
         if (_mini) return; // mini shows the title with a percentage only
         foreach (var (item, n) in m.Need)
         {
-            var bar = new ProgressBar { MaxValue = n, ShowPercentage = false, CustomMinimumSize = new Vector2(140, 10), SizeFlagsVertical = SizeFlags.ShrinkCenter, SizeFlagsHorizontal = SizeFlags.ExpandFill };
+            var bar = new ProgressBar { MaxValue = n, ShowPercentage = false, CustomMinimumSize = new Vector2(140, 10), SizeFlagsVertical = SizeFlags.ShrinkCenter, SizeFlagsHorizontal = SizeFlags.ExpandFill, MouseFilter = MouseFilterEnum.Ignore }; // the row shows the tooltip
             bar.SetMeta("item", item);
             var label = Ui.MakeLabel($"0/{n}", 13, Ui.Muted);
             label.CustomMinimumSize = new Vector2(52, 0); // same width on every row, so the bars line up
-            _trackerRows.AddChild(Ui.Row(Ui.Icon(Sprites.Items[item]), bar, label));
+            var name = Ui.MakeLabel(Defs.Items[item].Name, 13);
+            name.CustomMinimumSize = new Vector2(96, 0);
+            var row = Ui.Row(Ui.Icon(Sprites.Items[item]), name, bar, label);
+            row.TooltipText = HowToMake(item);
+            _trackerRows.AddChild(row);
         }
         _trackerRows.AddChild(Ui.MakeLabel("Unlocks " + UnlockNames(m), 12, Ui.Muted));
+    }
+
+    // Tooltip for an item: its name and where it comes from.
+    static string HowToMake(string item)
+    {
+        string N(string id) => Defs.Items[id].Name;
+        var name = N(item);
+        if (Array.IndexOf(Defs.Ores, item) >= 0) return $"{name}\nPut a miner on its ore patch, or click the ore to mine by hand.";
+        if (item == "water") return $"{name}\nA pump pushes it into the pipe in front of it.";
+        var r = Defs.Recipes.FirstOrDefault(x => x.Out == item);
+        if (r == null) return name;
+        var ins = string.Join(" + ", r.In.Select(x => $"{x.Count} {N(x.Item)}"));
+        return $"{name}\n{Defs.Buildings[r.Machine].Name}: {ins} makes {r.OutCount} {name}" + (r.Unlock == null ? "" : $"\nUnlocks with milestone {Defs.UnlockTier(r.Unlock)}");
     }
 
     static string UnlockNames(Milestone m) =>
@@ -222,11 +239,11 @@ public sealed partial class Hud : Control
         }
         foreach (var row in _trackerRows.GetChildren())
         {
-            if (row.GetChildCount() < 3 || row.GetChild(1) is not ProgressBar bar) continue;
+            if (row.GetChildCount() < 4 || row.GetChild(2) is not ProgressBar bar) continue;
             var item = (string)bar.GetMeta("item");
             long have = Math.Min(W.Delivered.GetValueOrDefault(item), (long)bar.MaxValue);
             bar.Value = Ui.Enabled ? Mathf.Lerp(bar.Value, have, 0.2) : have;
-            ((Label)row.GetChild(2)).Text = $"{have}/{bar.MaxValue}";
+            ((Label)row.GetChild(3)).Text = $"{have}/{bar.MaxValue}";
         }
     }
 

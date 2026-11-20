@@ -39,6 +39,9 @@ public partial class Main
         Check(_world.MilestoneIndex == 1, "milestone 1 reached from the prepared save");
         Check(_view.Hotbar().Contains("assembler") && _view.Hotbar().Contains("chest"), "assembler and chest on the hotbar after the unlock");
         Check(Engine.TimeScale == 1, "slow motion ended");
+        var gearRow = FindAll<HBoxContainer>(_hud).FirstOrDefault(r => FindAll<ProgressBar>(r).Any() && FindAll<Label>(r).Any(l => l.Text == "Gear"));
+        Check(gearRow != null && gearRow.TooltipText.Contains("Assembler: 2 Iron Plate"),
+            $"milestone row names the item and says how to make it ({gearRow?.TooltipText})");
 
         _hud.Inspect(Find<Hub>());
         await Wait(0.5);
