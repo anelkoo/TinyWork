@@ -254,6 +254,14 @@ public static class Defs
     static void Building(string id, string name, int size, params (string, int)[] cost) => Buildings[id] = new BuildingDef(id, name, size, cost);
 
 
+    // Item lists show these groups in this order. The group comes from the id, so a new metal's plate and parts sort themselves.
+    public static readonly string[] Groups = { "Ores", "Plates", "Metal parts", "Intermediates", "Products", "Fluids" };
+    static readonly HashSet<string> Products = new() { "lightning_rod", "toy_robot", "clock", "drone", "computer", "sky_beacon" };
+    public static string GroupOf(string id) =>
+        IsFluid(id) ? "Fluids" : Products.Contains(id) ? "Products" : System.Array.IndexOf(Ores, id) >= 0 ? "Ores"
+        : id.EndsWith("_plate") || id == "brick" ? "Plates" : Parts.Any(p => id.EndsWith("_" + p.Id)) ? "Metal parts" : "Intermediates";
+    public static int GroupIndex(string id) => System.Array.IndexOf(Groups, GroupOf(id));
+
     public static bool IsBelt(string type) => BaseOf(type) == "belt";
     public static bool IsFluid(string id) => id != null && Items.TryGetValue(id, out var d) && d.Fluid;
     public static Recipe RecipeById(string id) => Recipes.FirstOrDefault(r => r.Id == id);

@@ -4,6 +4,8 @@ Everything that changed since the last release goes under "Unreleased". A new re
 
 ## Unreleased
 
+- Item lists come in groups: ores, plates, metal parts, intermediates, products and fluids. Storage on the left, the Hub's Sell tab and the recipe picker show a heading per group and hide empty groups. A new metal's plate and parts land in the right group by themselves.
+
 ## v0.0.7 Beta (2026-11-21)
 
 - Belt Rush potion in the Hub: belts, splitters, undergrounds and crossings move x2, x3, x5 or x10 as fast while it runs. A basic belt on x10 carries 80 items/s.

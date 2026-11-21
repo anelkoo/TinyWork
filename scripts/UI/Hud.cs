@@ -19,7 +19,7 @@ public sealed partial class Hud : Control
     World W => View.W;
     readonly Dictionary<string, (Control Row, Label Count, double Shown)> _rows = new();
     VBoxContainer _storage;
-    GridContainer _itemGrid; // storage rows; a second column opens when they would run past the hotbar
+    readonly List<(Label Head, GridContainer Grid)> _itemGroups = new(); // storage rows per item group; more columns open when they would run past the hotbar
     PanelContainer _storagePanel, _tracker;
     HBoxContainer _bar, _coinRow;
     readonly PanelContainer _tierStrip = new() { Visible = false }; // the tiers of the building in hand, above its slot
@@ -58,17 +58,23 @@ public sealed partial class Hud : Control
         _potionRows = new VBoxContainer();
         _potionRows.AddThemeConstantOverride("separation", 2);
         _storage.AddChild(_potionRows);
-        _itemGrid = new GridContainer { Columns = 1 };
-        _itemGrid.AddThemeConstantOverride("h_separation", 14);
-        _itemGrid.AddThemeConstantOverride("v_separation", 2);
-        _storage.AddChild(_itemGrid);
+        foreach (var g in Defs.Groups)
+        {
+            var head = Ui.MakeLabel(g, 11, Ui.Muted);
+            var grid = new GridContainer { Columns = 1 };
+            grid.AddThemeConstantOverride("h_separation", 14);
+            grid.AddThemeConstantOverride("v_separation", 2);
+            _storage.AddChild(head);
+            _storage.AddChild(grid);
+            _itemGroups.Add((head, grid));
+        }
         foreach (var id in Defs.Items.Keys)
         {
             var count = Ui.MakeLabel("0");
             var row = Ui.Row(Ui.Icon(Sprites.Items[id]), count);
             row.Visible = false;
             row.TooltipText = HowToMake(id);
-            _itemGrid.AddChild(row);
+            _itemGroups[Defs.GroupIndex(id)].Grid.AddChild(row);
             _rows[id] = (row, count, 0);
         }
 
@@ -404,9 +410,18 @@ public sealed partial class Hud : Control
             label.Text = Compact((long)Math.Round(next));
             _rows[id] = (row, label, next);
         }
-        int shownRows = _rows.Values.Count(r => r.Row.Visible), fit = Math.Max(4, (int)((Size.Y - (_mini ? 90 : 230)) / (_mini ? 18 : 25)));
-        int cols = Math.Clamp((shownRows + fit - 1) / fit, 1, 3);
-        if (_itemGrid.Columns != cols) { _itemGrid.Columns = cols; _storagePanel.ResetSize(); }
+        var perGroup = _itemGroups.Select(g => g.Grid.GetChildren().Count(c => ((Control)c).Visible)).ToArray();
+        int fit = Math.Max(4, (int)((Size.Y - (_mini ? 90 : 230)) / (_mini ? 18 : 25))), cols = 1;
+        while (cols < 3 && perGroup.Sum(n => n == 0 ? 0 : (n + cols - 1) / cols + 0.6) > fit) cols++; // a heading takes about 0.6 of a row
+        bool changed = false;
+        for (int i = 0; i < _itemGroups.Count; i++)
+        {
+            var (head, grid) = _itemGroups[i];
+            changed |= grid.Columns != cols || head.Visible != perGroup[i] > 0;
+            grid.Columns = cols;
+            head.Visible = grid.Visible = perGroup[i] > 0;
+        }
+        if (changed) _storagePanel.ResetSize();
         double coins = Ui.Enabled ? Mathf.Lerp(_coinsShown, W.Coins, 1 - Mathf.Exp(-8 * dt)) : W.Coins;
         if (Math.Abs(coins - W.Coins) < 0.5) coins = W.Coins;
         _coinsShown = coins;
@@ -563,9 +578,11 @@ public sealed partial class Hud : Control
             var info = Ui.MakeLabel("Auto-sell turns items delivered here into coins. The reserve always stays in storage for building.", 13, Ui.Muted);
             info.AutowrapMode = TextServer.AutowrapMode.WordSmart;
             body.AddChild(info);
-            foreach (var (id, def) in Defs.Items)
+            string group = null;
+            foreach (var (id, def) in Defs.Items.OrderBy(x => Defs.GroupIndex(x.Key)))
             {
                 if (W.Storage.GetValueOrDefault(id) <= 0 && !W.AutoSell.Contains(id)) continue;
+                GroupHead(body, ref group, id);
                 var count = Ui.MakeLabel("", 14, Ui.Muted);
                 var sell = new CheckButton { Text = "Auto-sell", ButtonPressed = W.AutoSell.Contains(id), FocusMode = FocusModeEnum.None };
                 sell.Toggled += on => { if (on) W.AutoSell.Add(id); else W.AutoSell.Remove(id); Sfx.Play("click"); };
@@ -619,8 +636,10 @@ public sealed partial class Hud : Control
     void OpenRecipePicker(Assembler a)
     {
         var body = OpenPanel($"{Defs.Buildings[a.Type].Name}: pick what it makes", 640);
-        foreach (var r in Defs.Recipes.Where(r => r.Machine == Defs.BaseOf(a.Type)))
+        string group = null;
+        foreach (var r in Defs.Recipes.Where(r => r.Machine == Defs.BaseOf(a.Type)).OrderBy(r => Defs.GroupIndex(r.Out)))
         {
+            GroupHead(body, ref group, r.Out);
             bool open = W.IsUnlocked(r.Unlock);
             var ins = string.Join(" + ", r.In.Select(x => $"{x.Count} {Defs.Items[x.Item].Name}"));
             var b = new Button { Text = $"{(r.OutCount > 1 ? r.OutCount + " " : "")}{Defs.Items[r.Out].Name}   from {ins}", Icon = Sprites.Items[r.Out], ExpandIcon = true, Disabled = !open, Alignment = HorizontalAlignment.Left, CustomMinimumSize = new Vector2(0, 40), ClipText = true };
@@ -638,6 +657,14 @@ public sealed partial class Hud : Control
             : "Switching recipe moves what it holds into storage.", 12, Ui.Muted);
         note.AutowrapMode = TextServer.AutowrapMode.WordSmart;
         body.AddChild(note);
+    }
+
+    // A heading before the first item of each group in a list.
+    static void GroupHead(VBoxContainer body, ref string last, string id)
+    {
+        if (Defs.GroupOf(id) == last) return;
+        last = Defs.GroupOf(id);
+        body.AddChild(Ui.MakeLabel(last, 13, Ui.Muted));
     }
 
     void OpenFilterPicker(Inserter ins) =>

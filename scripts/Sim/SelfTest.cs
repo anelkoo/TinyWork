@@ -52,6 +52,7 @@ public static class SelfTest
         Test("own music folder lists only music files, in name order", MusicFolder);
         Test("every belt, splitter and underground tier at full load keeps spacing and loses nothing", CarriersAtFullLoad);
         Test("Belt Rush x10 moves ten times as much and loses nothing", BeltRush);
+        Test("items sort into their list groups", ItemGroups);
         Test("Mk2 and Mk3 machines work two and three times as fast", MachineTiers);
         Test("a better tier goes straight onto the old one, refunds it, keeps the recipe; undo swaps back", UpgradeInPlace);
         GD.Print(_fails == 0 ? "SELFTEST PASS" : $"SELFTEST FAIL ({_fails})");
@@ -281,6 +282,13 @@ public static class SelfTest
         foreach (var e in w.Entities) e.Contents(all);
         Check(made == sink.Eaten + all.Count, $"{belt}/{mid}: made {made}, eaten {sink.Eaten}, in transit {all.Count}");
         return rate;
+    }
+
+    static void ItemGroups()
+    {
+        foreach (var (id, group) in new[] { ("coal", "Ores"), ("brick", "Plates"), ("steel_plate", "Plates"), ("copper_nail", "Metal parts"), ("steel_rod", "Metal parts"),
+                                            ("lightning_rod", "Products"), ("gear", "Intermediates"), ("solar_panel", "Intermediates"), ("sky_beacon", "Products"), ("water", "Fluids") })
+            Check(Defs.GroupOf(id) == group, $"{id} is in {Defs.GroupOf(id)}, expected {group}");
     }
 
     static void BeltRush()

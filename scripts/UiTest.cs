@@ -281,6 +281,7 @@ public partial class Main
         Key(Godot.Key.Escape);
         await Wait(0.2);
         var spot = new Vector2I(-12, -12);
+        foreach (var (item, n) in Defs.Buildings["chest"].Cost) _world.AddStorage(item, n * 2); // enough for the chest and its redo
         _world.BeginAction(); _world.Place("chest", spot, 0); _world.EndAction();
         CtrlKey(Godot.Key.Z);
         await Wait(0.1);
