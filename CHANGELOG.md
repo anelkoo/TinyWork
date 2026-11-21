@@ -4,6 +4,8 @@ Everything that changed since the last release goes under "Unreleased". A new re
 
 ## Unreleased
 
+## v0.0.6 Beta (2026-11-21)
+
 - Milestones 4 to 6: Clear Glass (plastic and sulfur), Bright Ideas (lamps, batteries, motors) and Reach the Sky (toy robots, clocks, solar panels). After the last one, play goes on, and Sky Beacons sell for the most.
 - 14 new items, so all 30 from the plan are in: sand, glass, lens, battery, motor, lamp, smart chip, frame, toy robot, clock, solar panel, drone, computer and sky beacon. Sand comes from stone in an assembler, glass from sand in a furnace, and the rest from assemblers.
 - Solar Array (milestone 5): 100 kW for its power network, always on, no fuel. Generators only burn coal for whatever solar doesn't cover.

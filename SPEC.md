@@ -47,7 +47,7 @@ A relaxing, peaceful factory-builder in the same genre as Factorio. Original art
 - **Central storage:** the Hub feeds one global pool. Building costs come out of the pool, and removing a building refunds 100%.
 - **Coins:** each item can be set to auto-sell at the Hub. Coins buy cosmetics (belt and machine colours, Hub hats, particle styles), global upgrades and raw materials.
   - Upgrades: Faster Machines, Quick Arms, Strong Hands, Better Deals, Bigger Generators, Strong Pumps and Long Wires (+2 tiles of wire reach per level, 3 levels). Prices double per level.
-  - Not built: music tracks in the shop (there is one synthesized loop) and a Hub capacity upgrade, because central storage has no limit to raise.
+  - Not built: music tracks in the shop (there is one synthesized loop) and a Hub capacity upgrade. Central storage has no limit to raise, and the user decided to leave it that way.
 - **Potions** (a Hub tab): Coin Rush, Overdrive, Arm Tonic and Rock Crusher, bought for 2 or 10 minutes or any length from 1 to 120. Each comes in three strengths. Strengths never stack: the strongest runs first and weaker ones wait. Prices grow with milestones and coins earned, and timers only run while the game runs.
 - **Start:** a small starter kit, and you can click ore patches to mine by hand at any time.
 - **Sandbox:** everything unlocked, free building, an item source and an item void, and speed controls.
