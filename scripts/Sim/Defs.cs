@@ -26,7 +26,8 @@ public static class Defs
     public static readonly Dictionary<string, ItemDef> Items = new();
     public static readonly Dictionary<string, BuildingDef> Buildings = new();
     public static readonly List<Recipe> Recipes = new();
-    public static readonly string[] Ores = { "iron_ore", "copper_ore", "stone", "coal" };
+    public static readonly (string Id, string Name, int PerPlate)[] Parts = { ("screw", "Screw", 4), ("nail", "Nail", 4), ("rod", "Rod", 2) };
+    public static readonly string[] Ores ={ "iron_ore", "copper_ore", "stone", "coal" };
     public static readonly string[] BaseUnlocks = { "belt", "crossing", "inserter", "miner", "furnace", "pole", "generator" };
     public static readonly string[] BuildOrder = { "belt", "fast_belt", "express_belt", "crossing", "inserter", "miner", "furnace", "assembler", "chest", "pole", "big_pole", "super_pole", "generator", "splitter", "tunnel", "pipe", "pipe_tunnel", "pump", "refinery", "solar" };
     // Every building has a hotbar slot, locked ones greyed out, so slots never shift when something unlocks.
@@ -111,6 +112,16 @@ public static class Defs
         Item("steel_plate", "Steel Plate", "7d8aa0", 18);
         Item("gear", "Gear", "aeb8c6", 7);
         Item("copper_wire", "Copper Wire", "f0a05a", 2);
+        // Parts made from every metal's plate: one entry here per new metal, one per new part.
+        foreach (var (metal, name, unlock) in new (string, string, string)[] { ("iron", "Iron", null), ("copper", "Copper", null), ("steel", "Steel", "steel") })
+            foreach (var (part, partName, n) in Parts)
+            {
+                var plate = Items[metal + "_plate"];
+                Items[$"{metal}_{part}"] = new ItemDef($"{metal}_{part}", $"{name} {partName}", plate.Color, (plate.Price * 5 + 4 * n - 1) / (4 * n)); // a quarter more than the plate, rounded up
+                Recipes.Add(new($"{metal}_{part}", "assembler", new[] { (plate.Id, 1) }, $"{metal}_{part}", n, 20, unlock));
+            }
+        Item("lightning_rod", "Lightning Rod", "e8c15a", 28);
+        Recipes.Add(new("lightning_rod", "assembler", new[] { ("copper_rod", 2), ("steel_plate", 1) }, "lightning_rod", 1, 40, "steel"));
         Item("circuit", "Circuit", "62b86a", 16);
         Item("plastic", "Plastic", "e9e4f2", 12);
         Item("sulfur", "Sulfur", "e8d84a", 10);

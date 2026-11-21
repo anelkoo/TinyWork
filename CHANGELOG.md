@@ -4,6 +4,9 @@ Everything that changed since the last release goes under "Unreleased". A new re
 
 ## Unreleased
 
+- Screws, nails and rods from every metal: iron, copper and steel. In an assembler one plate makes 4 screws, 4 nails or 2 rods, and each sells for a bit more than its share of the plate. Steel parts unlock with steel smelting. A new metal only needs one line to get all three parts.
+- Lightning Rod: 2 copper rods and 1 steel plate in an assembler. For now it's an item to sell, like everything else.
+
 ## v0.0.6 Beta (2026-11-21)
 
 - Milestones 4 to 6: Clear Glass (plastic and sulfur), Bright Ideas (lamps, batteries, motors) and Reach the Sky (toy robots, clocks, solar panels). After the last one, play goes on, and Sky Beacons sell for the most.

@@ -48,6 +48,7 @@ public static class SelfTest
         Test("production counters match what miners made and the session lands in the save", StatsAndPause);
         Test("solar powers machines without fuel and is used before coal", SolarPower);
         Test("long wires let poles link further", LongWires);
+        Test("every metal makes screws, nails and rods; they survive a save", MetalParts);
         GD.Print(_fails == 0 ? "SELFTEST PASS" : $"SELFTEST FAIL ({_fails})");
         return _fails;
     }
@@ -227,6 +228,24 @@ public static class SelfTest
         long gears = all.Count(i => i == "gear") + w.Storage.GetValueOrDefault("gear");
         Check(w.Storage.GetValueOrDefault("gear") >= 40, $"only {w.Storage.GetValueOrDefault("gear")} gears delivered");
         Check(plates + gears * 2 == 100, $"plates lost: {plates} plates + {gears} gears x2 != 100");
+    }
+
+    static void MetalParts()
+    {
+        foreach (var m in new[] { "iron", "copper", "steel" })
+            foreach (var p in Defs.Parts)
+                Check(Defs.RecipeById($"{m}_{p.Id}") is { Machine: "assembler" } r && r.In[0].Item == m + "_plate" && r.OutCount == p.PerPlate && Defs.Items[r.Out].Price > 0, $"{m}_{p.Id} is missing or wrong");
+        Check(Defs.RecipeById("lightning_rod") is { } lr && lr.In.Any(x => x.Item == "copper_rod") && Defs.Items["lightning_rod"].Price > 0, "lightning rod is missing");
+        var w = AssemblerWorld();
+        w.SetRecipe(w.Entities.OfType<Assembler>().First(), "iron_screw");
+        for (int i = 0; i < 3000; i++) w.Step();
+        var all = new List<string>();
+        foreach (var e in w.Entities) e.Contents(all);
+        long plates = all.Count(i => i == "iron_plate"), screws = all.Count(i => i == "iron_screw") + w.Storage.GetValueOrDefault("iron_screw");
+        Check(w.Storage.GetValueOrDefault("iron_screw") >= 40, $"only {w.Storage.GetValueOrDefault("iron_screw")} screws delivered");
+        Check(plates * 4 + screws == 400, $"plates lost: {plates} plates x4 + {screws} screws != 400");
+        var b = World.FromSave(Persist.Deserialize(Persist.Serialize(w.ToSave())));
+        Check(b.Storage.GetValueOrDefault("iron_screw") == w.Storage["iron_screw"] && b.Entities.OfType<Assembler>().First().RecipeId == "iron_screw", "screws or the recipe got lost in the save");
     }
 
     static void ChestAndFilter()

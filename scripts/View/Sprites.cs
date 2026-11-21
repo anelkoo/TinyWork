@@ -438,6 +438,27 @@ public static class Sprites
             c.Box(0, 2, 8, 4, col, Ink);
             c.R(1, 3, 3, 1, Colors.White);
         }
+        else if (id == "lightning_rod") // a copper spike on a base, a spark beside it
+        {
+            c.R(3, 0, 2, 8, Ink); c.R(3, 1, 1, 6, Defs.Items["copper_rod"].Color); c.R(1, 7, 6, 1, Ink);
+            c.P(6, 1, Glow); c.P(5, 2, Glow); c.P(6, 3, Glow);
+        }
+        else if (id.EndsWith("_screw")) // a head on a threaded shaft
+        {
+            c.R(1, 0, 6, 2, Ink); c.R(2, 0, 4, 1, col.Lightened(0.3f));
+            c.R(3, 2, 2, 6, Ink); for (int y = 2; y < 8; y += 2) { c.P(3, y, col); c.P(4, y + 1, col); }
+        }
+        else if (id.EndsWith("_nail")) // a flat head, a thin shaft and a point
+        {
+            c.R(1, 0, 6, 2, Ink); c.R(2, 0, 4, 1, col);
+            c.R(3, 2, 2, 5, Ink); c.R(3, 2, 1, 4, col); c.P(3, 7, Ink);
+        }
+        else if (id.EndsWith("_rod")) // a diagonal bar
+        {
+            for (int i = 0; i < 7; i++) c.R(i, 6 - i, 2, 2, Ink);
+            for (int i = 1; i < 7; i++) c.P(i, 7 - i, col);
+            c.P(6, 1, col.Lightened(0.5f));
+        }
         else if (id.EndsWith("_plate"))
         {
             c.Box(0, 1, 8, 6, col, Ink);
