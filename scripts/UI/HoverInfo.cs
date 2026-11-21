@@ -140,7 +140,7 @@ public sealed partial class Hud
                 break;
         }
 
-        if (Defs.PowerUse.ContainsKey(e.Type))
+        if (Defs.UsesPower(e.Type))
             lines.Add(W.PowerBoost(e) > 1.01f ? $"Powered: {Defs.X(Mathf.Snapped(W.PowerBoost(e), 0.1f))} speed"
                 : W.NetOf(e) != null ? "On a pole, but no power yet: normal speed" : "No power: works at normal speed");
         if (e.Status is { } st)

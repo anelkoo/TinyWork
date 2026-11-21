@@ -44,7 +44,19 @@ public static class Defs
     public const float PipeCap = 100, PumpRate = 1; // fluid units per pipe tile, units per tick
     // Tier families share one hotbar slot, like the belts. Better poles wire further and power a bigger square.
     public static readonly string[] BeltTiers = { "belt", "fast_belt", "express_belt" }, PoleTiers = { "pole", "big_pole", "super_pole" };
-    public static string[] TiersOf(string type) => System.Array.IndexOf(BeltTiers, type) >= 0 ? BeltTiers : System.Array.IndexOf(PoleTiers, type) >= 0 ? PoleTiers : null;
+    // Every tier family: the first id is the base building, which names the hotbar slot, the entity class and the recipes.
+    public static readonly string[][] TierFamilies = { BeltTiers, PoleTiers };
+    static readonly Dictionary<string, string[]> FamilyOf = TierFamilies.SelectMany(f => f.Select(id => (id, f))).ToDictionary(x => x.id, x => x.f);
+    public static string[] TiersOf(string type) => type != null && FamilyOf.TryGetValue(type, out var f) ? f : null;
+    public static string BaseOf(string type) => TiersOf(type)?[0] ?? type;
+    public static int TierOf(string type) => TiersOf(type) is { } f ? System.Array.IndexOf(f, type) : 0;
+    // How much faster a machine tier works than its base (and how much more power it draws). Belts use BeltSpeed.
+    public static readonly Dictionary<string, float> TierSpeed = new();
+    public static float SpeedOf(string type) => TierSpeed.GetValueOrDefault(type, 1f);
+    public static float PowerOf(string type) => PowerUse.TryGetValue(BaseOf(type), out var kw) ? kw * SpeedOf(type) : 0;
+    public static bool UsesPower(string type) => PowerUse.ContainsKey(BaseOf(type));
+    // Tiles per tick for everything that carries items along (x80 = items/s). Must stay below Belt.Spacing.
+    public static readonly Dictionary<string, float> BeltSpeed = new() { ["belt"] = 0.1f, ["fast_belt"] = 0.15f, ["express_belt"] = 0.2f, ["splitter"] = 0.2f, ["tunnel"] = 0.15f };
     // Two poles link when they are within the shorter of their two ranges, so a small pole never reaches 18 tiles.
     public static int WireRangeOf(string pole) => pole switch { "super_pole" => 18, "big_pole" => 12, _ => 7 };
     public static int PoleReachOf(string pole) => pole switch { "super_pole" => 4, "big_pole" => 3, _ => 2 }; // 9x9, 7x7, 5x5
@@ -203,7 +215,7 @@ public static class Defs
     static void Building(string id, string name, int size, params (string, int)[] cost) => Buildings[id] = new BuildingDef(id, name, size, cost);
 
 
-    public static bool IsBelt(string type) => type is "belt" or "fast_belt" or "express_belt";
+    public static bool IsBelt(string type) => BaseOf(type) == "belt";
     public static bool IsFluid(string id) => id != null && Items.TryGetValue(id, out var d) && d.Fluid;
     public static Recipe RecipeById(string id) => Recipes.FirstOrDefault(r => r.Id == id);
     public static int UpgradeCost(Upgrade u, int level) => u.BaseCost << level;

@@ -580,7 +580,7 @@ public sealed partial class Hud : Control
     void OpenRecipePicker(Assembler a)
     {
         var body = OpenPanel($"{Defs.Buildings[a.Type].Name}: pick what it makes", 640);
-        foreach (var r in Defs.Recipes.Where(r => r.Machine == a.Type))
+        foreach (var r in Defs.Recipes.Where(r => r.Machine == Defs.BaseOf(a.Type)))
         {
             bool open = W.IsUnlocked(r.Unlock);
             var ins = string.Join(" + ", r.In.Select(x => $"{x.Count} {Defs.Items[x.Item].Name}"));

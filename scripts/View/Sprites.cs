@@ -154,6 +154,22 @@ public static class Sprites
         Icons["source"] = PaintSource().Tex();
         Icons["void"] = PaintVoid().Tex();
         Icons["solar"] = PaintSolar().Tex();
+        // A higher tier without its own art is its base with one pip per tier in the top-left corner.
+        foreach (var f in Defs.TierFamilies)
+            for (int t = 1; t < f.Length; t++)
+                if (!Icons.ContainsKey(f[t])) Icons[f[t]] = WithPips(Icons[f[0]], t);
+    }
+
+    static ImageTexture WithPips(ImageTexture tex, int n)
+    {
+        var img = tex.GetImage();
+        for (int k = 0; k < n; k++)
+        {
+            int x = 1 + k * 3;
+            img.FillRect(new Rect2I(x - 1, 0, 4, 4), Ink);
+            img.FillRect(new Rect2I(x, 1, 2, 2), Glow);
+        }
+        return ImageTexture.CreateFromImage(img);
     }
 
     // Solar array: a tilted blue panel on two short legs.

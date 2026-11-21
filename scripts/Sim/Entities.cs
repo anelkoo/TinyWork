@@ -33,9 +33,9 @@ public abstract class Entity
     public virtual void Load(EntityData d) { }
     public virtual string Config { get => null; set { } } // what a copy or undo carries over: recipe, filter, source item
 
-    public static Entity Create(string type) => type switch
+    public static Entity Create(string type) => Defs.BaseOf(type) switch
     {
-        "belt" or "fast_belt" or "express_belt" => new Belt(),
+        "belt" => new Belt(),
         "miner" => new Miner(),
         "furnace" => new Furnace(),
         "assembler" => new Assembler(),
@@ -43,7 +43,7 @@ public abstract class Entity
         "inserter" => new Inserter(),
         "crossing" => new Crossing(),
         "generator" => new Generator(),
-        "pole" or "big_pole" or "super_pole" => new Pole(),
+        "pole" => new Pole(),
         "splitter" => new Splitter(),
         "tunnel" => new Tunnel(),
         "pipe" or "pipe_tunnel" => new Pipe(),
@@ -72,8 +72,7 @@ public sealed class Belt : Entity
     public sealed class Item { public string Id; public float Pos, Prev; public long Arrived = -1; public Vector2 Side; public float SideLeft, PrevSide; }
     public readonly List<Item> Items = new(); // front first (Pos descending)
 
-    // 2, 3 and 4 tiles/s at 20 ticks/s. Must stay below Spacing.
-    public float Speed => Type switch { "fast_belt" => 0.15f, "express_belt" => 0.2f, _ => 0.1f };
+    public float Speed => Defs.BeltSpeed[Type];
 
     int _shapeVersion = -1;
     Vector2I _input;
@@ -273,7 +272,7 @@ public class Assembler : Entity
     public float Progress;
 
     public Recipe Recipe => RecipeId == null ? null : Defs.RecipeById(RecipeId);
-    public override string Config { get => RecipeId; set => RecipeId = Defs.RecipeById(value)?.Machine == Type ? value : null; }
+    public override string Config { get => RecipeId; set => RecipeId = Defs.RecipeById(value)?.Machine == Defs.BaseOf(Type) ? value : null; }
 
     public override bool CanAccept(World w, string item, Vector2I from)
     {
@@ -317,7 +316,7 @@ public class Assembler : Entity
 
     public override void Load(EntityData d)
     {
-        RecipeId = Defs.RecipeById(d.A)?.Machine == Type ? d.A : null;
+        RecipeId = Defs.RecipeById(d.A)?.Machine == Defs.BaseOf(Type) ? d.A : null;
         if (d.Inv != null) foreach (var (i, n) in d.Inv) Inv[i] = n;
         OutN = RecipeId == null ? 0 : d.Bn;
         Progress = d.P;
@@ -356,7 +355,7 @@ public sealed class Inserter : Entity
     {
         PrevArm = Arm;
         Working = true;
-        float swing = Swing * w.ArmSpeed * w.PowerBoost(this);
+        float swing = Swing * w.ArmSpeed * w.PowerBoost(this) * Defs.SpeedOf(Type);
         if (Held == null && Arm > 0) { Arm = Mathf.Max(0, Arm - swing); return; }
         if (Held != null && Arm < 1) { Arm = Mathf.Min(1, Arm + swing); return; }
         Working = false;
@@ -497,7 +496,8 @@ public sealed class Hub : Entity
 // Takes items from behind and deals them out in turn to the front, right and left, skipping any side that can't take one.
 public sealed class Splitter : Entity
 {
-    public const float Speed = 0.2f, Spacing = 0.25f;
+    public const float Spacing = 0.25f;
+    public float Speed => Defs.BeltSpeed[Type];
     public const int GiveUpTicks = 20; // a chosen output still blocked after this long: pick another
     // Out: the output an item committed to when it reached the centre (-1 before), so it is drawn going the right way.
     public sealed class Item { public string Id; public float Pos, Prev; public int Out = -1, Wait; }
@@ -578,7 +578,8 @@ public sealed class Splitter : Entity
 // to distance + 1 (exit front edge).
 public sealed class Tunnel : Entity
 {
-    public const float Speed = 0.15f, Spacing = 0.25f;
+    public const float Spacing = 0.25f;
+    public float Speed => Defs.BeltSpeed[Type];
     public sealed class Item { public string Id; public float Pos, Prev; }
     public readonly List<Item> Lane = new(); // front first
 

@@ -339,7 +339,7 @@ public sealed class World
     public IReadOnlyList<PowerNet> Nets { get { EnsureNets(); return _nets; } }
     public PowerNet NetOf(Entity e) { EnsureNets(); return _netOf.GetValueOrDefault(e); }
     public float PowerBoost(Entity e) => _netOf.TryGetValue(e, out var n) ? 1 + n.Satisfaction : 1;
-    public float SpeedOf(Entity e) => MachineSpeed * PowerBoost(e);
+    public float SpeedOf(Entity e) => MachineSpeed * PowerBoost(e) * Defs.SpeedOf(e.Type);
 
     // Long Wires adds 2 tiles per level to every pole type.
     public int WireRange(string pole) => Defs.WireRangeOf(pole) + 2 * Up("pole_range");
@@ -387,7 +387,7 @@ public sealed class World
                         if (At(p.Pos + new Vector2I(dx, dy)) is not { } e || _netOf.ContainsKey(e)) continue;
                         if (e is Generator g) { net.Gens.Add(g); _netOf[g] = net; }
                         else if (e is Solar so) { net.Solars.Add(so); _netOf[so] = net; }
-                        else if (Defs.PowerUse.ContainsKey(e.Type)) { net.Users.Add(e); _netOf[e] = net; }
+                        else if (Defs.UsesPower(e.Type)) { net.Users.Add(e); _netOf[e] = net; }
                     }
             _nets.Add(net);
         }
@@ -399,7 +399,7 @@ public sealed class World
         foreach (var net in _nets)
         {
             float demand = 0, cap = 0;
-            foreach (var u in net.Users) if (u.Working) demand += Defs.PowerUse[u.Type];
+            foreach (var u in net.Users) if (u.Working) demand += Defs.PowerOf(u.Type);
             int capable = 0;
             foreach (var g in net.Gens) { g.Gas = GasNextTo(g); g.Working = false; if (g.CanSupply) { cap += GeneratorKW; capable++; } }
             float solar = net.Solars.Count * Defs.SolarKW; // free and always on, so it is used before any coal
@@ -509,7 +509,7 @@ public sealed class World
     // The unpaired entrance a new underground piece here would become the exit of, if any.
     public Entity EntranceFor(string type, Vector2I pos, int rot)
     {
-        if (type is not ("tunnel" or "pipe_tunnel")) return null;
+        if (Defs.BaseOf(type) is not ("tunnel" or "pipe_tunnel")) return null;
         var probe = Entity.Create(type);
         probe.Type = type; probe.Pos = pos; probe.Rot = rot;
         return Partner(probe, true) is { } entrance && Partner(entrance) == null ? entrance : null;
@@ -518,7 +518,7 @@ public sealed class World
     // Looks backwards when lookBack, otherwise forwards; returns the first matching piece if it is the other kind.
     Entity Partner(Entity u, bool lookBack)
     {
-        int range = u.Type == "tunnel" ? Defs.TunnelRange : Defs.PipeTunnelRange;
+        int range = Defs.BaseOf(u.Type) == "tunnel" ? Defs.TunnelRange : Defs.PipeTunnelRange;
         var step = lookBack ? -u.Dir : u.Dir;
         for (int k = 1; k <= range; k++)
             if (At(u.Pos + step * k) is { } e && e.Type == u.Type && e.Rot == u.Rot)
@@ -634,7 +634,7 @@ public sealed class World
         for (int x = 0; x < def.Size; x++)
             for (int y = 0; y < def.Size; y++)
                 if (Grid.ContainsKey(pos + new Vector2I(x, y))) { why = "Something is in the way"; return false; }
-        if (type == "miner" && OreAt(pos) == null) { why = "Miners go on ore"; return false; }
+        if (Defs.BaseOf(type) == "miner" && OreAt(pos) == null) { why = "Miners go on ore"; return false; }
         if (!Free)
             foreach (var (item, n) in def.Cost)
                 if (Storage.GetValueOrDefault(item) < n) { why = $"Needs {n} {Defs.Items[item].Name}"; return false; }

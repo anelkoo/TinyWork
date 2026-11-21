@@ -593,6 +593,12 @@ public sealed partial class WorldView : Node2D
                     Sprite(Sprites.Icons["void"], c, J("production") ? _time * 2 : 0, sq);
                     break;
             }
+            if (e is not Pole && Defs.TierOf(e.Type) is > 0 and var tier) // the same pips as the icon
+                for (int k = 0; k < tier; k++)
+                {
+                    DrawRect(new Rect2(c + new Vector2(-8 + k * 3, -8), Vector2.One * 4), Sprites.Ink);
+                    DrawRect(new Rect2(c + new Vector2(-7 + k * 3, -7), Vector2.One * 2), Sprites.Glow);
+                }
         }
 
         _mod = Colors.White;
@@ -668,7 +674,7 @@ public sealed partial class WorldView : Node2D
         DrawRect(view, new Color(0.08f, 0.06f, 0.12f, 0.62f));
         foreach (var e in W.Entities)
         {
-            if (e.Exit || e.Type is not ("tunnel" or "pipe_tunnel") || W.Partner(e) is not { } exit) continue;
+            if (e.Exit || Defs.BaseOf(e.Type) is not ("tunnel" or "pipe_tunnel") || W.Partner(e) is not { } exit) continue;
             Vector2 a = Center(e.Pos), b = Center(exit.Pos);
             if (!view.HasPoint(a) && !view.HasPoint(b)) continue;
             if (e is Tunnel tu)
@@ -687,7 +693,7 @@ public sealed partial class WorldView : Node2D
         // the pieces themselves stay bright so you can see where each run starts and ends
         foreach (var e in W.Entities)
         {
-            if (e.Type is not ("tunnel" or "pipe_tunnel") || !view.HasPoint(Center(e.Pos))) continue;
+            if (Defs.BaseOf(e.Type) is not ("tunnel" or "pipe_tunnel") || !view.HasPoint(Center(e.Pos))) continue;
             var col = W.Partner(e) == null ? new Color("e8665a") : Sprites.Glow;
             DrawRect(new Rect2(e.Pos * T, Vector2.One * T).Grow(-0.5f), col, false, 1);
         }
@@ -819,7 +825,7 @@ public sealed partial class WorldView : Node2D
         }
     }
 
-    static bool Turns(string type) => Defs.IsBelt(type) || type is "miner" or "inserter" or "splitter" or "tunnel" or "pipe_tunnel" or "pump" or "refinery" or "source";
+    static bool Turns(string type) => Defs.IsBelt(type) || Defs.BaseOf(type) is "miner" or "inserter" or "splitter" or "tunnel" or "pipe_tunnel" or "pump" or "refinery" or "source";
 
     // A hat on top of the Hub, if one is worn. at = the middle of the Hub's top edge.
     void DrawHat(Vector2 at)
@@ -885,7 +891,7 @@ public sealed partial class WorldView : Node2D
                 DrawPoleArea(_hover, Selected, Sprites.Glow);
                 foreach (var p in WireTargets(_hover, Selected)) DrawWire(c + new Vector2(0, Selected == "pole" ? -6 : -8), PoleTop(p), true);
             }
-            if (Selected == "inserter") // show which way it hands items
+            if (Defs.BaseOf(Selected) == "inserter") // show which way it hands items
             {
                 var d = (Vector2)Entity.Dirs[Rot];
                 DrawLine(c - d * 5, c + d * 5, Sprites.Glow, 1);
