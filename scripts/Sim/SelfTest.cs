@@ -329,7 +329,7 @@ public static class SelfTest
     {
         var w = World.New("t", "normal", false, 1);
         w.MilestoneIndex = Defs.Milestones.Length;
-        foreach (var item in new[] { "iron_plate", "copper_plate", "steel_plate", "gear", "circuit", "steel_screw", "steel_rod" }) w.AddStorage(item, 500);
+        foreach (var item in new[] { "iron_plate", "copper_plate", "steel_plate", "gear", "circuit", "steel_screw", "steel_rod", "iron_rod" }) w.AddStorage(item, 500);
         var asm = w.Place("assembler", new(10, 10), 0, config: "gear");
         long steel = w.Storage["steel_plate"], iron = w.Storage["iron_plate"];
         w.BeginAction();

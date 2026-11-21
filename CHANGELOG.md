@@ -5,6 +5,7 @@ Everything that changed since the last release goes under "Unreleased". A new re
 ## Unreleased
 
 - Screws, nails and rods from every metal: iron, copper and steel. In an assembler one plate makes 4 screws, 4 nails or 2 rods, and each sells for a bit more than its share of the plate. Steel parts unlock with steel smelting. A new metal only needs one line to get all three parts.
+- Buildings now use the new parts. Chests and Fast Belts take iron nails; Splitters and Pumps take iron screws; Underground Belts, Pipes and Underground Pipes take iron rods; Refineries take steel screws; Big and Super Poles and the Solar Array take steel rods. Buildings you have from the start still cost plates, so a new game plays the same until the Assembler. Removing a building refunds what it costs now, so a chest from an old save gives back plates and nails.
 - Lightning Rod: 2 copper rods and 1 steel plate in an assembler. For now it's an item to sell, like everything else.
 - Six belt tiers instead of three: Turbo (24 items/s, milestone 4), Hyper (32, milestone 5) and Ultra (40, milestone 6) join Belt, Fast and Express.
 - Faster versions of other buildings: Fast and Hyper Splitter, Fast and Hyper Underground Belt, and Mk2 and Mk3 of the miner, furnace, assembler and inserter (twice and three times as fast, drawing that much more power). They cost screws, rods and the parts of their milestone.

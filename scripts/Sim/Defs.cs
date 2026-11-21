@@ -176,7 +176,7 @@ public static class Defs
         Fluid("sparkgas", "Sparkgas", "b6e86a");
 
         Building("belt", "Belt", 1, ("iron_plate", 1));
-        Building("fast_belt", "Fast Belt", 1, ("iron_plate", 1), ("gear", 1));
+        Building("fast_belt", "Fast Belt", 1, ("iron_plate", 1), ("gear", 1), ("iron_nail", 2));
         Building("express_belt", "Express Belt", 1, ("steel_plate", 1), ("gear", 1));
         Building("turbo_belt", "Turbo Belt", 1, ("steel_plate", 1), ("gear", 2), ("steel_screw", 2));
         Building("hyper_belt", "Hyper Belt", 1, ("steel_plate", 1), ("copper_rod", 2), ("plastic", 1));
@@ -194,23 +194,25 @@ public static class Defs
         Building("hyper_splitter", "Hyper Splitter", 1, ("steel_plate", 6), ("motor", 2), ("smart_chip", 1));
         Building("fast_tunnel", "Fast Underground Belt", 1, ("steel_plate", 6), ("gear", 4), ("steel_rod", 4));
         Building("hyper_tunnel", "Hyper Underground Belt", 1, ("steel_plate", 8), ("motor", 2), ("steel_rod", 6));
+        // Buildings from the start stay on plates: parts need an assembler, and so does the assembler itself.
+        // Later ones use nails (chests, cheap belts), screws (machines) and rods (poles, pipes, frames).
         Building("crossing", "Crossing", 1, ("iron_plate", 4));
         Building("inserter", "Inserter", 1, ("iron_plate", 2));
         Building("miner", "Miner", 1, ("iron_plate", 10));
         Building("furnace", "Furnace", 1, ("stone", 8));
         Building("assembler", "Assembler", 1, ("iron_plate", 10), ("copper_plate", 5));
-        Building("chest", "Chest", 1, ("iron_plate", 4));
+        Building("chest", "Chest", 1, ("iron_plate", 2), ("iron_nail", 6));
         Building("pole", "Power Pole", 1, ("iron_plate", 2), ("copper_plate", 1));
-        Building("big_pole", "Big Pole", 1, ("steel_plate", 2), ("copper_plate", 4));
-        Building("super_pole", "Super Pole", 1, ("steel_plate", 4), ("circuit", 2), ("copper_plate", 4));
+        Building("big_pole", "Big Pole", 1, ("steel_rod", 4), ("copper_plate", 4));
+        Building("super_pole", "Super Pole", 1, ("steel_rod", 8), ("circuit", 2), ("copper_plate", 4));
         Building("generator", "Generator", 1, ("iron_plate", 10), ("stone", 5));
-        Building("splitter", "Splitter", 1, ("iron_plate", 5), ("gear", 2));
-        Building("tunnel", "Underground Belt", 1, ("iron_plate", 6), ("gear", 3));
-        Building("pipe", "Pipe", 1, ("iron_plate", 1));
-        Building("pipe_tunnel", "Underground Pipe", 1, ("iron_plate", 8));
-        Building("pump", "Pump", 1, ("iron_plate", 8), ("gear", 2));
-        Building("refinery", "Refinery", 1, ("steel_plate", 5), ("circuit", 5), ("brick", 10));
-        Building("solar", "Solar Array", 1, ("solar_panel", 2), ("steel_plate", 2));
+        Building("splitter", "Splitter", 1, ("iron_plate", 3), ("gear", 2), ("iron_screw", 6));
+        Building("tunnel", "Underground Belt", 1, ("iron_plate", 4), ("gear", 3), ("iron_rod", 4));
+        Building("pipe", "Pipe", 1, ("iron_rod", 2));
+        Building("pipe_tunnel", "Underground Pipe", 1, ("iron_plate", 4), ("iron_rod", 8));
+        Building("pump", "Pump", 1, ("iron_plate", 4), ("gear", 2), ("iron_screw", 12));
+        Building("refinery", "Refinery", 1, ("steel_plate", 4), ("circuit", 5), ("brick", 10), ("steel_screw", 6));
+        Building("solar", "Solar Array", 1, ("solar_panel", 2), ("steel_rod", 4));
         Building("hub", "Hub", 3);
         Building("source", "Item Source", 1);
         Building("void", "Item Void", 1);
