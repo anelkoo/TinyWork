@@ -383,6 +383,16 @@ public partial class Main
         Check(FindAll<Label>(_hud).Any(l => l.IsVisibleInTree() && l.Text.StartsWith("All milestones done")), "after milestone 6 the tracker says all are done");
         await Wait(1.5); // past the milestone flash
         Shot("25_new_items_and_solar");
+        var rod = (LightningRod)Put("lightning_rod", 5, 7);
+        await Wait(0.2);
+        Check(_world.NetOf(rod) != null, "the lightning rod joins the big pole's network");
+        var (camWas, zoomWas) = (_view.CamTarget, _view.ZoomTarget);
+        _view.SetCamera((rod.Pos + new Vector2(0.5f, -1)) * 16, 3);
+        rod.Charge = Defs.LightningTicks; // a strike now, for the picture
+        _world.Emit("lightning", rod.Pos, rod.Type);
+        await Wait(0.1);
+        Shot("25b_lightning");
+        _view.SetCamera(camWas, zoomWas);
         _hud.Inspect(Find<Assembler>());
         await Wait(0.5);
         Shot("26_all_recipes");

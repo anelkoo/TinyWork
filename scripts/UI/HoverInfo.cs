@@ -126,6 +126,11 @@ public sealed partial class Hud
                 if (W.NetOf(so) is { } sn) lines.Add($"Network uses {sn.Demand:0} of {sn.Capacity:0} kW");
                 else lines.Add("No pole nearby");
                 break;
+            case LightningRod lr:
+                lines.Add(lr.Charge > 0 ? $"Struck! +{Defs.LightningKW:0} kW for {lr.Charge / World.TicksPerSecond + 1} s" : $"Waits for lightning, about every {Defs.LightningEvery / World.TicksPerSecond} s");
+                if (W.NetOf(lr) is { } ln) lines.Add($"Network uses {ln.Demand:0} of {ln.Capacity:0} kW");
+                else lines.Add("No pole nearby");
+                break;
             case Pipe pi:
                 var fnet = W.FluidOf(pi);
                 lines.Add(fnet?.Fluid is { } fl ? $"{N(fl)}: {fnet.Amount:0}/{fnet.Cap:0}" : $"Empty (holds {fnet?.Cap ?? 0:0})");

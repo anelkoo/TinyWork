@@ -51,6 +51,7 @@ public abstract class Entity
         "refinery" => new Refinery(),
         "hub" => new Hub(),
         "solar" => new Solar(),
+        "lightning_rod" => new LightningRod(),
         "source" => new ItemSource(),
         "void" => new ItemVoid(),
         _ => null,
@@ -494,6 +495,23 @@ public sealed class Pole : Entity { }
 public sealed class Solar : Entity
 {
     public override void Tick(World w) => Working = w.NetOf(this) != null;
+}
+
+// Now and then lightning strikes it (World.LightningAt), and for Defs.LightningTicks it adds Defs.LightningKW
+// to the power network of a pole that reaches it. Lightning never breaks anything.
+public sealed class LightningRod : Entity
+{
+    public int Charge; // ticks of bonus left
+
+    public override void Tick(World w)
+    {
+        if (Charge > 0) Charge--;
+        else if (w.LightningAt(Pos)) { Charge = Defs.LightningTicks; w.Emit("lightning", Pos, Type); }
+        Working = Charge > 0;
+    }
+
+    public override void Save(EntityData d) => d.N = Charge;
+    public override void Load(EntityData d) => Charge = Math.Clamp(d.N, 0, Defs.LightningTicks);
 }
 
 public sealed class Hub : Entity

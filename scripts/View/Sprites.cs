@@ -154,6 +154,7 @@ public static class Sprites
         Icons["source"] = PaintSource().Tex();
         Icons["void"] = PaintVoid().Tex();
         Icons["solar"] = PaintSolar().Tex();
+        Icons["lightning_rod"] = PaintLightningRod().Tex();
         // A higher tier without its own art is its base with one pip per tier in the top-left corner.
         foreach (var f in Defs.TierFamilies)
             for (int t = 1; t < f.Length; t++)
@@ -182,6 +183,18 @@ public static class Sprites
         for (int x = 5; x < 14; x += 4) c.R(x, 3, 1, 9, blue.Darkened(0.45f));
         c.R(2, 7, 12, 1, blue.Darkened(0.45f));
         c.P(3, 4, Colors.White); c.P(4, 4, Colors.White); c.P(3, 5, Colors.White);
+        return c;
+    }
+
+    // Lightning rod: a copper mast with a bright tip on a steel foot.
+    static Canvas PaintLightningRod()
+    {
+        var c = new Canvas(T, T);
+        var copper = new Color("e0894f");
+        c.Box(4, 12, 8, 3, MetalDark, Ink);
+        c.R(7, 3, 2, 9, copper); c.R(6, 3, 1, 9, Ink); c.R(9, 3, 1, 9, Ink);
+        c.R(7, 1, 2, 2, new Color("e8c15a")); c.P(7, 0, Ink); c.P(8, 0, Ink);
+        c.R(5, 6, 6, 1, copper.Darkened(0.3f));
         return c;
     }
 

@@ -10,6 +10,7 @@ namespace TinyWorks.View;
 public sealed partial class WorldView : Node2D
 {
     const int T = Sprites.T;
+    static readonly Color Bolt = new("fff3a0");
     // Half steps keep every art pixel a whole number of screen pixels (zoom x PixelScale), so nothing gets uneven.
     static readonly float[] Zooms = { 0.5f, 1, 1.5f, 2, 2.5f, 3, 3.5f, 4 };
     const float ZoomCooldown = 0.12f; // a fast wheel spin moves one step at a time, not five
@@ -36,6 +37,7 @@ public sealed partial class WorldView : Node2D
     float _time, _dt, _hubPulse, _targetZoom = 1, _deliverTimer;
     float _beltTime; // game time for belt animation: stands still while paused, runs with game speed and Belt Rush
     public float BeltTime => _beltTime;
+    readonly List<(Vector2 At, float T)> _bolts = new(); // lightning strikes, drawn for a moment
     Vector2 _camTarget;
     Vector2I _hover, _lastPaint;
     Entity _lastBelt;
@@ -354,6 +356,12 @@ public sealed partial class WorldView : Node2D
             var at = Center(e.Tile);
             switch (e.Kind)
             {
+                case "lightning":
+                    _bolts.Add((at, _time));
+                    if (J("production")) _juice.Burst(at + new Vector2(0, -6), Bolt, 14, 70, 2, 60);
+                    if (J("screen")) _juice.Shake(0.12f);
+                    Sfx.Play("thunder", 0.1f, 0.3f);
+                    break;
                 case "placed":
                     if (W.At(e.Tile) is { } placed) _born[placed] = _time;
                     if (J("place")) _juice.Burst(at + new Vector2(0, 6), new Color("d9cbb0"), 8, 30, 2, 60);
@@ -600,6 +608,10 @@ public sealed partial class WorldView : Node2D
                     Sprite(Sprites.Icons["solar"], c, 0, sq);
                     if (so.Working && prod) DrawRect(new Rect2(c + new Vector2(-5 + (int)(_time * 6) % 10, -4), new Vector2(1, 1)), Colors.White with { A = 0.8f }); // a glint sliding across
                     break;
+                case LightningRod lr:
+                    Sprite(Sprites.Icons["lightning_rod"], c, 0, sq);
+                    if (lr.Charge > 0 && prod) DrawRect(new Rect2(c + new Vector2(-2, -9), new Vector2(4, 4)), Bolt with { A = 0.5f + 0.4f * Mathf.Sin(_time * 30) }); // the tip glows while charged
+                    break;
                 case ItemVoid:
                     Sprite(Sprites.Icons["void"], c, J("production") ? _time * 2 : 0, sq);
                     break;
@@ -629,6 +641,21 @@ public sealed partial class WorldView : Node2D
             foreach (var e in W.Entities)
                 if (e.Status is { } st && view.HasPoint(Center(e.Pos))) DrawStatus(Center(e.Pos), st);
 
+        for (int i = _bolts.Count - 1; i >= 0; i--) // a jagged bolt from the sky into the rod's tip, fading out
+        {
+            var (at, t0) = _bolts[i];
+            float k = (_time - t0) / 0.35f;
+            if (k >= 1) { _bolts.RemoveAt(i); continue; }
+            var rng = new RandomNumberGenerator { Seed = (ulong)(at.X * 31 + at.Y * 7 + t0 * 100) };
+            var tip = at + new Vector2(0, -7);
+            var p = tip + new Vector2(0, -T * 6);
+            for (int s = 1; s <= 6; s++)
+            {
+                var q = s == 6 ? tip : p + new Vector2(rng.RandfRange(-6, 6), T);
+                DrawLine(p, q, Bolt with { A = 1 - k }, 2);
+                p = q;
+            }
+        }
         _juice.Draw(this);
         DrawCursor();
     }

@@ -315,6 +315,17 @@ public sealed class World
 
     public Entity At(Vector2I t) => Grid.GetValueOrDefault(t);
     public void AddStorage(string item, long n) => Storage[item] = Storage.GetValueOrDefault(item) + n;
+    // Whether lightning strikes this tile this tick. Worked out from the seed, tick and tile, so a loaded save sees the same strikes.
+    public bool LightningAt(Vector2I t)
+    {
+        unchecked
+        {
+            ulong h = (ulong)Seed * 0x9E3779B97F4A7C15UL ^ (ulong)Tick * 0xC2B2AE3D27D4EB4FUL ^ (uint)t.X * 0x165667B19E3779F9UL ^ (uint)t.Y * 0x27D4EB2F165667C5UL;
+            h ^= h >> 31; h *= 0xBF58476D1CE4E5B9UL; h ^= h >> 29;
+            return h % Defs.LightningEvery == 0;
+        }
+    }
+
     public void Emit(string kind, Vector2I tile, string id, long n = 1, float f = 0) { if (Events.Count < 512) Events.Enqueue(new GameEvent(kind, tile, id, n, f)); }
 
     // ---------- Power ----------
@@ -327,6 +338,7 @@ public sealed class World
         public readonly List<Pole> Poles = new();
         public readonly List<Generator> Gens = new();
         public readonly List<Solar> Solars = new();
+        public readonly List<LightningRod> Rods = new();
         public readonly List<Entity> Users = new();
         public readonly List<(Pole A, Pole B)> Wires = new();
         public float Demand, Capacity, Satisfaction; // kW, kW, 0..1
@@ -387,6 +399,7 @@ public sealed class World
                         if (At(p.Pos + new Vector2I(dx, dy)) is not { } e || _netOf.ContainsKey(e)) continue;
                         if (e is Generator g) { net.Gens.Add(g); _netOf[g] = net; }
                         else if (e is Solar so) { net.Solars.Add(so); _netOf[so] = net; }
+                        else if (e is LightningRod lr) { net.Rods.Add(lr); _netOf[lr] = net; }
                         else if (Defs.UsesPower(e.Type)) { net.Users.Add(e); _netOf[e] = net; }
                     }
             _nets.Add(net);
@@ -402,7 +415,7 @@ public sealed class World
             foreach (var u in net.Users) if (u.Working) demand += Defs.PowerOf(u.Type);
             int capable = 0;
             foreach (var g in net.Gens) { g.Gas = GasNextTo(g); g.Working = false; if (g.CanSupply) { cap += GeneratorKW; capable++; } }
-            float solar = net.Solars.Count * Defs.SolarKW; // free and always on, so it is used before any coal
+            float solar = net.Solars.Count * Defs.SolarKW + net.Rods.Count(r => r.Charge > 0) * Defs.LightningKW; // free (sun, lightning), so used before any coal
             cap += solar;
             net.Demand = demand;
             net.Capacity = cap;

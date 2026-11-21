@@ -53,6 +53,7 @@ public static class SelfTest
         Test("every belt, splitter and underground tier at full load keeps spacing and loses nothing", CarriersAtFullLoad);
         Test("Belt Rush x10 moves ten times as much and loses nothing", BeltRush);
         Test("items sort into their list groups", ItemGroups);
+        Test("lightning hits only rods, powers their network for a while, then stops", LightningRods);
         Test("Mk2 and Mk3 machines work two and three times as fast", MachineTiers);
         Test("a better tier goes straight onto the old one, refunds it, keeps the recipe; undo swaps back", UpgradeInPlace);
         GD.Print(_fails == 0 ? "SELFTEST PASS" : $"SELFTEST FAIL ({_fails})");
@@ -163,7 +164,7 @@ public static class SelfTest
 
     static void RoundTrip()
     {
-        foreach (var make in new Func<World>[] { ChainWorld, AssemblerWorld, EconomyWorld, FluidWorld, TunnelWorld })
+        foreach (var make in new Func<World>[] { ChainWorld, AssemblerWorld, EconomyWorld, FluidWorld, TunnelWorld, LightningWorld })
         {
             var a = make();
             for (int i = 0; i < 1000; i++) a.Step();
@@ -282,6 +283,43 @@ public static class SelfTest
         foreach (var e in w.Entities) e.Contents(all);
         Check(made == sink.Eaten + all.Count, $"{belt}/{mid}: made {made}, eaten {sink.Eaten}, in transit {all.Count}");
         return rate;
+    }
+
+    // A pole with ten rods around it: lightning strikes one about every 9 s.
+    static World LightningWorld()
+    {
+        var w = Sandbox();
+        w.Place("pole", new(0, 0), 0);
+        for (int x = -2; x <= 2; x++) { w.Place("lightning_rod", new(x, -2), 0); w.Place("lightning_rod", new(x, 2), 0); }
+        w.Place("chest", new(2, 0), 0); // something that isn't a rod, in reach
+        return w;
+    }
+
+    static void LightningRods()
+    {
+        var w = LightningWorld();
+        var rods = w.Entities.OfType<LightningRod>().ToList();
+        var net = w.NetOf(rods[0]);
+        Check(net != null && net.Rods.Count == rods.Count, "every rod should join the pole's network");
+        var struck = new Dictionary<LightningRod, long>();
+        int strikes = 0, charged = 0;
+        for (int t = 0; t < 6000; t++)
+        {
+            w.Step();
+            // Power is worked out at the start of a tick, from the charges the tick before.
+            Check(net.Capacity == charged * Defs.LightningKW, $"capacity {net.Capacity} with {charged} charged rods");
+            while (w.Events.TryDequeue(out var e))
+                if (e.Kind == "lightning")
+                {
+                    strikes++;
+                    if (w.At(e.Tile) is LightningRod r) struck[r] = w.Tick;
+                    else Check(false, $"lightning hit {e.Tile}, which is no rod");
+                }
+            foreach (var (r, at) in struck)
+                if (w.Tick == at + Defs.LightningTicks) Check(r.Charge == 0, $"the bonus should end {Defs.LightningTicks} ticks after the strike");
+            charged = rods.Count(r => r.Charge > 0);
+        }
+        Check(strikes >= 15, $"ten rods over 5 minutes should see plenty of lightning (got {strikes})");
     }
 
     static void ItemGroups()

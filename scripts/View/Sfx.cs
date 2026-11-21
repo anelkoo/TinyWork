@@ -94,6 +94,7 @@ public sealed partial class Sfx : Node
         _sounds["open"] = Synth(400, 800, 0.08f, vol: 0.22f);
         _sounds["coin"] = Notes(new[] { 1320f, 1760f }, 0.05f, 0.2f);
         _sounds["zap"] = Synth(1800, 300, 0.12f, noise: 0.55f, vol: 0.22f);
+        _sounds["thunder"] = Synth(140, 40, 0.7f, noise: 0.85f, vol: 0.3f);
         _sounds["milestone"] = Notes(new[] { 523f, 659f, 784f, 1047f, 784f, 1047f }, 0.09f, 0.28f); // C-E-G-C jingle
         UpdateMusic();
     }

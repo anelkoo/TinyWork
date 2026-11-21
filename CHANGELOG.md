@@ -4,6 +4,7 @@ Everything that changed since the last release goes under "Unreleased". A new re
 
 ## Unreleased
 
+- The Lightning Rod is a building now (milestone 2, costs a Lightning Rod and 2 steel plates). About every 90 seconds lightning strikes it, with a flash and thunder, and for 10 seconds it gives its pole's power network an extra 1200 kW. Nothing ever breaks. Several rods each get their own strikes.
 - Pausing stops the belt animation too. Belts now animate at game speed, so they run faster at 2x and 4x and with Belt Rush.
 - Item lists come in groups: ores, plates, metal parts, intermediates, products and fluids. Storage on the left, the Hub's Sell tab and the recipe picker show a heading per group and hide empty groups. A new metal's plate and parts land in the right group by themselves.
 
