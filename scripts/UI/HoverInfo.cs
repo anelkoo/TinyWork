@@ -112,13 +112,18 @@ public sealed partial class Hud
                 foreach (var (id, n) in c.Inv.OrderByDescending(x => x.Value).Take(3)) lines.Add($"{n} {N(id)}");
                 break;
             case Pole p:
-                lines.Add($"Wires up to {Defs.WireRangeOf(p.Type)} tiles, powers {Defs.PoleReachOf(p.Type) * 2 + 1}x{Defs.PoleReachOf(p.Type) * 2 + 1}");
+                lines.Add($"Wires up to {W.WireRange(p.Type)} tiles, powers {Defs.PoleReachOf(p.Type) * 2 + 1}x{Defs.PoleReachOf(p.Type) * 2 + 1}");
                 if (W.NetOf(p) is { } net)
                     lines.Add($"Network: {net.Gens.Count} generators, {net.Users.Count} machines, {net.Demand:0}/{net.Capacity:0} kW");
                 break;
             case Generator g:
                 lines.Add($"{g.Fuel} coal waiting" + (g.Gas != null ? ", sparkgas pipe connected" : ""));
                 if (W.NetOf(g) is { } gn) lines.Add($"Network uses {gn.Demand:0} of {gn.Capacity:0} kW");
+                else lines.Add("No pole nearby");
+                break;
+            case Solar so:
+                lines.Add($"Gives {Defs.SolarKW:0} kW, day and night, no fuel");
+                if (W.NetOf(so) is { } sn) lines.Add($"Network uses {sn.Demand:0} of {sn.Capacity:0} kW");
                 else lines.Add("No pole nearby");
                 break;
             case Pipe pi:

@@ -19,6 +19,7 @@ public sealed partial class Hud : Control
     World W => View.W;
     readonly Dictionary<string, (Control Row, Label Count, double Shown)> _rows = new();
     VBoxContainer _storage;
+    GridContainer _itemGrid; // storage rows; a second column opens when they would run past the hotbar
     PanelContainer _storagePanel, _tracker;
     HBoxContainer _bar, _coinRow;
     Label _coins, _coinRate, _toast, _hints, _trackerTitle;
@@ -56,13 +57,17 @@ public sealed partial class Hud : Control
         _potionRows = new VBoxContainer();
         _potionRows.AddThemeConstantOverride("separation", 2);
         _storage.AddChild(_potionRows);
+        _itemGrid = new GridContainer { Columns = 1 };
+        _itemGrid.AddThemeConstantOverride("h_separation", 14);
+        _itemGrid.AddThemeConstantOverride("v_separation", 2);
+        _storage.AddChild(_itemGrid);
         foreach (var id in Defs.Items.Keys)
         {
             var count = Ui.MakeLabel("0");
             var row = Ui.Row(Ui.Icon(Sprites.Items[id]), count);
             row.Visible = false;
             row.TooltipText = HowToMake(id);
-            _storage.AddChild(row);
+            _itemGrid.AddChild(row);
             _rows[id] = (row, count, 0);
         }
 
@@ -262,7 +267,7 @@ public sealed partial class Hud : Control
         Callable.From(PlaceTracker).CallDeferred();
         if (W.CurrentMilestone is not { } m)
         {
-            _trackerTitle.Text = "All milestones done. More coming soon!";
+            _trackerTitle.Text = _mini ? "All milestones done!" : "All milestones done! Sky Beacons sell for the most.";
             return;
         }
         _trackerTitle.Text = $"Milestone {W.MilestoneIndex + 1}/{Defs.Milestones.Length}: {m.Name}";
@@ -296,7 +301,7 @@ public sealed partial class Hud : Control
     }
 
     static string UnlockNames(Milestone m) =>
-        string.Join(", ", m.Unlocks.Select(u => Defs.Buildings.TryGetValue(u, out var b) ? b.Name : u == "steel" ? "Steel smelting" : u));
+        string.Join(", ", m.Unlocks.Select(u => Defs.Buildings.TryGetValue(u, out var b) ? b.Name : Defs.Items.TryGetValue(u, out var i) ? i.Name : u == "steel" ? "Steel smelting" : u));
 
     void UpdateTracker()
     {
@@ -361,6 +366,9 @@ public sealed partial class Hud : Control
             label.Text = Compact((long)Math.Round(next));
             _rows[id] = (row, label, next);
         }
+        int shownRows = _rows.Values.Count(r => r.Row.Visible), fit = Math.Max(4, (int)((Size.Y - (_mini ? 90 : 230)) / (_mini ? 18 : 25)));
+        int cols = Math.Clamp((shownRows + fit - 1) / fit, 1, 3);
+        if (_itemGrid.Columns != cols) { _itemGrid.Columns = cols; _storagePanel.ResetSize(); }
         double coins = Ui.Enabled ? Mathf.Lerp(_coinsShown, W.Coins, 1 - Mathf.Exp(-8 * dt)) : W.Coins;
         if (Math.Abs(coins - W.Coins) < 0.5) coins = W.Coins;
         _coinsShown = coins;
@@ -439,7 +447,7 @@ public sealed partial class Hud : Control
             case Inserter i: OpenFilterPicker(i); break;
             case Chest c: OpenChest(c); break;
             case Pipe p: OpenPipe(p); break;
-            case Pole or Generator: OpenPower(e); break;
+            case Pole or Generator or Solar: OpenPower(e); break;
             case ItemSource src: PickItem("Item source", "Makes this item out of nothing and hands it to the tile in front.", src.Item, false, id => src.Item = id); break;
         }
     }
@@ -453,13 +461,13 @@ public sealed partial class Hud : Control
             var net = W.NetOf(clicked);
             if (net == null || net.Poles.Count == 0)
             {
-                status.Text = "Not connected. Put a power pole within 2 tiles of this generator.";
+                status.Text = $"Not connected. Put a power pole within 2 tiles of this {Defs.Buildings[clicked.Type].Name.ToLower()}.";
                 use.Text = gens.Text = speed.Text = "";
                 bar.Value = 0;
                 return;
             }
             static string N(int n, string word) => $"{n} {word}{(n == 1 ? "" : "s")}";
-            status.Text = $"{N(net.Poles.Count, "pole")}, {N(net.Gens.Count, "generator")}, {N(net.Users.Count, "machine")}";
+            status.Text = $"{N(net.Poles.Count, "pole")}, {N(net.Gens.Count, "generator")}, {N(net.Solars.Count, "solar array")}, {N(net.Users.Count, "machine")}";
             use.Text = $"Using {net.Demand:0} kW of {net.Capacity:0} kW";
             gens.Text = $"Coal in generators: {net.Gens.Sum(g => g.Fuel)}" + (net.Gens.Count == 0 ? "  (no generator on this network yet)" : "");
             speed.Text = $"Machines here run at {100 * (1 + net.Satisfaction):0}% speed";
@@ -472,7 +480,7 @@ public sealed partial class Hud : Control
         speed = Ui.MakeLabel("", 16, Ui.Accent);
         bar = new ProgressBar { MaxValue = 1, ShowPercentage = false, CustomMinimumSize = new Vector2(0, 12) };
         foreach (var c in new Control[] { status, speed, bar, use, gens }) body.AddChild(c);
-        var info = Ui.MakeLabel("Power is a bonus: machines work without it, and run up to twice as fast with enough power. Generators burn coal; feed them with an inserter or a belt.", 12, Ui.Muted);
+        var info = Ui.MakeLabel("Power is a bonus: machines work without it, and run up to twice as fast with enough power. Generators burn coal; feed them with an inserter or a belt. Solar arrays give 100 kW each with no fuel, and are used first.", 12, Ui.Muted);
         info.AutowrapMode = TextServer.AutowrapMode.WordSmart;
         body.AddChild(info);
     }
@@ -571,12 +579,13 @@ public sealed partial class Hud : Control
 
     void OpenRecipePicker(Assembler a)
     {
-        var body = OpenPanel($"{Defs.Buildings[a.Type].Name}: pick what it makes", 460);
+        var body = OpenPanel($"{Defs.Buildings[a.Type].Name}: pick what it makes", 640);
         foreach (var r in Defs.Recipes.Where(r => r.Machine == a.Type))
         {
             bool open = W.IsUnlocked(r.Unlock);
             var ins = string.Join(" + ", r.In.Select(x => $"{x.Count} {Defs.Items[x.Item].Name}"));
             var b = new Button { Text = $"{(r.OutCount > 1 ? r.OutCount + " " : "")}{Defs.Items[r.Out].Name}   from {ins}", Icon = Sprites.Items[r.Out], ExpandIcon = true, Disabled = !open, Alignment = HorizontalAlignment.Left, CustomMinimumSize = new Vector2(0, 40), ClipText = true };
+            b.TooltipText = b.Text.Trim(); // the button cuts long recipes in a small window
             b.AddThemeConstantOverride("icon_max_width", 20);
             if (a.RecipeId == r.Id) b.AddThemeStyleboxOverride("normal", Ui.Box(Ui.BtnHover, Ui.Accent, 3));
             b.Pressed += () => { if (a.RecipeId != r.Id) W.SetRecipe(a, r.Id); Sfx.Play("click"); ClosePanel(); };

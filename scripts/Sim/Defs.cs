@@ -28,15 +28,16 @@ public static class Defs
     public static readonly List<Recipe> Recipes = new();
     public static readonly string[] Ores = { "iron_ore", "copper_ore", "stone", "coal" };
     public static readonly string[] BaseUnlocks = { "belt", "crossing", "inserter", "miner", "furnace", "pole", "generator" };
-    public static readonly string[] BuildOrder = { "belt", "fast_belt", "express_belt", "crossing", "inserter", "miner", "furnace", "assembler", "chest", "pole", "big_pole", "super_pole", "generator", "splitter", "tunnel", "pipe", "pipe_tunnel", "pump", "refinery" };
+    public static readonly string[] BuildOrder = { "belt", "fast_belt", "express_belt", "crossing", "inserter", "miner", "furnace", "assembler", "chest", "pole", "big_pole", "super_pole", "generator", "splitter", "tunnel", "pipe", "pipe_tunnel", "pump", "refinery", "solar" };
     // Every building has a hotbar slot, locked ones greyed out, so slots never shift when something unlocks.
     // Keys 1-9 and 0 reach the first ten. Pressing a tiered slot again (belts, poles) steps through its unlocked tiers.
     // Sandbox tools: no milestone unlocks them, so outside sandbox they stay locked and hidden.
     public static readonly string[] SandboxOnly = { "source", "void" };
-    public static readonly string[] HotbarOrder = { "belt", "inserter", "miner", "furnace", "crossing", "splitter", "tunnel", "assembler", "chest", "pole", "generator", "pipe", "pipe_tunnel", "pump", "refinery" };
+    public static readonly string[] HotbarOrder = { "belt", "inserter", "miner", "furnace", "crossing", "splitter", "tunnel", "assembler", "chest", "pole", "generator", "pipe", "pipe_tunnel", "pump", "refinery", "solar" };
 
     // Power (kW) a machine draws while it works. Power only ever speeds things up: see World.PowerBoost.
     public static readonly Dictionary<string, float> PowerUse = new() { ["miner"] = 90, ["furnace"] = 90, ["assembler"] = 75, ["inserter"] = 15, ["pump"] = 30, ["refinery"] = 120 };
+    public const float SolarKW = 100; // always on: there is no day and night
     public const float GeneratorKW = 600, CoalKJ = 4000, SparkgasKJ = 200; // kJ per unit
     public const int TunnelRange = 5, PipeTunnelRange = 10; // how far apart an entrance and its exit may be
     public const float PipeCap = 100, PumpRate = 1; // fluid units per pipe tile, units per tick
@@ -53,6 +54,9 @@ public static class Defs
         new("First Plates", new[] { ("iron_plate", 40), ("copper_plate", 20) }, new[] { "assembler", "chest", "splitter", "tunnel" }),
         new("Gears Turning", new[] { ("gear", 40), ("copper_wire", 60) }, new[] { "fast_belt", "steel", "big_pole" }),
         new("Smart Factory", new[] { ("circuit", 30), ("steel_plate", 15) }, new[] { "express_belt", "super_pole", "pipe", "pipe_tunnel", "pump", "refinery" }),
+        new("Clear Glass", new[] { ("plastic", 40), ("sulfur", 30) }, new[] { "sand", "glass", "lens", "battery", "motor", "lamp" }),
+        new("Bright Ideas", new[] { ("lamp", 40), ("battery", 30), ("motor", 30) }, new[] { "smart_chip", "frame", "toy_robot", "clock", "solar_panel", "solar" }),
+        new("Reach the Sky", new[] { ("toy_robot", 20), ("clock", 20), ("solar_panel", 20) }, new[] { "drone", "computer", "sky_beacon" }),
     };
 
     public static readonly Upgrade[] Upgrades =
@@ -63,6 +67,7 @@ public static class Defs
         new("sell_price", "Better Deals", "+10% coins for everything auto-sold", 10, 150),
         new("power", "Bigger Generators", "+20% power from every generator", 5, 120),
         new("pump", "Strong Pumps", "+25% water from every pump", 4, 200),
+        new("pole_range", "Long Wires", "+2 tiles of wire reach for every pole", 3, 250),
     };
 
     public static readonly Potion[] Potions =
@@ -109,6 +114,20 @@ public static class Defs
         Item("circuit", "Circuit", "62b86a", 16);
         Item("plastic", "Plastic", "e9e4f2", 12);
         Item("sulfur", "Sulfur", "e8d84a", 10);
+        Item("sand", "Sand", "e3cf8e", 1);
+        Item("glass", "Glass", "a9dcef", 5);
+        Item("lens", "Lens", "7fc8e8", 16);
+        Item("battery", "Battery", "6fbf73", 24);
+        Item("motor", "Motor", "9aa3b5", 50);
+        Item("lamp", "Lamp", "ffe08a", 18);
+        Item("smart_chip", "Smart Chip", "a77fe0", 60);
+        Item("frame", "Frame", "8a7d6b", 65);
+        Item("toy_robot", "Toy Robot", "e8665a", 120);
+        Item("clock", "Clock", "f2a65a", 70);
+        Item("solar_panel", "Solar Panel", "4a6fd0", 60);
+        Item("drone", "Drone", "5aa9e8", 330);
+        Item("computer", "Computer", "3d4250", 330);
+        Item("sky_beacon", "Sky Beacon", "fff3a0", 1200);
         Fluid("water", "Water", "4f8fd9");
         Fluid("black_goo", "Black Goo", "3a2f45");
         Fluid("sparkgas", "Sparkgas", "b6e86a");
@@ -132,6 +151,7 @@ public static class Defs
         Building("pipe_tunnel", "Underground Pipe", 1, ("iron_plate", 8));
         Building("pump", "Pump", 1, ("iron_plate", 8), ("gear", 2));
         Building("refinery", "Refinery", 1, ("steel_plate", 5), ("circuit", 5), ("brick", 10));
+        Building("solar", "Solar Array", 1, ("solar_panel", 2), ("steel_plate", 2));
         Building("hub", "Hub", 3);
         Building("source", "Item Source", 1);
         Building("void", "Item Void", 1);
@@ -148,6 +168,23 @@ public static class Defs
         Recipes.Add(new("sparkgas", "refinery", new[] { ("black_goo", 20) }, "sparkgas", 20, 40));
         Recipes.Add(new("sulfur", "refinery", new[] { ("sparkgas", 20), ("stone", 1) }, "sulfur", 2, 60));
         Recipes.Add(new("circuit", "assembler", new[] { ("iron_plate", 1), ("copper_wire", 3) }, "circuit", 1, 30));
+        // Milestone 4: glass and the first parts
+        Recipes.Add(new("sand", "assembler", new[] { ("stone", 1) }, "sand", 2, 20, "sand"));
+        Recipes.Add(new("glass", "furnace", new[] { ("sand", 2) }, "glass", 1, 60, "glass"));
+        Recipes.Add(new("lens", "assembler", new[] { ("glass", 2), ("copper_plate", 1) }, "lens", 1, 40, "lens"));
+        Recipes.Add(new("battery", "assembler", new[] { ("sulfur", 1), ("copper_plate", 1), ("iron_plate", 1) }, "battery", 1, 40, "battery"));
+        Recipes.Add(new("motor", "assembler", new[] { ("steel_plate", 1), ("gear", 2), ("copper_wire", 2) }, "motor", 1, 60, "motor"));
+        Recipes.Add(new("lamp", "assembler", new[] { ("glass", 1), ("copper_wire", 2), ("iron_plate", 1) }, "lamp", 1, 40, "lamp"));
+        // Milestone 5: smarter parts and the first products
+        Recipes.Add(new("smart_chip", "assembler", new[] { ("circuit", 2), ("plastic", 1) }, "smart_chip", 1, 60, "smart_chip"));
+        Recipes.Add(new("frame", "assembler", new[] { ("steel_plate", 2), ("plastic", 1) }, "frame", 1, 60, "frame"));
+        Recipes.Add(new("toy_robot", "assembler", new[] { ("motor", 1), ("circuit", 1), ("plastic", 2) }, "toy_robot", 1, 80, "toy_robot"));
+        Recipes.Add(new("clock", "assembler", new[] { ("gear", 3), ("glass", 1), ("battery", 1) }, "clock", 1, 80, "clock"));
+        Recipes.Add(new("solar_panel", "assembler", new[] { ("glass", 2), ("circuit", 1), ("steel_plate", 1) }, "solar_panel", 1, 80, "solar_panel"));
+        // Milestone 6: the big ones. The Sky Beacon sells for the most.
+        Recipes.Add(new("drone", "assembler", new[] { ("motor", 2), ("smart_chip", 1), ("frame", 1), ("battery", 1) }, "drone", 1, 120, "drone"));
+        Recipes.Add(new("computer", "assembler", new[] { ("smart_chip", 3), ("frame", 1), ("glass", 1) }, "computer", 1, 120, "computer"));
+        Recipes.Add(new("sky_beacon", "assembler", new[] { ("drone", 1), ("computer", 1), ("solar_panel", 2), ("lens", 2) }, "sky_beacon", 1, 200, "sky_beacon"));
     }
 
     static void Item(string id, string name, string hex, int price) => Items[id] = new ItemDef(id, name, new Color(hex), price);

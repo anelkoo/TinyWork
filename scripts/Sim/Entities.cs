@@ -50,6 +50,7 @@ public abstract class Entity
         "pump" => new Pump(),
         "refinery" => new Refinery(),
         "hub" => new Hub(),
+        "solar" => new Solar(),
         "source" => new ItemSource(),
         "void" => new ItemVoid(),
         _ => null,
@@ -481,6 +482,12 @@ public sealed class Generator : Entity
 public sealed class Pole : Entity { }
 
 // Everything delivered here goes into central storage and counts toward the current milestone.
+// Gives Defs.SolarKW to the power network of a pole that reaches it, all the time, with no fuel.
+public sealed class Solar : Entity
+{
+    public override void Tick(World w) => Working = w.NetOf(this) != null;
+}
+
 public sealed class Hub : Entity
 {
     public override bool CanAccept(World w, string item, Vector2I from) => true;

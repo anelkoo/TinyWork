@@ -585,6 +585,10 @@ public sealed partial class WorldView : Node2D
                     Sprite(Sprites.Icons["source"], c, Angle(src.Rot), sq);
                     if (src.Item != null) DrawTexture(Sprites.Items[src.Item], (c - Vector2.One * 4).Round());
                     break;
+                case Solar so:
+                    Sprite(Sprites.Icons["solar"], c, 0, sq);
+                    if (so.Working && prod) DrawRect(new Rect2(c + new Vector2(-5 + (int)(_time * 6) % 10, -4), new Vector2(1, 1)), Colors.White with { A = 0.8f }); // a glint sliding across
+                    break;
                 case ItemVoid:
                     Sprite(Sprites.Icons["void"], c, J("production") ? _time * 2 : 0, sq);
                     break;
@@ -709,7 +713,7 @@ public sealed partial class WorldView : Node2D
 
     // Poles the new pole would wire to: its 3 nearest within range (same rule as the simulation).
     IEnumerable<Pole> WireTargets(Vector2I at, string type) => W.Entities.OfType<Pole>()
-        .Where(p => p.Pos != at && World.InWireRange(p, type, at))
+        .Where(p => p.Pos != at && W.InWireRange(p, type, at))
         .OrderBy(p => (p.Pos - at).LengthSquared()).Take(3);
 
     void DrawPoleArea(Vector2I at, string type, Color col)

@@ -46,6 +46,8 @@ public static class SelfTest
         Test("a turned copy of an underground pair stays paired", PasteTurned);
         Test("item source feeds an item void without loss; locked outside sandbox", SourceVoid);
         Test("production counters match what miners made and the session lands in the save", StatsAndPause);
+        Test("solar powers machines without fuel and is used before coal", SolarPower);
+        Test("long wires let poles link further", LongWires);
         GD.Print(_fails == 0 ? "SELFTEST PASS" : $"SELFTEST FAIL ({_fails})");
         return _fails;
     }
@@ -298,6 +300,34 @@ public static class SelfTest
         // At most 800 ticks at 90 kW = 3600 kJ (a little less: the miner pauses a tick per ore), so exactly one coal got lit.
         float used = Defs.CoalKJ - gen.Energy;
         Check(gen.Fuel == 9 && used > 3300 && used <= 3600, $"coal use wrong: fuel {gen.Fuel}, used {used} kJ");
+    }
+
+    static void SolarPower()
+    {
+        var w = Sandbox();
+        w.ForcedOre[new(0, 0)] = "iron_ore";
+        var m = (Miner)w.Place("miner", new(0, 0), 1);
+        w.Place("chest", new(0, 1), 0);
+        w.Place("pole", new(2, 0), 0);
+        var sun = w.Place("solar", new(3, 0), 0);
+        var g = (Generator)w.Place("generator", new(2, 1), 0);
+        g.Fuel = 10;
+        for (int i = 0; i < 400; i++) w.Step();
+        var net = w.NetOf(m);
+        Check(net != null && net.Solars.Contains(sun) && net.Capacity == Defs.GeneratorKW + Defs.SolarKW, $"solar not on the network (capacity {net?.Capacity})");
+        Check(net.Satisfaction == 1 && g.Fuel == 10 && g.Energy == 0, $"a 90 kW miner under 100 kW of solar should burn no coal (fuel {g.Fuel}, energy {g.Energy})");
+        Check(w.PowerBoost(m) == 2, "solar power should give the full bonus");
+    }
+
+    static void LongWires()
+    {
+        var w = Sandbox();
+        var a = w.Place("pole", new(0, 0), 0);
+        var b = w.Place("pole", new(9, 0), 0);
+        Check(w.NetOf(a) != w.NetOf(b), "9 tiles apart is out of a normal pole's reach");
+        w.Coins = 1000;
+        Check(w.BuyUpgrade("pole_range"), "couldn't buy Long Wires");
+        Check(w.NetOf(a) == w.NetOf(b), "one level of Long Wires should link poles 9 tiles apart");
     }
 
     static void PowerShortage()

@@ -45,7 +45,10 @@ A relaxing, peaceful factory-builder in the same genre as Factorio. Original art
 
 - Endless play with 6 milestone tiers. Delivering items to the Hub fills milestone bars, and each tier unlocks buildings and recipes.
 - **Central storage:** the Hub feeds one global pool. Building costs come out of the pool, and removing a building refunds 100%.
-- **Coins:** each item can be set to auto-sell at the Hub. Coins buy cosmetics (belt and machine colours, Hub hats, particle styles, music tracks), global upgrades (speed boosts, Hub capacity, pole range) and raw materials.
+- **Coins:** each item can be set to auto-sell at the Hub. Coins buy cosmetics (belt and machine colours, Hub hats, particle styles), global upgrades and raw materials.
+  - Upgrades: Faster Machines, Quick Arms, Strong Hands, Better Deals, Bigger Generators, Strong Pumps and Long Wires (+2 tiles of wire reach per level, 3 levels). Prices double per level.
+  - Not built: music tracks in the shop (there is one synthesized loop) and a Hub capacity upgrade, because central storage has no limit to raise.
+- **Potions** (a Hub tab): Coin Rush, Overdrive, Arm Tonic and Rock Crusher, bought for 2 or 10 minutes or any length from 1 to 120. Each comes in three strengths. Strengths never stack: the strongest runs first and weaker ones wait. Prices grow with milestones and coins earned, and timers only run while the game runs.
 - **Start:** a small starter kit, and you can click ore patches to mine by hand at any time.
 - **Sandbox:** everything unlocked, free building, an item source and an item void, and speed controls.
 
@@ -56,7 +59,7 @@ A relaxing, peaceful factory-builder in the same genre as Factorio. Original art
 - Splitter/merger.
 - Underground belt (range 5) and underground pipe (range 10). A view toggle switches between the surface layer and the underground layer.
 - Inserter: one tier. It takes from the tile behind it and drops in front, with an optional single-item filter.
-- Power: generators (coal, later fluid fuel and solar), and poles that connect within range and power machines in their area. Each connected group is its own network. Low power slows machines down instead of stopping them.
+- Power: generators (coal or sparkgas, 600 kW), solar arrays (100 kW, always on, used before coal) and poles. Poles come in three tiers sharing one hotbar slot: Power Pole (wires 7 tiles, powers 5x5), Big Pole (12, 7x7) and Super Pole (18, 9x9). Two poles link within the shorter of their two ranges. Each connected group is its own network. Power is a bonus: full power doubles a machine's speed, too little gives part of it.
 - Fluids: pump, pipe, refinery. Connected pipes form one network holding a single fluid type and an amount, with no pressure physics. There is no water on the map: pumps work anywhere, like a well.
 - Tools: undo/redo, box-select copy/paste with rotation, named blueprints.
 
@@ -70,15 +73,27 @@ A relaxing, peaceful factory-builder in the same genre as Factorio. Original art
 | Intermediate (10) | gear, copper wire, circuit, smart chip, plastic, sulfur, battery, motor, frame, lens |
 | Products (7) | lamp, toy robot, clock, drone, solar panel, computer, sky beacon |
 
-Recipe numbers and the milestone contents get balanced during the build.
+Milestones, each unlocking what the next one needs:
+
+| # | Name | Deliver | Unlocks |
+|---|---|---|---|
+| 1 | First Plates | 40 iron plate, 20 copper plate | assembler, chest, splitter, underground belt |
+| 2 | Gears Turning | 40 gear, 60 copper wire | fast belt, steel, big pole |
+| 3 | Smart Factory | 30 circuit, 15 steel plate | express belt, super pole, pipes, pump, refinery |
+| 4 | Clear Glass | 40 plastic, 30 sulfur | sand, glass, lens, battery, motor, lamp |
+| 5 | Bright Ideas | 40 lamp, 30 battery, 30 motor | smart chip, frame, toy robot, clock, solar panel, solar array |
+| 6 | Reach the Sky | 20 toy robot, 20 clock, 20 solar panel | drone, computer, sky beacon |
+
+After milestone 6 play is endless; the Sky Beacon sells for the most. Recipes live in `Defs.cs` and the self-test checks that every milestone can be made from what earlier ones unlock.
 
 Auto-sell keeps a reserve in storage (50 per item by default, adjustable per item), so selling can't use up the material you build with.
 
 ## UI
 
-- A bottom hotbar on keys 1 to 9. Q or Tab opens a categorized grid of all buildings. R rotates, X or right-click removes. In mini mode the hotbar shrinks to an icon strip.
-- Stats: production graph per item, money per minute and other general stats, hover tooltips (recipe, progress, buffers, power), and bottleneck icons (starved, blocked, unpowered). Each stat can be turned on or off in settings.
-- Light hint quests on a dismissable checklist card. Finishing a step plays confetti.
+- A bottom hotbar with a slot for every building, locked ones dimmed. Keys 1 to 9 and 0 reach the first ten, and pressing a tiered slot again steps through its tiers. Q opens a grid of all buildings. R rotates, X or right-click removes. In mini mode the hotbar shrinks to fit.
+- Stats: a window (P) with coins per minute and production per item, each with a 10 minute bar graph; coins per minute next to the coin count; a hover card at the top centre for whatever the mouse is over (contents, recipe progress, power, problems, or how to mine an ore patch); and bottleneck bubbles over machines. Each can be turned on or off in settings.
+- A first-start tutorial: a 7-step checklist card at the top right that ticks itself off as you play, with a cheer per step. It can be hidden per world, and saves already past milestone 1 skip it.
+- Keys: Space pauses, the full stop steps one tick, Ctrl+Z / Ctrl+Y undo and redo, Ctrl+C copies, Ctrl+V pastes, B opens blueprints, V switches to the underground view.
 
 ## Juice
 
@@ -122,9 +137,11 @@ Each step ends in something playable:
    - **Pipes, pump, refinery** (milestone 3): pipes that touch form one network with one fluid. When two fluids join, the larger one stays and the smaller one spills, with a toast. Pumps work on any tile, pushing water into the pipe in front. The refinery takes its fluid from the pipe behind and puts fluid out to the pipe in front, or items out to an inserter. Its item ingredients come in by inserter.
    - Refinery recipes: water + coal → black goo; black goo + coal → plastic; black goo → sparkgas; sparkgas + stone → sulfur. Generators next to a sparkgas pipe burn it (200 kJ per unit).
    - New items: plastic and sulfur, plus the fluids water, black goo and sparkgas.
-   - Milestones 4 to 6 are still to be defined. The new buildings are in the Q menu only, because the 9 hotbar slots are full (the customizable hotbar comes in step 6).
+   - Milestones 4 to 6 came later, in v0.0.6. The customizable hotbar was dropped: every building got its own slot instead.
 6. Undo, copy/paste, blueprints, Sandbox tools, stats. Done in v0.0.5, together with game speed, the welcome-back card, music and the cosmetics shop. The music is synthesized in code instead of coming from a CC0 source, and music tracks are not in the shop.
-7. Installers and packages. Done: `.uild.ps1 -Version <ver>` builds a Windows installer (Inno Setup, per user, no admin) and a portable zip, a `.deb` (Debian/Ubuntu), a `.pkg.tar.zst` (Arch), an AppImage (other distros) and a Linux tar.gz. All are self-contained, with no .NET or ICU needed. The packaging files are in `packaging/`, and the icon is the Hub (`--export-icon`). The Arch package has not been installed on a real Arch system yet.
+7. Installers and packages. Done: `.\build.ps1 -Version <ver>` builds a Windows installer (Inno Setup, per user, no admin) and a portable zip, a `.deb` (Debian/Ubuntu), a `.pkg.tar.zst` (Arch), an AppImage (other distros) and a Linux tar.gz. All are self-contained, with no .NET or ICU needed. The packaging files are in `packaging/`, and the icon is the Hub (`--export-icon`). The Arch package has not been installed on a real Arch system yet.
+
+8. Content. Done in v0.0.6: milestones 4 to 6, the 14 remaining items (all 30 now exist), the solar array and the Long Wires upgrade.
 
 Juice and sound get added to each system as it lands.
 

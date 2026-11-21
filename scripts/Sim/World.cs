@@ -248,6 +248,7 @@ public sealed class World
         if (u == null || lvl >= u.Max || Coins < Defs.UpgradeCost(u, lvl)) return false;
         Coins -= Defs.UpgradeCost(u, lvl);
         Upgrades[id] = lvl + 1;
+        if (id == "pole_range") Version++; // poles rewire with the longer reach
         Emit("upgraded", Vector2I.Zero, id);
         return true;
     }
@@ -325,6 +326,7 @@ public sealed class World
     {
         public readonly List<Pole> Poles = new();
         public readonly List<Generator> Gens = new();
+        public readonly List<Solar> Solars = new();
         public readonly List<Entity> Users = new();
         public readonly List<(Pole A, Pole B)> Wires = new();
         public float Demand, Capacity, Satisfaction; // kW, kW, 0..1
@@ -339,9 +341,11 @@ public sealed class World
     public float PowerBoost(Entity e) => _netOf.TryGetValue(e, out var n) ? 1 + n.Satisfaction : 1;
     public float SpeedOf(Entity e) => MachineSpeed * PowerBoost(e);
 
-    public static bool InWireRange(Entity a, string bType, Vector2I bPos) =>
-        ((Vector2)(a.Pos - bPos)).Length() <= Math.Min(Defs.WireRangeOf(a.Type), Defs.WireRangeOf(bType));
-    static bool InWireRange(Pole a, Pole b) => InWireRange(a, b.Type, b.Pos);
+    // Long Wires adds 2 tiles per level to every pole type.
+    public int WireRange(string pole) => Defs.WireRangeOf(pole) + 2 * Up("pole_range");
+    public bool InWireRange(Entity a, string bType, Vector2I bPos) =>
+        ((Vector2)(a.Pos - bPos)).Length() <= Math.Min(WireRange(a.Type), WireRange(bType));
+    bool InWireRange(Pole a, Pole b) => InWireRange(a, b.Type, b.Pos);
 
     void EnsureNets()
     {
@@ -382,6 +386,7 @@ public sealed class World
                     {
                         if (At(p.Pos + new Vector2I(dx, dy)) is not { } e || _netOf.ContainsKey(e)) continue;
                         if (e is Generator g) { net.Gens.Add(g); _netOf[g] = net; }
+                        else if (e is Solar so) { net.Solars.Add(so); _netOf[so] = net; }
                         else if (Defs.PowerUse.ContainsKey(e.Type)) { net.Users.Add(e); _netOf[e] = net; }
                     }
             _nets.Add(net);
@@ -397,11 +402,14 @@ public sealed class World
             foreach (var u in net.Users) if (u.Working) demand += Defs.PowerUse[u.Type];
             int capable = 0;
             foreach (var g in net.Gens) { g.Gas = GasNextTo(g); g.Working = false; if (g.CanSupply) { cap += GeneratorKW; capable++; } }
+            float solar = net.Solars.Count * Defs.SolarKW; // free and always on, so it is used before any coal
+            cap += solar;
             net.Demand = demand;
             net.Capacity = cap;
             net.Satisfaction = cap <= 0 ? 0 : demand <= 0 ? 1 : Mathf.Min(1, cap / demand);
-            if (demand <= 0 || capable == 0) continue;
-            float perGenKJ = demand * net.Satisfaction / capable / World.TicksPerSecond;
+            float fromGens = demand * net.Satisfaction - solar;
+            if (fromGens <= 0 || capable == 0) continue;
+            float perGenKJ = fromGens / capable / World.TicksPerSecond;
             foreach (var g in net.Gens) if (g.CanSupply) g.Draw(perGenKJ);
         }
     }

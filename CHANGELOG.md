@@ -4,6 +4,13 @@ Everything that changed since the last release goes under "Unreleased". A new re
 
 ## Unreleased
 
+- Milestones 4 to 6: Clear Glass (plastic and sulfur), Bright Ideas (lamps, batteries, motors) and Reach the Sky (toy robots, clocks, solar panels). After the last one, play goes on, and Sky Beacons sell for the most.
+- 14 new items, so all 30 from the plan are in: sand, glass, lens, battery, motor, lamp, smart chip, frame, toy robot, clock, solar panel, drone, computer and sky beacon. Sand comes from stone in an assembler, glass from sand in a furnace, and the rest from assemblers.
+- Solar Array (milestone 5): 100 kW for its power network, always on, no fuel. Generators only burn coal for whatever solar doesn't cover.
+- Long Wires upgrade in the Hub shop: +2 tiles of wire reach for every pole, 3 levels. Poles that are already built rewire straight away.
+- Storage on the left opens a second column when the list would run into the hotbar.
+- The recipe window is wider and shows the full recipe as a tooltip, so long recipes aren't cut off.
+
 ## v0.0.5 Beta (2026-11-20)
 
 - Game speed: Pause, 1x, 2x, 4x and Step buttons at the top, in normal and sandbox saves. Space pauses and resumes, and the full stop key moves one tick forward while paused. Every save starts at 1x.

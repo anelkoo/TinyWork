@@ -153,6 +153,20 @@ public static class Sprites
         Icons["inserter"] = PaintInserterIcon().Tex();
         Icons["source"] = PaintSource().Tex();
         Icons["void"] = PaintVoid().Tex();
+        Icons["solar"] = PaintSolar().Tex();
+    }
+
+    // Solar array: a tilted blue panel on two short legs.
+    static Canvas PaintSolar()
+    {
+        var c = new Canvas(T, T);
+        var blue = new Color("4a6fd0");
+        c.R(4, 12, 2, 3, Ink); c.R(10, 12, 2, 3, Ink);
+        c.Box(1, 2, 14, 11, blue, Ink);
+        for (int x = 5; x < 14; x += 4) c.R(x, 3, 1, 9, blue.Darkened(0.45f));
+        c.R(2, 7, 12, 1, blue.Darkened(0.45f));
+        c.P(3, 4, Colors.White); c.P(4, 4, Colors.White); c.P(3, 5, Colors.White);
+        return c;
     }
 
     // Sandbox item source: a green crate with a chute on the right, where items come out.
@@ -451,6 +465,79 @@ public static class Sprites
         {
             c.Box(0, 1, 8, 6, col, Ink);
             c.P(2, 3, Glow); c.P(5, 3, Glow); c.P(2, 5, Glow); c.R(3, 4, 2, 1, Ink);
+        }
+        else if (id == "sand") // a low heap
+        {
+            c.R(2, 3, 4, 1, Ink); c.R(1, 4, 6, 1, Ink); c.R(0, 5, 8, 2, Ink);
+            c.R(3, 4, 2, 1, col); c.R(1, 5, 6, 1, col); c.P(2, 5, col.Lightened(0.4f));
+        }
+        else if (id == "glass") // a pane with a shine
+        {
+            c.Box(0, 1, 8, 6, col with { A = 0.8f }, Ink);
+            c.P(2, 2, Colors.White); c.P(3, 3, Colors.White); c.P(5, 4, Colors.White);
+        }
+        else if (id == "lens") // round and clear
+        {
+            c.R(2, 0, 4, 8, Ink); c.R(0, 2, 8, 4, Ink); c.R(1, 1, 6, 6, Ink);
+            c.R(2, 1, 4, 6, col); c.R(1, 2, 6, 4, col); c.P(2, 2, Colors.White); c.P(3, 2, Colors.White);
+        }
+        else if (id == "battery") // a cell with a cap
+        {
+            c.R(3, 0, 2, 1, Ink); c.Box(1, 1, 6, 7, col, Ink);
+            c.R(2, 3, 4, 1, Glow); c.P(3, 5, Ink); c.P(4, 5, Ink);
+        }
+        else if (id == "motor") // a box with a shaft sticking out
+        {
+            c.Box(0, 1, 6, 6, col, Ink);
+            c.R(6, 3, 2, 2, Ink); c.P(7, 3, Metal);
+            c.R(1, 3, 4, 1, col.Darkened(0.3f)); c.R(1, 5, 4, 1, col.Darkened(0.3f));
+        }
+        else if (id == "lamp") // a bulb on a screw base
+        {
+            c.R(2, 0, 4, 1, Ink); c.R(1, 1, 6, 4, Ink); c.R(2, 1, 4, 4, col); c.P(3, 2, Colors.White);
+            c.R(2, 5, 4, 3, Ink); c.R(3, 5, 2, 2, Metal);
+        }
+        else if (id == "smart_chip") // a chip with legs
+        {
+            c.R(0, 2, 8, 1, Ink); c.R(0, 5, 8, 1, Ink);
+            c.Box(1, 1, 6, 6, col, Ink); c.R(3, 3, 2, 2, Glow);
+        }
+        else if (id == "frame") // a square outline of beams
+        {
+            c.R(0, 0, 8, 8, Ink); c.R(1, 1, 6, 6, col); c.R(3, 3, 2, 2, Ink); c.R(2, 2, 4, 4, new Color(0, 0, 0, 0));
+            c.R(2, 2, 4, 1, Ink); c.R(2, 5, 4, 1, Ink); c.R(2, 2, 1, 4, Ink); c.R(5, 2, 1, 4, Ink);
+        }
+        else if (id == "toy_robot") // a little head with antenna and eyes
+        {
+            c.P(4, 0, Glow); c.R(4, 1, 1, 1, Ink);
+            c.Box(1, 2, 6, 6, col, Ink); c.P(3, 4, Colors.White); c.P(5, 4, Colors.White); c.R(3, 6, 3, 1, Ink);
+        }
+        else if (id == "clock") // a round face with hands
+        {
+            c.R(2, 0, 4, 8, Ink); c.R(0, 2, 8, 4, Ink); c.R(1, 1, 6, 6, Ink);
+            c.R(2, 1, 4, 6, new Color("fff7e8")); c.R(1, 2, 6, 4, new Color("fff7e8"));
+            c.R(4, 2, 1, 2, Ink); c.R(4, 4, 2, 1, Ink); c.P(0, 3, col); c.P(7, 3, col);
+        }
+        else if (id == "solar_panel") // blue cells in a grid
+        {
+            c.Box(0, 1, 8, 6, col, Ink);
+            c.R(4, 2, 1, 4, Ink); c.R(1, 4, 6, 1, col.Darkened(0.4f)); c.P(2, 2, Colors.White);
+        }
+        else if (id == "drone") // body with four rotors
+        {
+            c.R(0, 0, 3, 1, Ink); c.R(5, 0, 3, 1, Ink); c.R(0, 7, 3, 1, Ink); c.R(5, 7, 3, 1, Ink);
+            c.R(1, 1, 1, 6, Ink); c.R(6, 1, 1, 6, Ink);
+            c.Box(2, 2, 4, 4, col, Ink); c.P(3, 3, Glow);
+        }
+        else if (id == "computer") // a monitor on a foot
+        {
+            c.Box(0, 0, 8, 6, col, Ink); c.R(1, 1, 6, 4, new Color("5aa9e8")); c.P(2, 2, Colors.White);
+            c.R(3, 6, 2, 1, Ink); c.R(2, 7, 4, 1, Ink);
+        }
+        else if (id == "sky_beacon") // a tower with a bright light on top
+        {
+            c.R(3, 0, 2, 2, Colors.White); c.P(2, 1, col); c.P(5, 1, col);
+            c.R(3, 2, 2, 4, Ink); c.R(2, 6, 4, 2, Ink); c.R(3, 6, 2, 1, Metal);
         }
         else // ores: a lumpy rock
         {

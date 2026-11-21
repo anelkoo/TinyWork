@@ -336,12 +336,16 @@ public partial class Main
         Check(cFront.Count > 0 && cDown.Count > 0, $"plates came through the tunnel and the splitter (front {cFront.Count}, down {cDown.Count})");
         Check(_world.FluidOf(outPipe) is { Fluid: "black_goo", Amount: > 0 }, $"refinery made black goo from pumped water ({_world.FluidOf(outPipe)?.Fluid} {_world.FluidOf(outPipe)?.Amount})");
         Shot("15_step5_surface");
+        _s.Stats["milestone"] = false; // the milestone box would cover the refinery
+        _hud.ApplyStats();
         var over = _view.GetCanvasTransform() * (new Vector2(3.5f, 12.5f) * 16); // the refinery
         Input.ParseInputEvent(new InputEventMouseMotion { Position = over, GlobalPosition = over });
         await Wait(0.3);
         Check(FindAll<Label>(_hud).Any(l => l.IsVisibleInTree() && l.Text == "Refinery")
               && FindAll<Label>(_hud).Any(l => l.IsVisibleInTree() && l.Text.Contains("Makes 20 Black Goo")), "hovering a building shows its info card");
         Shot("15b_hover_card");
+        _s.Stats.Remove("milestone");
+        _hud.ApplyStats();
         Key(Godot.Key.V);
         await Wait(0.3);
         Check(_view.Underground, "V switches to the underground view");
@@ -356,6 +360,19 @@ public partial class Main
         _hud.Inspect(rf);
         await Wait(0.5);
         Shot("18_refinery_recipes");
+        _hud.ClosePanel();
+        // Milestones 4 to 6: every new item in storage, a solar array on the scene's network, the full recipe list.
+        _world.MilestoneIndex = Defs.Milestones.Length;
+        foreach (var id in new[] { "sand", "glass", "lens", "battery", "motor", "lamp", "smart_chip", "frame", "toy_robot", "clock", "solar_panel", "drone", "computer", "sky_beacon" }) _world.AddStorage(id, 25);
+        var sun = Put("solar", 7, 9);
+        await Wait(0.5);
+        Check(_world.NetOf(sun) != null, "the solar array joins the big pole's network");
+        Check(FindAll<Label>(_hud).Any(l => l.IsVisibleInTree() && l.Text.StartsWith("All milestones done")), "after milestone 6 the tracker says all are done");
+        await Wait(1.5); // past the milestone flash
+        Shot("25_new_items_and_solar");
+        _hud.Inspect(Find<Assembler>());
+        await Wait(0.5);
+        Shot("26_all_recipes");
         _hud.ClosePanel();
         _view.SetCamera(Vector2.Zero, 2);
 
