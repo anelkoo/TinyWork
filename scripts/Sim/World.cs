@@ -414,12 +414,52 @@ public sealed class World
         }
     }
 
+    // Carriers (belts, splitters, undergrounds, crossings) tick downstream first, so each sees the one in front of it
+    // after that one moved. Built front to back, every tile edge used to cost a tick and a line carried far less than
+    // its rated speed. Everything else keeps its build order; carriers only swap among the slots they already hold.
+    List<Entity> _tickOrder;
+    int _tickOrderVersion = -1;
+
+    static bool IsCarrier(Entity e) => e is Belt or Splitter or Tunnel or Crossing;
+
+    IEnumerable<Entity> Downstream(Entity e)
+    {
+        foreach (var d in Entity.Dirs)
+            if (e.OutputsTo(e.Pos + d) && At(e.Pos + d) is { } n && n != e && IsCarrier(n) && !n.OutputsTo(e.Pos)) yield return n; // a crossing "outputs" all round; skip what feeds it
+        if (e is Tunnel { Exit: false } && Partner(e) is { } p) yield return p;
+    }
+
+    List<Entity> TickOrder()
+    {
+        if (_tickOrder != null && _tickOrderVersion == Version && _tickOrder.Count == Entities.Count) return _tickOrder;
+        var seen = new HashSet<Entity>();
+        var post = new List<Entity>();
+        var stack = new Stack<(Entity E, bool Done)>();
+        foreach (var root in Entities)
+        {
+            if (!IsCarrier(root) || seen.Contains(root)) continue;
+            stack.Push((root, false));
+            while (stack.Count > 0)
+            {
+                var (e, done) = stack.Pop();
+                if (done) { post.Add(e); continue; }
+                if (!seen.Add(e)) continue;
+                stack.Push((e, true));
+                foreach (var n in Downstream(e)) if (!seen.Contains(n)) stack.Push((n, false));
+            }
+        }
+        int k = 0;
+        _tickOrder = Entities.Select(e => IsCarrier(e) ? post[k++] : e).ToList();
+        _tickOrderVersion = Version;
+        return _tickOrder;
+    }
+
     public void Step()
     {
         Tick++;
         EnsureFluids();
         StepPower();
-        foreach (var e in Entities)
+        foreach (var e in TickOrder())
         {
             e.Tick(this);
             e.Idle = e.Working ? 0 : e.Idle + 1;
@@ -676,6 +716,37 @@ public sealed class World
         Version++;
         Emit("removed", e.Pos, e.Type);
         return true;
+    }
+
+    // Upgrading in place: another tier of the same family goes onto a building (a downgrade works too). The old one is
+    // refunded with its contents and the new one keeps its recipe or filter. An underground pair swaps both ends.
+    public bool CanReplace(string type, Vector2I tile)
+    {
+        if (At(tile) is not { } old || old.Type == type || Defs.TiersOf(type) is not { } f || Defs.TiersOf(old.Type) != f || !IsUnlocked(type)) return false;
+        if (Free) return true;
+        var olds = old is Tunnel && Partner(old) is { } p ? new[] { old, p } : new[] { old };
+        foreach (var (item, n) in Defs.Buildings[type].Cost)
+            if (Storage.GetValueOrDefault(item) + olds.Sum(o => Defs.Buildings[o.Type].Cost.FirstOrDefault(c => c.Item == item).Count) < n * olds.Length) return false;
+        return true;
+    }
+
+    public Entity Replace(string type, Vector2I tile, int rot)
+    {
+        if (!CanReplace(type, tile)) return null;
+        var old = At(tile);
+        if (old is Tunnel && Partner(old) is { } exit)
+        {
+            var entrance = old.Exit ? exit : old;
+            if (old.Exit) exit = old;
+            var (a, b, r) = (entrance.Pos, exit.Pos, entrance.Rot);
+            Remove(a); Remove(b);
+            var e = Place(type, a, r);
+            Place(type, b, r);
+            return e;
+        }
+        var (pos, config) = (old.Pos, old.Config);
+        Remove(tile);
+        return Place(type, pos, old is Tunnel ? old.Rot : rot, config: config);
     }
 
     // Swaps a belt for a crossing (a belt line being drawn straight across it). Items on the belt go to storage.

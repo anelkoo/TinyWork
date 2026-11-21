@@ -109,8 +109,8 @@ public static class Sprites
         return c;
     }
     public static readonly Dictionary<string, ImageTexture> Icons = new(); // building icons for the UI
-    // Chevron colour tells belt tiers apart: yellow, red, blue.
-    static readonly Dictionary<string, Color> BeltTint = new() { ["belt"] = new("f2c14e"), ["fast_belt"] = new("e8665a"), ["express_belt"] = new("5aa9e8") };
+    // Chevron colour tells belt tiers apart: yellow, red, blue, violet, green, pink.
+    static readonly Dictionary<string, Color> BeltTint = new() { ["belt"] = new("f2c14e"), ["fast_belt"] = new("e8665a"), ["express_belt"] = new("5aa9e8"), ["turbo_belt"] = new("a77fe0"), ["hyper_belt"] = new("5fd08f"), ["ultra_belt"] = new("ff8ad8") };
 
     public static void Build()
     {

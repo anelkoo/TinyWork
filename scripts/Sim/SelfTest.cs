@@ -50,6 +50,9 @@ public static class SelfTest
         Test("long wires let poles link further", LongWires);
         Test("every metal makes screws, nails and rods; they survive a save", MetalParts);
         Test("own music folder lists only music files, in name order", MusicFolder);
+        Test("every belt, splitter and underground tier at full load keeps spacing and loses nothing", CarriersAtFullLoad);
+        Test("Mk2 and Mk3 machines work two and three times as fast", MachineTiers);
+        Test("a better tier goes straight onto the old one, refunds it, keeps the recipe; undo swaps back", UpgradeInPlace);
         GD.Print(_fails == 0 ? "SELFTEST PASS" : $"SELFTEST FAIL ({_fails})");
         return _fails;
     }
@@ -247,6 +250,100 @@ public static class SelfTest
         Check(plates * 4 + screws == 400, $"plates lost: {plates} plates x4 + {screws} screws != 400");
         var b = World.FromSave(Persist.Deserialize(Persist.Serialize(w.ToSave())));
         Check(b.Storage.GetValueOrDefault("iron_screw") == w.Storage["iron_screw"] && b.Entities.OfType<Assembler>().First().RecipeId == "iron_screw", "screws or the recipe got lost in the save");
+    }
+
+    // A 30-tile line backs up full from item sources, then a void opens at its end: the backed-up queue drains
+    // at exactly what the line can carry. mid: a splitter (x 28) or an underground pair (x 25 and 28) near the end.
+    // Returns items per second at the void.
+    static float FullLoad(string belt, string mid)
+    {
+        var w = Sandbox();
+        var src = new List<ItemSource> { (ItemSource)w.Place("source", new(0, 0), 0, config: "gear") };
+        foreach (int x in new[] { 1, 2, 3, 4, 5 }) src.Add((ItemSource)w.Place("source", new(x, 1), 3, config: "gear"));
+        bool split = mid != null && Defs.BaseOf(mid) is "splitter" or "crossing";
+        for (int x = 1; x <= 30; x++)
+            if (mid == null || (split ? x != 28 : x is < 25 or > 28)) w.Place(belt, new(x, 0), 0);
+        if (split) w.Place(mid, new(28, 0), 0);
+        else if (mid != null) { w.Place(mid, new(25, 0), 0); w.Place(mid, new(28, 0), 0); }
+        long made = 0;
+        void Run(int ticks) { for (int t = 0; t < ticks; t++) { w.Step(); CheckSpacing(w); made += src.Count(s => s.Working); } }
+        Run(2000);
+        var sink = (ItemVoid)w.Place("void", new(31, 0), 0);
+        Run(10);
+        long before = sink.Eaten;
+        Run(40);
+        float rate = (sink.Eaten - before) / 2f;
+        Run(300);
+        var all = new List<string>();
+        foreach (var e in w.Entities) e.Contents(all);
+        Check(made == sink.Eaten + all.Count, $"{belt}/{mid}: made {made}, eaten {sink.Eaten}, in transit {all.Count}");
+        return rate;
+    }
+
+    static void CarriersAtFullLoad()
+    {
+        float last = 0;
+        foreach (var belt in Defs.BeltTiers)
+        {
+            float rate = FullLoad(belt, null), cap = Defs.BeltSpeed[belt] * 80;
+            GD.Print($"         {belt}: {rate:0.#} items/s (rated {cap:0})");
+            Check(rate > last && rate >= cap * 0.9f, $"{belt} carries {rate:0.#} items/s, rated {cap:0}");
+            last = rate;
+        }
+        float crossing = FullLoad("ultra_belt", "crossing");
+        Check(crossing >= 36, $"a crossing in an ultra belt line carries only {crossing} items/s");
+        foreach (var family in new[] { Defs.TiersOf("splitter"), Defs.TiersOf("tunnel") })
+        {
+            last = 0;
+            foreach (var mid in family)
+            {
+                float rate = FullLoad("ultra_belt", mid), cap = Defs.BeltSpeed[mid] * 80;
+                GD.Print($"         {mid}: {rate:0.#} items/s (rated {cap:0})");
+                Check(rate > last && rate >= cap * 0.9f, $"{mid} carries {rate:0.#} items/s, rated {cap:0}");
+                last = rate;
+            }
+        }
+    }
+
+    static void MachineTiers()
+    {
+        foreach (var family in new[] { Defs.TiersOf("miner"), Defs.TiersOf("furnace") })
+        {
+            var made = new List<long>();
+            foreach (var type in family)
+            {
+                var w = Sandbox();
+                w.ForcedOre[new(0, 0)] = "iron_ore";
+                if (type.StartsWith("miner")) w.Place(type, new(0, 0), 0);
+                else { var c = (Chest)w.Place("chest", new(0, 0), 0); c.Inv["iron_ore"] = 200; w.Place("inserter_mk3", new(1, 0), 0); w.Place(type, new(2, 0), 0); w.Place("inserter_mk3", new(3, 0), 0); }
+                var sink = (ItemVoid)w.Place("void", type.StartsWith("miner") ? new(1, 0) : new(4, 0), 0);
+                for (int t = 0; t < 1200; t++) w.Step();
+                made.Add(sink.Eaten);
+            }
+            Check(Math.Abs(made[1] - made[0] * 2) <= 2 && Math.Abs(made[2] - made[0] * 3) <= 3, $"{family[0]} tiers made {string.Join(", ", made)}");
+        }
+        Check(Defs.PowerOf("assembler_mk3") == Defs.PowerUse["assembler"] * 3, "Mk3 should draw three times the power");
+    }
+
+    static void UpgradeInPlace()
+    {
+        var w = World.New("t", "normal", false, 1);
+        w.MilestoneIndex = Defs.Milestones.Length;
+        foreach (var item in new[] { "iron_plate", "copper_plate", "steel_plate", "gear", "circuit", "steel_screw", "steel_rod" }) w.AddStorage(item, 500);
+        var asm = w.Place("assembler", new(10, 10), 0, config: "gear");
+        long steel = w.Storage["steel_plate"], iron = w.Storage["iron_plate"];
+        w.BeginAction();
+        var mk2 = w.Replace("assembler_mk2", new(10, 10), 0);
+        w.EndAction();
+        Check(mk2 is Assembler { Type: "assembler_mk2", RecipeId: "gear" } && w.At(new(10, 10)) == mk2, "the assembler should become an Mk2 with its recipe");
+        Check(w.Storage["steel_plate"] == steel - 4 && w.Storage["iron_plate"] == iron + 10, "the Mk2 is paid and the old assembler refunded");
+        Check(w.Undo() == 0 && w.At(new(10, 10)) is Assembler { Type: "assembler", RecipeId: "gear" } && w.Storage["iron_plate"] == iron, "undo brings the old assembler back");
+        Check(!w.CanReplace("miner_mk2", new(10, 10)) && !w.CanReplace("assembler", new(10, 10)), "only another tier of the same building can replace it");
+        w.Place("tunnel", new(10, 12), 0);
+        w.Place("tunnel", new(13, 12), 0);
+        Check(w.Replace("fast_tunnel", new(13, 12), 0) != null, "replacing the exit of an underground pair");
+        var a = w.At(new(10, 12)); var b = w.At(new(13, 12));
+        Check(a.Type == "fast_tunnel" && b.Type == "fast_tunnel" && !a.Exit && b.Exit && w.Partner(a) == b, "both ends become fast and stay paired");
     }
 
     static void MusicFolder()

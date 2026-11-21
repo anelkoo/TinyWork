@@ -270,11 +270,12 @@ public sealed partial class WorldView : Node2D
             // Turning that belt instead would bend the other line into this one and its items would jump.
             bool otherLine = !first && existing.Rot % 2 != Rot % 2 && W.At(existing.Back)?.OutputsTo(tile) == true;
             if (otherLine && W.MakeCrossing(tile)) { _lastBelt = null; Toast?.Invoke("Crossing placed where the lines meet"); return; }
+            if (W.Replace(Selected, tile, Rot) is Belt upgraded) { _lastBelt = upgraded; return; } // another belt tier: swap it
             W.SetRot(tile, Rot);
             _lastBelt = existing;
             return;
         }
-        var e = W.Place(Selected, tile, Rot);
+        var e = W.CanReplace(Selected, tile) ? W.Replace(Selected, tile, Rot) : W.Place(Selected, tile, Rot);
         if (e is Belt) _lastBelt = e;
         if (e == null && first && W.At(tile) == null)
         {
@@ -885,7 +886,7 @@ public sealed partial class WorldView : Node2D
         }
         if (Selected != null)
         {
-            bool ok = W.CanPlace(Selected, _hover, out _);
+            bool ok = W.CanPlace(Selected, _hover, out _) || W.CanReplace(Selected, _hover);
             float wob = J("place") ? 1 + 0.06f * Mathf.Sin(_time * 7) : 1;
             var tint = ok ? new Color(1, 1, 1, 0.6f) : new Color(1, 0.4f, 0.4f, 0.6f);
             float ang = Turns(Selected) ? Angle(Rot) : 0;

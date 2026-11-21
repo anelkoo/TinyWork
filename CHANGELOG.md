@@ -6,6 +6,13 @@ Everything that changed since the last release goes under "Unreleased". A new re
 
 - Screws, nails and rods from every metal: iron, copper and steel. In an assembler one plate makes 4 screws, 4 nails or 2 rods, and each sells for a bit more than its share of the plate. Steel parts unlock with steel smelting. A new metal only needs one line to get all three parts.
 - Lightning Rod: 2 copper rods and 1 steel plate in an assembler. For now it's an item to sell, like everything else.
+- Six belt tiers instead of three: Turbo (24 items/s, milestone 4), Hyper (32, milestone 5) and Ultra (40, milestone 6) join Belt, Fast and Express.
+- Faster versions of other buildings: Fast and Hyper Splitter, Fast and Hyper Underground Belt, and Mk2 and Mk3 of the miner, furnace, assembler and inserter (twice and three times as fast, drawing that much more power). They cost screws, rods and the parts of their milestone.
+- Picking tiers: a number key picks the tier you used last, and pressing it again puts the building away. A strip above the slot shows every tier, locked ones dimmed. Click one, or press Tab for the next. The number key no longer steps through the tiers.
+- Upgrading in place: build a tier straight onto another tier of the same building. The old one is refunded, the recipe or filter stays, and both ends of an underground pair swap. Dragging a belt line over a belt of another tier swaps it too. Ctrl+Z swaps back.
+- Belts now carry what they say. Before, a line carried a lot less than its speed (a basic belt about 5.5 items/s instead of 8), and splitters, undergrounds and crossings let only one item through per tick. Existing saves get the faster belts straight away.
+- The crossing now carries 40 items/s per lane, so it never slows a line down.
+- The build menu (Q) has three wider columns, so long names keep their icon.
 - Your own music: Settings > Sound > Music, Choose folder. Every OGG, MP3 and WAV in that folder plays in name order, round and round, instead of the built-in loop. Built-in switches back. A folder with no music files plays the built-in loop.
 
 ## v0.0.6 Beta (2026-11-21)

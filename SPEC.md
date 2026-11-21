@@ -55,10 +55,14 @@ A relaxing, peaceful factory-builder in the same genre as Factorio. Original art
 ## Buildings
 
 - Miner, chest, furnace, assembler, Hub.
-- Belts: one lane, three speed tiers (basic, fast, express). Dragging lays a belt line that auto-rotates at corners.
-- Splitter/merger.
-- Underground belt (range 5) and underground pipe (range 10). A view toggle switches between the surface layer and the underground layer.
-- Inserter: one tier. It takes from the tile behind it and drops in front, with an optional single-item filter.
+- Belts: one lane, six speed tiers: Belt 8, Fast 12, Express 16, Turbo 24, Hyper 32 and Ultra 40 items/s. Dragging lays a belt line that auto-rotates at corners.
+- Splitter/merger in three tiers (16, 24, 40 items/s).
+- Underground belt (range 5) in three tiers (12, 24, 40 items/s) and underground pipe (range 10). A view toggle switches between the surface layer and the underground layer.
+- Crossing: 40 items/s per lane, as fast as the fastest belt.
+- Inserter: it takes from the tile behind it and drops in front, with an optional single-item filter.
+- Miner, furnace, assembler and inserter each come as Mk2 (twice as fast, twice the power) and Mk3 (three times).
+- Tiers: every tier of a building shares its hotbar slot. Building a tier onto another tier of the same building swaps it in place: the old one is refunded, the recipe or filter stays, and an underground pair swaps both ends. Undo swaps back.
+- Carriers (belts, splitters, undergrounds, crossings) update downstream first and hand on what runs over an edge, so a line carries its rated speed in whatever order it was built.
 - Power: generators (coal or sparkgas, 600 kW), solar arrays (100 kW, always on, used before coal) and poles. Poles come in three tiers sharing one hotbar slot: Power Pole (wires 7 tiles, powers 5x5), Big Pole (12, 7x7) and Super Pole (18, 9x9). Two poles link within the shorter of their two ranges. Each connected group is its own network. Power is a bonus: full power doubles a machine's speed, too little gives part of it.
 - Fluids: pump, pipe, refinery. Connected pipes form one network holding a single fluid type and an amount, with no pressure physics. There is no water on the map: pumps work anywhere, like a well.
 - Tools: undo/redo, box-select copy/paste with rotation, named blueprints.
@@ -78,11 +82,11 @@ Milestones, each unlocking what the next one needs:
 | # | Name | Deliver | Unlocks |
 |---|---|---|---|
 | 1 | First Plates | 40 iron plate, 20 copper plate | assembler, chest, splitter, underground belt |
-| 2 | Gears Turning | 40 gear, 60 copper wire | fast belt, steel, big pole |
-| 3 | Smart Factory | 30 circuit, 15 steel plate | express belt, super pole, pipes, pump, refinery |
-| 4 | Clear Glass | 40 plastic, 30 sulfur | sand, glass, lens, battery, motor, lamp |
-| 5 | Bright Ideas | 40 lamp, 30 battery, 30 motor | smart chip, frame, toy robot, clock, solar panel, solar array |
-| 6 | Reach the Sky | 20 toy robot, 20 clock, 20 solar panel | drone, computer, sky beacon |
+| 2 | Gears Turning | 40 gear, 60 copper wire | fast belt, steel, big pole, miner/furnace/inserter Mk2 |
+| 3 | Smart Factory | 30 circuit, 15 steel plate | express belt, super pole, pipes, pump, refinery, assembler Mk2, fast splitter, fast underground |
+| 4 | Clear Glass | 40 plastic, 30 sulfur | sand, glass, lens, battery, motor, lamp, turbo belt |
+| 5 | Bright Ideas | 40 lamp, 30 battery, 30 motor | smart chip, frame, toy robot, clock, solar panel, solar array, hyper belt, miner/furnace/inserter Mk3, hyper splitter, hyper underground |
+| 6 | Reach the Sky | 20 toy robot, 20 clock, 20 solar panel | drone, computer, sky beacon, ultra belt, assembler Mk3 |
 
 After milestone 6 play is endless; the Sky Beacon sells for the most. Recipes live in `Defs.cs` and the self-test checks that every milestone can be made from what earlier ones unlock.
 
@@ -90,7 +94,7 @@ Auto-sell keeps a reserve in storage (50 per item by default, adjustable per ite
 
 ## UI
 
-- A bottom hotbar with a slot for every building, locked ones dimmed. Keys 1 to 9 and 0 reach the first ten, and pressing a tiered slot again steps through its tiers. Q opens a grid of all buildings. R rotates, X or right-click removes. In mini mode the hotbar shrinks to fit.
+- A bottom hotbar with a slot for every building, locked ones dimmed. Keys 1 to 9 and 0 reach the first ten, and pressing a slot again puts the building away. A tiered slot starts with the tier used last and shows a strip of all its tiers above the slot (locked ones dimmed): click one to pick it, or press Tab for the next unlocked tier. Q opens a grid of all buildings. R rotates, X or right-click removes. In mini mode the hotbar shrinks to fit.
 - Stats: a window (P) with coins per minute and production per item, each with a 10 minute bar graph; coins per minute next to the coin count; a hover card at the top centre for whatever the mouse is over (contents, recipe progress, power, problems, or how to mine an ore patch); and bottleneck bubbles over machines. Each can be turned on or off in settings.
 - A first-start tutorial: a 7-step checklist card at the top right that ticks itself off as you play, with a cheer per step. It can be hidden per world, and saves already past milestone 1 skip it.
 - Keys: Space pauses, the full stop steps one tick, Ctrl+Z / Ctrl+Y undo and redo, Ctrl+C copies, Ctrl+V pastes, B opens blueprints, V switches to the underground view.

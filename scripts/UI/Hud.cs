@@ -526,8 +526,8 @@ public sealed partial class Hud : Control
 
     public void OpenBuildMenu()
     {
-        var body = OpenPanel("All Buildings", 560);
-        var grid = new GridContainer { Columns = _mini ? 2 : 4 };
+        var body = OpenPanel("All Buildings", 660);
+        var grid = new GridContainer { Columns = _mini ? 2 : 3 }; // three columns: room for "Hyper Underground Belt" and its icon
         grid.AddThemeConstantOverride("h_separation", 6);
         grid.AddThemeConstantOverride("v_separation", 6);
         body.AddChild(grid);
@@ -535,7 +535,7 @@ public sealed partial class Hud : Control
         {
             var def = Defs.Buildings[id];
             bool open = W.IsUnlocked(id);
-            var b = new Button { Text = def.Name, Icon = Sprites.Icons[id], ExpandIcon = true, Disabled = !open, CustomMinimumSize = new Vector2(_mini ? 150 : 124, 44), Alignment = HorizontalAlignment.Left };
+            var b = new Button { Text = def.Name, Icon = Sprites.Icons[id], ExpandIcon = true, Disabled = !open, CustomMinimumSize = new Vector2(_mini ? 150 : 206, 44), Alignment = HorizontalAlignment.Left };
             b.AddThemeConstantOverride("icon_max_width", 24);
             b.TooltipText = open ? $"Costs {Ui.Cost(def.Cost)}" : $"Unlocks with milestone {Defs.UnlockTier(id)}";
             b.Pressed += () => { View.StopClip(); View.Selected = id; if (Defs.TiersOf(id) != null) S.LastTier[Defs.BaseOf(id)] = id; Sfx.Play("click"); ClosePanel(); };

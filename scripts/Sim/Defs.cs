@@ -29,7 +29,7 @@ public static class Defs
     public static readonly (string Id, string Name, int PerPlate)[] Parts = { ("screw", "Screw", 4), ("nail", "Nail", 4), ("rod", "Rod", 2) };
     public static readonly string[] Ores ={ "iron_ore", "copper_ore", "stone", "coal" };
     public static readonly string[] BaseUnlocks = { "belt", "crossing", "inserter", "miner", "furnace", "pole", "generator" };
-    public static readonly string[] BuildOrder = { "belt", "fast_belt", "express_belt", "crossing", "inserter", "miner", "furnace", "assembler", "chest", "pole", "big_pole", "super_pole", "generator", "splitter", "tunnel", "pipe", "pipe_tunnel", "pump", "refinery", "solar" };
+    public static readonly string[] BuildOrder = { "belt", "fast_belt", "express_belt", "turbo_belt", "hyper_belt", "ultra_belt", "crossing", "inserter", "inserter_mk2", "inserter_mk3", "miner", "miner_mk2", "miner_mk3", "furnace", "furnace_mk2", "furnace_mk3", "assembler", "assembler_mk2", "assembler_mk3", "chest", "pole", "big_pole", "super_pole", "generator", "splitter", "fast_splitter", "hyper_splitter", "tunnel", "fast_tunnel", "hyper_tunnel", "pipe", "pipe_tunnel", "pump", "refinery", "solar" };
     // Every building has a hotbar slot, locked ones greyed out, so slots never shift when something unlocks.
     // Keys 1-9 and 0 reach the first ten. Pressing a tiered slot again (belts, poles) steps through its unlocked tiers.
     // Sandbox tools: no milestone unlocks them, so outside sandbox they stay locked and hidden.
@@ -43,15 +43,25 @@ public static class Defs
     public const int TunnelRange = 5, PipeTunnelRange = 10; // how far apart an entrance and its exit may be
     public const float PipeCap = 100, PumpRate = 1; // fluid units per pipe tile, units per tick
     // Tier families share one hotbar slot, like the belts. Better poles wire further and power a bigger square.
-    public static readonly string[] BeltTiers = { "belt", "fast_belt", "express_belt" }, PoleTiers = { "pole", "big_pole", "super_pole" };
+    public static readonly string[] BeltTiers = { "belt", "fast_belt", "express_belt", "turbo_belt", "hyper_belt", "ultra_belt" }, PoleTiers = { "pole", "big_pole", "super_pole" };
     // Every tier family: the first id is the base building, which names the hotbar slot, the entity class and the recipes.
-    public static readonly string[][] TierFamilies = { BeltTiers, PoleTiers };
+    public static readonly string[][] TierFamilies =
+    {
+        BeltTiers, PoleTiers,
+        new[] { "splitter", "fast_splitter", "hyper_splitter" }, new[] { "tunnel", "fast_tunnel", "hyper_tunnel" },
+        new[] { "miner", "miner_mk2", "miner_mk3" }, new[] { "furnace", "furnace_mk2", "furnace_mk3" },
+        new[] { "assembler", "assembler_mk2", "assembler_mk3" }, new[] { "inserter", "inserter_mk2", "inserter_mk3" },
+    };
     static readonly Dictionary<string, string[]> FamilyOf = TierFamilies.SelectMany(f => f.Select(id => (id, f))).ToDictionary(x => x.id, x => x.f);
     public static string[] TiersOf(string type) => type != null && FamilyOf.TryGetValue(type, out var f) ? f : null;
     public static string BaseOf(string type) => TiersOf(type)?[0] ?? type;
     public static int TierOf(string type) => TiersOf(type) is { } f ? System.Array.IndexOf(f, type) : 0;
     // How much faster a machine tier works than its base (and how much more power it draws). Belts use BeltSpeed.
-    public static readonly Dictionary<string, float> TierSpeed = new();
+    public static readonly Dictionary<string, float> TierSpeed = new()
+    {
+        ["miner_mk2"] = 2, ["miner_mk3"] = 3, ["furnace_mk2"] = 2, ["furnace_mk3"] = 3,
+        ["assembler_mk2"] = 2, ["assembler_mk3"] = 3, ["inserter_mk2"] = 2, ["inserter_mk3"] = 3,
+    };
     public static float SpeedOf(string type) => TierSpeed.GetValueOrDefault(type, 1f);
     public static float PowerOf(string type) => PowerUse.TryGetValue(BaseOf(type), out var kw) ? kw * SpeedOf(type) : 0;
     // One line on what a tier does better, for tooltips.
@@ -60,8 +70,13 @@ public static class Defs
         : TiersOf(type) == PoleTiers ? $"Wires {WireRangeOf(type)} tiles, powers {PoleReachOf(type) * 2 + 1}x{PoleReachOf(type) * 2 + 1}"
         : $"Works at {X(SpeedOf(type))} speed";
     public static bool UsesPower(string type) => PowerUse.ContainsKey(BaseOf(type));
-    // Tiles per tick for everything that carries items along (x80 = items/s). Must stay below Belt.Spacing.
-    public static readonly Dictionary<string, float> BeltSpeed = new() { ["belt"] = 0.1f, ["fast_belt"] = 0.15f, ["express_belt"] = 0.2f, ["splitter"] = 0.2f, ["tunnel"] = 0.15f };
+    // Tiles per tick for everything that carries items along (x80 = items/s). The self-test runs each one at full load.
+    public static readonly Dictionary<string, float> BeltSpeed = new()
+    {
+        ["belt"] = 0.1f, ["fast_belt"] = 0.15f, ["express_belt"] = 0.2f, ["turbo_belt"] = 0.3f, ["hyper_belt"] = 0.4f, ["ultra_belt"] = 0.5f,
+        ["splitter"] = 0.2f, ["fast_splitter"] = 0.3f, ["hyper_splitter"] = 0.5f,
+        ["tunnel"] = 0.15f, ["fast_tunnel"] = 0.3f, ["hyper_tunnel"] = 0.5f,
+    };
     // Two poles link when they are within the shorter of their two ranges, so a small pole never reaches 18 tiles.
     public static int WireRangeOf(string pole) => pole switch { "super_pole" => 18, "big_pole" => 12, _ => 7 };
     public static int PoleReachOf(string pole) => pole switch { "super_pole" => 4, "big_pole" => 3, _ => 2 }; // 9x9, 7x7, 5x5
@@ -70,11 +85,11 @@ public static class Defs
     public static readonly Milestone[] Milestones =
     {
         new("First Plates", new[] { ("iron_plate", 40), ("copper_plate", 20) }, new[] { "assembler", "chest", "splitter", "tunnel" }),
-        new("Gears Turning", new[] { ("gear", 40), ("copper_wire", 60) }, new[] { "fast_belt", "steel", "big_pole" }),
-        new("Smart Factory", new[] { ("circuit", 30), ("steel_plate", 15) }, new[] { "express_belt", "super_pole", "pipe", "pipe_tunnel", "pump", "refinery" }),
-        new("Clear Glass", new[] { ("plastic", 40), ("sulfur", 30) }, new[] { "sand", "glass", "lens", "battery", "motor", "lamp" }),
-        new("Bright Ideas", new[] { ("lamp", 40), ("battery", 30), ("motor", 30) }, new[] { "smart_chip", "frame", "toy_robot", "clock", "solar_panel", "solar" }),
-        new("Reach the Sky", new[] { ("toy_robot", 20), ("clock", 20), ("solar_panel", 20) }, new[] { "drone", "computer", "sky_beacon" }),
+        new("Gears Turning", new[] { ("gear", 40), ("copper_wire", 60) }, new[] { "fast_belt", "steel", "big_pole", "miner_mk2", "furnace_mk2", "inserter_mk2" }),
+        new("Smart Factory", new[] { ("circuit", 30), ("steel_plate", 15) }, new[] { "express_belt", "super_pole", "pipe", "pipe_tunnel", "pump", "refinery", "assembler_mk2", "fast_splitter", "fast_tunnel" }),
+        new("Clear Glass", new[] { ("plastic", 40), ("sulfur", 30) }, new[] { "sand", "glass", "lens", "battery", "motor", "lamp", "turbo_belt" }),
+        new("Bright Ideas", new[] { ("lamp", 40), ("battery", 30), ("motor", 30) }, new[] { "smart_chip", "frame", "toy_robot", "clock", "solar_panel", "solar", "hyper_belt", "miner_mk3", "furnace_mk3", "inserter_mk3", "hyper_splitter", "hyper_tunnel" }),
+        new("Reach the Sky", new[] { ("toy_robot", 20), ("clock", 20), ("solar_panel", 20) }, new[] { "drone", "computer", "sky_beacon", "ultra_belt", "assembler_mk3" }),
     };
 
     public static readonly Upgrade[] Upgrades =
@@ -163,6 +178,22 @@ public static class Defs
         Building("belt", "Belt", 1, ("iron_plate", 1));
         Building("fast_belt", "Fast Belt", 1, ("iron_plate", 1), ("gear", 1));
         Building("express_belt", "Express Belt", 1, ("steel_plate", 1), ("gear", 1));
+        Building("turbo_belt", "Turbo Belt", 1, ("steel_plate", 1), ("gear", 2), ("steel_screw", 2));
+        Building("hyper_belt", "Hyper Belt", 1, ("steel_plate", 1), ("copper_rod", 2), ("plastic", 1));
+        Building("ultra_belt", "Ultra Belt", 1, ("steel_plate", 1), ("motor", 1), ("steel_screw", 2));
+        // Faster machines: twice and three times as fast, built from screws, rods and the parts of their milestone.
+        Building("inserter_mk2", "Inserter Mk2", 1, ("iron_plate", 2), ("gear", 2), ("iron_screw", 4));
+        Building("inserter_mk3", "Inserter Mk3", 1, ("steel_plate", 2), ("motor", 1), ("steel_screw", 4));
+        Building("miner_mk2", "Miner Mk2", 1, ("iron_plate", 10), ("gear", 5), ("iron_screw", 8));
+        Building("miner_mk3", "Miner Mk3", 1, ("steel_plate", 10), ("motor", 4), ("steel_screw", 10));
+        Building("furnace_mk2", "Furnace Mk2", 1, ("brick", 10), ("steel_plate", 4), ("iron_rod", 4));
+        Building("furnace_mk3", "Furnace Mk3", 1, ("brick", 10), ("steel_plate", 8), ("steel_rod", 6));
+        Building("assembler_mk2", "Assembler Mk2", 1, ("steel_plate", 4), ("circuit", 4), ("steel_screw", 8));
+        Building("assembler_mk3", "Assembler Mk3", 1, ("frame", 2), ("smart_chip", 4), ("steel_screw", 12));
+        Building("fast_splitter", "Fast Splitter", 1, ("steel_plate", 4), ("gear", 4), ("steel_screw", 4));
+        Building("hyper_splitter", "Hyper Splitter", 1, ("steel_plate", 6), ("motor", 2), ("smart_chip", 1));
+        Building("fast_tunnel", "Fast Underground Belt", 1, ("steel_plate", 6), ("gear", 4), ("steel_rod", 4));
+        Building("hyper_tunnel", "Hyper Underground Belt", 1, ("steel_plate", 8), ("motor", 2), ("steel_rod", 6));
         Building("crossing", "Crossing", 1, ("iron_plate", 4));
         Building("inserter", "Inserter", 1, ("iron_plate", 2));
         Building("miner", "Miner", 1, ("iron_plate", 10));

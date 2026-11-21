@@ -121,7 +121,7 @@ public sealed class Belt : Entity
         float p = EntryFor(w, from), prev = p;
         var it = new Item { Id = item, Arrived = w.Tick };
         // Entering from behind: Prev sits one tick back, over the edge, so the item glides on instead of pausing a tick.
-        if (p == 0) { p = overflow; prev = overflow - Speed; }
+        if (p == 0) { p = Mathf.Min(overflow, Tail - Spacing); prev = p - Speed; } // never closer than Spacing to the last item
         else if ((from - Pos).LengthSquared() == 1) // from the side: starts at the side edge and slides to the middle
         {
             it.Side = from - Pos;
@@ -150,7 +150,8 @@ public sealed class Belt : Entity
 
         var next = w.At(Front);
         // Straight into another belt: keep spacing across the tile edge, not just at the handoff.
-        float Cap() => next is Belt nb && nb.EntryFor(w, Pos) == 0 ? 1f + nb.Tail - Spacing : 1f;
+        // Anything else (a crossing, splitter, underground) takes the overflow too and keeps its own spacing.
+        float Cap() => next is Belt nb ? (nb.EntryFor(w, Pos) == 0 ? 1f + nb.Tail - Spacing : 1f) : next is Crossing or Splitter or Tunnel ? 1f + Speed : 1f;
         float cap = Cap();
         float speed = Speed;
 
@@ -386,7 +387,7 @@ public sealed class Inserter : Entity
 // Each travel direction has its own little lane, so crossing lines never mix.
 public sealed class Crossing : Entity
 {
-    public const float Speed = 0.2f, Spacing = 0.25f; // 16 items/s per lane, faster than any belt
+    public const float Speed = 0.5f, Spacing = 0.25f; // 40 items/s per lane, as fast as the fastest belt
     public sealed class Item { public string Id; public float Pos, Prev; }
     public readonly List<Item>[] Lanes = { new(), new(), new(), new() }; // by travel direction, front first
 
@@ -401,7 +402,13 @@ public sealed class Crossing : Entity
     }
 
     public override void Accept(World w, string item, Vector2I from, float overflow = 0) =>
-        Lanes[DirIndex(Pos - from)].Add(new Item { Id = item, Prev = -Speed });
+        Enter(Lanes[DirIndex(Pos - from)], item, overflow);
+
+    void Enter(List<Item> lane, string item, float overflow)
+    {
+        float p = lane.Count == 0 ? overflow : Mathf.Min(overflow, lane[^1].Pos - Spacing); // never closer than Spacing
+        lane.Add(new Item { Id = item, Pos = p, Prev = p - Speed });
+    }
 
     public override void Tick(World w)
     {
@@ -413,16 +420,19 @@ public sealed class Crossing : Entity
             {
                 var it = lane[i];
                 it.Prev = it.Pos;
-                float limit = i == 0 ? 1f : lane[i - 1].Pos - Spacing;
+                float limit = i == 0 ? 1f + Speed : lane[i - 1].Pos - Spacing; // may run over the edge, see below
                 it.Pos = Mathf.Max(it.Pos, Mathf.Min(it.Pos + Speed, limit));
             }
             if (lane.Count == 0) continue;
             Working = true;
-            if (lane[0].Pos >= 1f && w.At(Pos + Dirs[d]) is { } next && next.CanAccept(w, lane[0].Id, Pos))
+            // Hand on everything past the edge, with how far it got, so a fast line keeps its full rate.
+            var next = w.At(Pos + Dirs[d]);
+            while (lane.Count > 0 && lane[0].Pos >= 1f && next != null && next.CanAccept(w, lane[0].Id, Pos))
             {
-                next.Accept(w, lane[0].Id, Pos);
+                next.Accept(w, lane[0].Id, Pos, lane[0].Pos - 1f);
                 lane.RemoveAt(0);
             }
+            for (int i = 0; i < lane.Count; i++) lane[i].Pos = Mathf.Min(lane[i].Pos, i == 0 ? 1f : lane[i - 1].Pos - Spacing);
         }
     }
 
@@ -508,7 +518,11 @@ public sealed class Splitter : Entity
     public Vector2I OutTile(int k) => Pos + Dirs[(Rot + Turn[k]) % 4];
     public override bool OutputsTo(Vector2I t) => t != Back && (t - Pos).LengthSquared() == 1;
     public override bool CanAccept(World w, string item, Vector2I from) => from == Back && (Lane.Count == 0 || Lane[^1].Pos >= Spacing);
-    public override void Accept(World w, string item, Vector2I from, float overflow = 0) => Lane.Add(new Item { Id = item, Prev = -Speed });
+    public override void Accept(World w, string item, Vector2I from, float overflow = 0)
+    {
+        float p = Lane.Count == 0 ? overflow : Mathf.Min(overflow, Lane[^1].Pos - Spacing); // never closer than Spacing
+        Lane.Add(new Item { Id = item, Pos = p, Prev = p - Speed });
+    }
 
     // Round robin over the outputs that can take the item now; if none can, the next one that exists at all.
     int Pick(World w, string item)
@@ -531,26 +545,30 @@ public sealed class Splitter : Entity
         {
             var it = Lane[i];
             it.Prev = it.Pos;
-            float limit = i == 0 ? 1f : Lane[i - 1].Pos - Spacing;
+            float limit = i == 0 ? 1f + Speed : Lane[i - 1].Pos - Spacing; // may run over the edge, see below
             it.Pos = Mathf.Max(it.Pos, Mathf.Min(it.Pos + Speed, limit));
             if (it.Out < 0 && it.Pos >= 0.5f) it.Out = Pick(w, it.Id);
         }
-        if (Lane.Count == 0 || Lane[0].Pos < 1f) return;
-        var front = Lane[0];
-        var target = front.Out >= 0 ? w.At(OutTile(front.Out)) : null;
-        bool ok = target != null && target.CanAccept(w, front.Id, Pos);
-        if (!ok && (target == null || ++front.Wait > GiveUpTicks))
+        // Hand on everything past the edge, with how far it got, so a fast line keeps its full rate.
+        while (Lane.Count > 0 && Lane[0].Pos >= 1f)
         {
-            front.Wait = 0;
-            for (int k = 1; k <= 3 && !ok; k++) // switch only to an output that can take it right now
+            var front = Lane[0];
+            var target = front.Out >= 0 ? w.At(OutTile(front.Out)) : null;
+            bool ok = target != null && target.CanAccept(w, front.Id, Pos);
+            if (!ok && (target == null || ++front.Wait > GiveUpTicks))
             {
-                int o = (Math.Max(front.Out, 0) + k) % 3;
-                if (w.At(OutTile(o)) is { } t && t.CanAccept(w, front.Id, Pos)) { front.Out = o; target = t; ok = true; }
+                front.Wait = 0;
+                for (int k = 1; k <= 3 && !ok; k++) // switch only to an output that can take it right now
+                {
+                    int o = (Math.Max(front.Out, 0) + k) % 3;
+                    if (w.At(OutTile(o)) is { } t && t.CanAccept(w, front.Id, Pos)) { front.Out = o; target = t; ok = true; }
+                }
             }
+            if (!ok) break;
+            target.Accept(w, front.Id, Pos, front.Pos - 1f);
+            Lane.RemoveAt(0);
         }
-        if (!ok) return;
-        target.Accept(w, front.Id, Pos);
-        Lane.RemoveAt(0);
+        for (int i = 0; i < Lane.Count; i++) Lane[i].Pos = Mathf.Min(Lane[i].Pos, i == 0 ? 1f : Lane[i - 1].Pos - Spacing);
     }
 
     public override string Status => Idle > StallTicks && Lane.Count > 0 ? "blocked" : null;
@@ -585,7 +603,11 @@ public sealed class Tunnel : Entity
 
     public override bool OutputsTo(Vector2I t) => Exit && t == Front;
     public override bool CanAccept(World w, string item, Vector2I from) => !Exit && from == Back && (Lane.Count == 0 || Lane[^1].Pos >= Spacing);
-    public override void Accept(World w, string item, Vector2I from, float overflow = 0) => Lane.Add(new Item { Id = item, Prev = -Speed });
+    public override void Accept(World w, string item, Vector2I from, float overflow = 0)
+    {
+        float p = Lane.Count == 0 ? overflow : Mathf.Min(overflow, Lane[^1].Pos - Spacing); // never closer than Spacing
+        Lane.Add(new Item { Id = item, Pos = p, Prev = p - Speed });
+    }
 
     public override void Tick(World w)
     {
@@ -597,14 +619,17 @@ public sealed class Tunnel : Entity
         {
             var it = Lane[i];
             it.Prev = it.Pos;
-            float limit = i == 0 ? end : Lane[i - 1].Pos - Spacing;
+            float limit = i == 0 ? end + (exit == null ? 0 : Speed) : Lane[i - 1].Pos - Spacing; // may run over the end, see below
             it.Pos = Mathf.Max(it.Pos, Mathf.Min(it.Pos + Speed, limit));
         }
-        if (exit != null && Lane[0].Pos >= end && w.At(exit.Front) is { } next && next.CanAccept(w, Lane[0].Id, exit.Pos))
+        // Hand on everything past the end, with how far it got, so a fast line keeps its full rate.
+        var next = exit == null ? null : w.At(exit.Front);
+        while (Lane.Count > 0 && Lane[0].Pos >= end && next != null && next.CanAccept(w, Lane[0].Id, exit.Pos))
         {
-            next.Accept(w, Lane[0].Id, exit.Pos);
+            next.Accept(w, Lane[0].Id, exit.Pos, Lane[0].Pos - end);
             Lane.RemoveAt(0);
         }
+        for (int i = 0; i < Lane.Count; i++) Lane[i].Pos = Mathf.Min(Lane[i].Pos, i == 0 ? end : Lane[i - 1].Pos - Spacing);
     }
 
     public int Length(Entity exit) => Mathf.Abs(exit.Pos.X - Pos.X) + Mathf.Abs(exit.Pos.Y - Pos.Y);

@@ -200,7 +200,7 @@ public partial class Main
         Key(Godot.Key.Key1);
         await Wait(0.1);
         System.Collections.Generic.List<Button> TierButtons() => FindAll<Button>(_hud).Where(b => b.IsVisibleInTree() && b.TooltipText.Contains("Tab: next tier")).ToList();
-        Check(_view.Selected == "belt" && TierButtons().Count == 3, $"1 picks the belt and shows its 3 tiers above the slot (got {_view.Selected}, {TierButtons().Count})");
+        Check(_view.Selected == "belt" && TierButtons().Count == Defs.BeltTiers.Length, $"1 picks the belt and shows all its tiers above the slot (got {_view.Selected}, {TierButtons().Count})");
         Shot("09d_tier_strip");
         TierButtons()[1].EmitSignal(BaseButton.SignalName.Pressed);
         await Wait(0.1);
@@ -395,6 +395,16 @@ public partial class Main
         Shot("10_mini_game");
         var slots = FindAll<Button>(_hud).Where(b => b.HasMeta("id")).ToList();
         Check(slots.Count == _view.Hotbar().Count && slots.Max(b => b.GetGlobalRect().End.X) <= 400 && slots.Min(b => b.GetGlobalRect().Position.X) >= 0, $"all {slots.Count} hotbar slots fit in the mini window");
+        _world.MilestoneIndex = Defs.Milestones.Length; // every belt tier unlocked
+        _view.Selected = null;
+        Key(Godot.Key.Key1);
+        await Wait(0.3);
+        var strip = FindAll<Button>(_hud).Where(b => b.IsVisibleInTree() && b.TooltipText.Contains("Tab: next tier")).ToList();
+        Check(strip.Count == Defs.BeltTiers.Length && strip.Max(b => b.GetGlobalRect().End.X) <= 400 && strip.Min(b => b.GetGlobalRect().Position.X) >= 0
+            && strip.Max(b => b.GetGlobalRect().End.Y) <= slots.Min(b => b.GetGlobalRect().Position.Y), $"the belt tier strip ({strip.Count}) fits in the mini window above the hotbar");
+        Shot("10b_mini_tier_strip");
+        _view.Selected = null;
+        await Wait(0.1);
         _hud.OpenHub(Hud.SellTab);
         await Wait(0.5);
         Shot("11_mini_hub");
