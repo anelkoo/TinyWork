@@ -131,6 +131,7 @@ public partial class Main : Node
         _worldVp.ProcessMode = pm;
         _uiRoot.ProcessMode = pm;
         _sfx.Volume = _s.SfxVolume * (mini ? 0.5f : 1f);
+        _sfx.MusicFolder = _s.MusicFolder;
         _sfx.MusicVolume = _s.MusicVolume * (mini ? 0.5f : 1f);
     }
 

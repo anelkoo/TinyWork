@@ -24,6 +24,7 @@ public sealed class Settings
     public bool VSync = true;
     public string HideKey = "F8", ModeKey = "F7"; // Godot key names, e.g. "Ctrl+Shift+F8"
     public float SfxVolume = 0.8f, MusicVolume = 0.6f;
+    public string MusicFolder; // null = the built-in music
     // Juice families: place, production, screen, ui. Each can be off in normal or mini mode.
     public Dictionary<string, bool> Juice = new();
 

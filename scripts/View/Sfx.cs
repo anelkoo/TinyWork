@@ -1,5 +1,7 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
+using System.Linq;
 using Godot;
 
 namespace TinyWorks.View;
@@ -21,17 +23,60 @@ public sealed partial class Sfx : Node
 
     public bool Muted { get => _muted; set { _muted = value; UpdateMusic(); } }
     public float MusicVolume { get => _musicVolume; set { _musicVolume = value; UpdateMusic(); } }
+    // The player's own music: every OGG, MP3 and WAV in this folder, in name order, round and round.
+    // Null, or a folder with nothing playable, means the built-in loop.
+    public string MusicFolder
+    {
+        get => _musicFolder;
+        set { if (value == _musicFolder) return; _musicFolder = value; _music?.QueueFree(); _music = null; UpdateMusic(); }
+    }
+    string _musicFolder;
+    List<string> _tracks = new();
+    int _track;
+    public static readonly string[] MusicTypes = { ".ogg", ".mp3", ".wav" };
+
+    public static List<string> Tracks(string folder) =>
+        string.IsNullOrEmpty(folder) || !Directory.Exists(folder) ? new()
+        : Directory.GetFiles(folder).Where(f => MusicTypes.Contains(Path.GetExtension(f).ToLowerInvariant())).Order().ToList();
 
     // The loop is built on first use, so a game started with music at 0 never spends time on it.
     void UpdateMusic()
     {
         if (!IsInsideTree()) return;
         bool on = !_muted && _musicVolume > 0;
-        if (on && _music == null) AddChild(_music = new AudioStreamPlayer { Stream = MusicLoop() });
+        if (on && _music == null)
+        {
+            AddChild(_music = new AudioStreamPlayer());
+            _tracks = Tracks(_musicFolder);
+            _track = -1;
+            if (_tracks.Count == 0) _music.Stream = MusicLoop();
+            else { _music.Finished += NextTrack; NextTrack(); }
+        }
         if (_music == null) return;
         _music.VolumeDb = Mathf.LinearToDb(Mathf.Max(_musicVolume, 0.0001f));
         if (on && !_music.Playing) _music.Play();
         _music.StreamPaused = !on;
+    }
+
+    // Tracks are loaded one at a time when they start, so a big folder costs nothing up front.
+    void NextTrack()
+    {
+        for (int tries = 0; tries < _tracks.Count; tries++)
+        {
+            _track = (_track + 1) % _tracks.Count;
+            var path = _tracks[_track];
+            AudioStream s = Path.GetExtension(path).ToLowerInvariant() switch
+            {
+                ".ogg" => AudioStreamOggVorbis.LoadFromFile(path),
+                ".mp3" => AudioStreamMP3.LoadFromFile(path),
+                _ => AudioStreamWav.LoadFromFile(path),
+            };
+            if (s != null) { _music.Stream = s; _music.Play(); return; }
+        }
+        _tracks.Clear(); // nothing readable in the folder: back to the built-in loop
+        _music.Finished -= NextTrack;
+        _music.Stream = MusicLoop();
+        _music.Play();
     }
 
     public override void _Ready()

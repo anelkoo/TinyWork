@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
 using Godot;
 using TinyWorks.Platform;
 using TinyWorks.View;
@@ -79,11 +80,41 @@ public static class SettingsUi
         var music = new HSlider { MinValue = 0, MaxValue = 1, Step = 0.05, Value = s.MusicVolume, CustomMinimumSize = new Vector2(140, 0), SizeFlagsVertical = Control.SizeFlags.ShrinkCenter };
         music.ValueChanged += v => { s.MusicVolume = (float)v; musicLabel.Text = $"{v:P0}"; apply(); };
         body.AddChild(Line("Music volume", music, musicLabel));
+        body.AddChild(MusicPicker(s, apply, sfx));
 
         Section(body, "Start");
         var skip = new CheckBox { Text = "Skip the title screen and open the last save", ButtonPressed = s.SkipTitle, FocusMode = Control.FocusModeEnum.None };
         skip.Toggled += on => { s.SkipTitle = on; apply(); };
         body.AddChild(skip);
+    }
+
+    // Your own music: pick a folder of OGG, MP3 or WAV files. "Built-in" goes back to the game's loop.
+    static Control MusicPicker(Settings s, Action apply, Sfx sfx)
+    {
+        var name = Ui.MakeLabel("", 14, Ui.Muted);
+        name.TextOverrunBehavior = TextServer.OverrunBehavior.TrimEllipsis;
+        name.CustomMinimumSize = new Vector2(150, 0);
+        Button builtIn = null;
+        void Show()
+        {
+            int n = Sfx.Tracks(s.MusicFolder).Count;
+            var folder = Path.GetFileName(Path.TrimEndingDirectorySeparator(s.MusicFolder ?? ""));
+            name.Text = s.MusicFolder == null ? "Built-in" : n == 0 ? $"{folder}: no music files, playing built-in" : $"{folder} ({n} {(n == 1 ? "track" : "tracks")})";
+            name.TooltipText = s.MusicFolder ?? "The game's own calm loop";
+            builtIn.Visible = s.MusicFolder != null;
+        }
+        var dialog = new FileDialog { FileMode = FileDialog.FileModeEnum.OpenDir, Access = FileDialog.AccessEnum.Filesystem, UseNativeDialog = true, Title = "Pick a folder with your music (OGG, MP3, WAV)" };
+        dialog.DirSelected += dir => { s.MusicFolder = dir; Show(); apply(); };
+        var pick = Ui.MakeButton("Choose folder", () =>
+        {
+            if (s.MusicFolder != null && Directory.Exists(s.MusicFolder)) dialog.CurrentDir = s.MusicFolder;
+            dialog.PopupCentered(new Vector2I(720, 480));
+        }, sfx);
+        builtIn = Ui.MakeButton("Built-in", () => { s.MusicFolder = null; Show(); apply(); }, sfx);
+        var row = Line("Music", name, pick, builtIn);
+        row.AddChild(dialog);
+        Show();
+        return row;
     }
 
     static void Section(VBoxContainer body, string title)

@@ -49,6 +49,7 @@ public static class SelfTest
         Test("solar powers machines without fuel and is used before coal", SolarPower);
         Test("long wires let poles link further", LongWires);
         Test("every metal makes screws, nails and rods; they survive a save", MetalParts);
+        Test("own music folder lists only music files, in name order", MusicFolder);
         GD.Print(_fails == 0 ? "SELFTEST PASS" : $"SELFTEST FAIL ({_fails})");
         return _fails;
     }
@@ -246,6 +247,17 @@ public static class SelfTest
         Check(plates * 4 + screws == 400, $"plates lost: {plates} plates x4 + {screws} screws != 400");
         var b = World.FromSave(Persist.Deserialize(Persist.Serialize(w.ToSave())));
         Check(b.Storage.GetValueOrDefault("iron_screw") == w.Storage["iron_screw"] && b.Entities.OfType<Assembler>().First().RecipeId == "iron_screw", "screws or the recipe got lost in the save");
+    }
+
+    static void MusicFolder()
+    {
+        var dir = System.IO.Path.Combine(System.IO.Path.GetTempPath(), "tinyworks_music_test");
+        System.IO.Directory.CreateDirectory(dir);
+        foreach (var f in new[] { "b.ogg", "a.MP3", "c.wav", "notes.txt", "cover.png" }) System.IO.File.WriteAllText(System.IO.Path.Combine(dir, f), "");
+        var names = TinyWorks.View.Sfx.Tracks(dir).Select(System.IO.Path.GetFileName).ToList();
+        System.IO.Directory.Delete(dir, true);
+        Check(string.Join(",", names) == "a.MP3,b.ogg,c.wav", $"got {string.Join(",", names)}");
+        Check(TinyWorks.View.Sfx.Tracks(null).Count == 0 && TinyWorks.View.Sfx.Tracks(dir).Count == 0, "no folder or a missing one should give no tracks");
     }
 
     static void ChestAndFilter()
