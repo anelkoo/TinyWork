@@ -34,6 +34,8 @@ public sealed partial class WorldView : Node2D
     readonly List<(string Type, Vector2 At, int Rot, float T)> _gone = new();
     readonly Dictionary<string, int> _pendingDeliver = new();
     float _time, _dt, _hubPulse, _targetZoom = 1, _deliverTimer;
+    float _beltTime; // game time for belt animation: stands still while paused, runs with game speed and Belt Rush
+    public float BeltTime => _beltTime;
     Vector2 _camTarget;
     Vector2I _hover, _lastPaint;
     Entity _lastBelt;
@@ -290,6 +292,7 @@ public sealed partial class WorldView : Node2D
     {
         _dt = (float)delta;
         _time += _dt;
+        if (!W.Paused) _beltTime += _dt * W.Speed * W.Strength("belt_rush");
         var move = new Vector2(
             (Input.IsKeyPressed(Key.D) || Input.IsKeyPressed(Key.Right) ? 1 : 0) - (Input.IsKeyPressed(Key.A) || Input.IsKeyPressed(Key.Left) ? 1 : 0),
             (Input.IsKeyPressed(Key.S) || Input.IsKeyPressed(Key.Down) ? 1 : 0) - (Input.IsKeyPressed(Key.W) || Input.IsKeyPressed(Key.Up) ? 1 : 0));
@@ -459,7 +462,7 @@ public sealed partial class WorldView : Node2D
     {
         var view = ViewRect().Grow(T * 3);
         float f = W.Paused ? 1 : (float)Engine.GetPhysicsInterpolationFraction(); // paused: nothing moves, so nothing may twitch
-        int frame = (int)(_time * 16) % 4;
+        int frame = (int)(_beltTime * 16) % 4;
         bool prod = J("production");
 
         _mod = W.Worn("belt")?.Color ?? Colors.White;
@@ -775,7 +778,7 @@ public sealed partial class WorldView : Node2D
     {
         var input = b.InputFrom(W);
         var c = Center(b.Pos);
-        frame = (int)(_time * 160 * b.Speed) % 4; // faster tiers animate faster
+        frame = (int)(_beltTime * 160 * b.Speed) % 4; // faster tiers animate faster
         if (input == b.Back) Sprite(Sprites.BeltFrames[b.Type][frame], c, Angle(b.Rot), Vector2.One);
         else
         {

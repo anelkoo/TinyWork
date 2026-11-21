@@ -263,8 +263,10 @@ public partial class Main
         Key(Godot.Key.Space);
         await Wait(0.2);
         long pausedAt = _world.Tick;
+        float beltsAt = _view.BeltTime;
         await Wait(0.4);
         Check(_world.Paused && _world.Tick == pausedAt, $"Space pauses the game (tick {pausedAt} -> {_world.Tick})");
+        Check(_view.BeltTime == beltsAt, "belts stop moving while paused");
         Key(Godot.Key.Period);
         await Wait(0.2);
         Check(_world.Tick == pausedAt + 1, $". steps exactly one tick ({pausedAt} -> {_world.Tick})");
