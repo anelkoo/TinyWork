@@ -54,6 +54,11 @@ public static class Defs
     public static readonly Dictionary<string, float> TierSpeed = new();
     public static float SpeedOf(string type) => TierSpeed.GetValueOrDefault(type, 1f);
     public static float PowerOf(string type) => PowerUse.TryGetValue(BaseOf(type), out var kw) ? kw * SpeedOf(type) : 0;
+    // One line on what a tier does better, for tooltips.
+    public static string TierInfo(string type) =>
+        BeltSpeed.TryGetValue(type, out var v) ? $"Moves {v * 80:0} items/s"
+        : TiersOf(type) == PoleTiers ? $"Wires {WireRangeOf(type)} tiles, powers {PoleReachOf(type) * 2 + 1}x{PoleReachOf(type) * 2 + 1}"
+        : $"Works at {X(SpeedOf(type))} speed";
     public static bool UsesPower(string type) => PowerUse.ContainsKey(BaseOf(type));
     // Tiles per tick for everything that carries items along (x80 = items/s). Must stay below Belt.Spacing.
     public static readonly Dictionary<string, float> BeltSpeed = new() { ["belt"] = 0.1f, ["fast_belt"] = 0.15f, ["express_belt"] = 0.2f, ["splitter"] = 0.2f, ["tunnel"] = 0.15f };

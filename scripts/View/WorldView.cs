@@ -15,7 +15,6 @@ public sealed partial class WorldView : Node2D
     const float ZoomCooldown = 0.12f; // a fast wheel spin moves one step at a time, not five
     float _lastZoom = -1;
     public Func<bool> Blocked; // a menu is open: the wheel belongs to it, never to the map
-    string _tierStart;         // the tier a tiered slot started on, so cycling stops after one round
     const float PixelScale = 2; // screen pixels per art pixel at zoom 1
 
     public World W;
@@ -92,23 +91,30 @@ public sealed partial class WorldView : Node2D
             return;
         }
         var family = Defs.TiersOf(building);
-        if (family != null && family == Defs.TiersOf(Selected))
+        if (family == null) Selected = Selected == building ? null : building;
+        else if (family == Defs.TiersOf(Selected)) Selected = null; // the slot again puts it away, like any slot
+        else // a tiered slot starts with the tier used last; the strip above the hotbar picks another
         {
-            // Pressing a tiered slot again steps through its unlocked tiers, then puts it away
-            // once it would come back round to the tier it started with.
-            var tiers = family.Where(W.IsUnlocked).ToList();
-            var next = tiers[(tiers.IndexOf(Selected) + 1) % tiers.Count];
-            Selected = next == _tierStart ? null : next;
+            var last = S.LastTier.GetValueOrDefault(family[0]);
+            Selected = Array.IndexOf(family, last) >= 0 && W.IsUnlocked(last) ? last : family[0];
         }
-        else if (family != null) // a tiered slot starts with the tier used last
-        {
-            var last = family == Defs.PoleTiers ? S.LastPole : S.LastBelt;
-            Selected = _tierStart = Array.IndexOf(family, last) >= 0 && W.IsUnlocked(last) ? last : family[0];
-        }
-        else Selected = Selected == building ? null : building;
-        if (Defs.IsBelt(Selected)) S.LastBelt = Selected;
-        if (Defs.TiersOf(Selected) == Defs.PoleTiers) S.LastPole = Selected;
         Sfx.Play("click");
+    }
+
+    // A tier from the strip above the hotbar, or Tab for the next unlocked one.
+    public void PickTier(string tier)
+    {
+        if (!W.IsUnlocked(tier)) { Toast?.Invoke(Defs.LockedWhy(tier)); Sfx.Play("error"); return; }
+        StopClip();
+        Selected = tier;
+        S.LastTier[Defs.BaseOf(tier)] = tier;
+        Sfx.Play("click");
+    }
+
+    void NextTier()
+    {
+        var tiers = Defs.TiersOf(Selected).Where(W.IsUnlocked).ToList();
+        PickTier(tiers[(tiers.IndexOf(Selected) + 1) % tiers.Count]);
     }
 
     // Keys the HUD forwards. Returns true when used.
@@ -119,6 +125,7 @@ public sealed partial class WorldView : Node2D
         if (slot >= 0 && slot < bar.Count) { Select(bar[slot]); return true; }
         switch (k)
         {
+            case Key.Tab when Defs.TiersOf(Selected) != null: NextTier(); return true;
             case Key.R when Pasting: Clip = Clip.Select(p => p.Turned()).ToList(); Sfx.Play("rotate"); return true;
             case Key.R when Selected != null: Rot = (Rot + 1) % 4; Sfx.Play("rotate"); return true;
             case Key.R: W.BeginAction(); W.Rotate(_hover); W.EndAction(); return true;

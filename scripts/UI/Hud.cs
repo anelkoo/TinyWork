@@ -22,6 +22,7 @@ public sealed partial class Hud : Control
     GridContainer _itemGrid; // storage rows; a second column opens when they would run past the hotbar
     PanelContainer _storagePanel, _tracker;
     HBoxContainer _bar, _coinRow;
+    readonly PanelContainer _tierStrip = new() { Visible = false }; // the tiers of the building in hand, above its slot
     Label _coins, _coinRate, _toast, _hints, _trackerTitle;
     readonly List<Button> _speedBtns = new(); // pause, 1x, 2x, 4x, step
     readonly List<Control> _bigOnly = new();  // top-row buttons hidden in the mini window
@@ -91,6 +92,8 @@ public sealed partial class Hud : Control
         _bar.GrowVertical = GrowDirection.Begin;
         _bar.Position -= new Vector2(0, 10);
         AddChild(_bar);
+        _tierStrip.AddChild(new HBoxContainer());
+        AddChild(_tierStrip);
 
         var top = new HBoxContainer();
         top.SetAnchorsAndOffsetsPreset(LayoutPreset.TopRight);
@@ -134,7 +137,7 @@ public sealed partial class Hud : Control
         _toast.AddThemeConstantOverride("outline_size", 6);
         AddChild(_toast);
 
-        _hints = Ui.MakeLabel("Click ore to mine   Click a building to open it   1-0 build (again: next tier)   Q all buildings   R rotate   Right-click remove   Ctrl+Z undo   Ctrl+C copy   V underground   Space pause   F7 mini   F8 hide", 13, Ui.Text);
+        _hints = Ui.MakeLabel("Click ore to mine   Click a building to open it   1-0 build (Tab: next tier)   Q all buildings   R rotate   Right-click remove   Ctrl+Z undo   Ctrl+C copy   V underground   Space pause   F7 mini   F8 hide", 13, Ui.Text);
         _hints.SetAnchorsAndOffsetsPreset(LayoutPreset.BottomLeft);
         _hints.GrowVertical = GrowDirection.Begin;
         _hints.Position += new Vector2(10, -66);
@@ -256,6 +259,41 @@ public sealed partial class Hud : Control
             _bar.GrowHorizontal = GrowDirection.Both;
             _bar.GrowVertical = GrowDirection.Begin;
             _bar.Position -= new Vector2(0, _mini ? 4 : 10);
+        }).CallDeferred();
+    }
+
+    // Every tier of the family in hand, in a row above its hotbar slot: locked ones dimmed, the one in hand outlined.
+    void ShowTierStrip()
+    {
+        var row = _tierStrip.GetChild<HBoxContainer>(0);
+        foreach (var c in row.GetChildren()) { row.RemoveChild(c); c.QueueFree(); }
+        var family = Defs.TiersOf(View.Selected);
+        _tierStrip.Visible = family != null;
+        if (family == null) return;
+        row.AddThemeConstantOverride("separation", _mini ? 2 : 4);
+        var slot = _bar.GetChildren().OfType<Button>().FirstOrDefault(b => b.HasMeta("id") && (string)b.GetMeta("id") == family[0]);
+        float s = slot?.CustomMinimumSize.X ?? 40;
+        foreach (var id in family)
+        {
+            var def = Defs.Buildings[id];
+            bool open = W.IsUnlocked(id), sel = id == View.Selected;
+            var b = new Button { Icon = Sprites.Icons[id], ExpandIcon = true, IconAlignment = HorizontalAlignment.Center, FocusMode = FocusModeEnum.None, CustomMinimumSize = new Vector2(s, s) };
+            b.AddThemeConstantOverride("icon_max_width", (int)Mathf.Min(s * 0.66f, s - 2 * SlotPad - 2));
+            b.AddThemeStyleboxOverride("normal", Ui.Box(sel ? Ui.BtnHover : Ui.Btn, sel ? Ui.Accent : Ui.Border, sel ? 3 : 2, 6, SlotPad));
+            b.AddThemeStyleboxOverride("hover", Ui.Box(Ui.BtnHover, Ui.Accent with { A = 0.7f }, 2, 6, SlotPad));
+            b.AddThemeStyleboxOverride("pressed", Ui.Box(Ui.Accent, Ui.Accent, 2, 6, SlotPad));
+            b.TooltipText = $"{def.Name}  (Tab: next tier)\n{Defs.TierInfo(id)}\n" + (open ? $"Costs {Ui.Cost(def.Cost)}" : $"Unlocks with milestone {Defs.UnlockTier(id)}");
+            if (!open) b.Modulate = new Color(1, 1, 1, 0.4f);
+            b.Pressed += () => View.PickTier(id);
+            Ui.Squishy(b);
+            row.AddChild(b);
+        }
+        Callable.From(() =>
+        {
+            _tierStrip.ResetSize();
+            float x = slot != null ? slot.GlobalPosition.X + slot.Size.X / 2 - _tierStrip.Size.X / 2 : (Size.X - _tierStrip.Size.X) / 2;
+            float above = _hints.Visible ? Mathf.Min(_bar.Position.Y, _hints.GetGlobalRect().Position.Y) : _bar.Position.Y; // clear of the key hints
+            _tierStrip.Position = new Vector2(Mathf.Clamp(x, 4, Mathf.Max(4, Size.X - _tierStrip.Size.X - 4)), above - _tierStrip.Size.Y - (_mini ? 2 : 6));
         }).CallDeferred();
     }
 
@@ -389,6 +427,7 @@ public sealed partial class Hud : Control
                     if (family != null) b.Icon = Sprites.Icons[sel ? View.Selected : id]; // a tiered slot shows the tier in hand
                     b.AddThemeStyleboxOverride("normal", Ui.Box(sel ? Ui.BtnHover : Ui.Btn, sel ? Ui.Accent : Ui.Border, sel ? 3 : 2, 6, SlotPad));
                 }
+            ShowTierStrip();
         }
         _toastT -= dt;
         _toast.Modulate = Colors.White with { A = Mathf.Clamp(_toastT, 0, 1) };
@@ -499,7 +538,7 @@ public sealed partial class Hud : Control
             var b = new Button { Text = def.Name, Icon = Sprites.Icons[id], ExpandIcon = true, Disabled = !open, CustomMinimumSize = new Vector2(_mini ? 150 : 124, 44), Alignment = HorizontalAlignment.Left };
             b.AddThemeConstantOverride("icon_max_width", 24);
             b.TooltipText = open ? $"Costs {Ui.Cost(def.Cost)}" : $"Unlocks with milestone {Defs.UnlockTier(id)}";
-            b.Pressed += () => { View.StopClip(); View.Selected = id; Sfx.Play("click"); ClosePanel(); };
+            b.Pressed += () => { View.StopClip(); View.Selected = id; if (Defs.TiersOf(id) != null) S.LastTier[Defs.BaseOf(id)] = id; Sfx.Play("click"); ClosePanel(); };
             Ui.Squishy(b);
             grid.AddChild(b);
         }

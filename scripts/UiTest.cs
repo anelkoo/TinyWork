@@ -195,25 +195,35 @@ public partial class Main
         Shot("09c_pole_ghost");
         _view.Selected = null;
 
-        _world.MilestoneIndex = 2; // fast belts unlocked: 1 steps through the tiers
+        _world.MilestoneIndex = 2; // fast belts unlocked, express still locked
+        _s.LastTier.Clear();
         Key(Godot.Key.Key1);
         await Wait(0.1);
+        System.Collections.Generic.List<Button> TierButtons() => FindAll<Button>(_hud).Where(b => b.IsVisibleInTree() && b.TooltipText.Contains("Tab: next tier")).ToList();
+        Check(_view.Selected == "belt" && TierButtons().Count == 3, $"1 picks the belt and shows its 3 tiers above the slot (got {_view.Selected}, {TierButtons().Count})");
+        Shot("09d_tier_strip");
+        TierButtons()[1].EmitSignal(BaseButton.SignalName.Pressed);
+        await Wait(0.1);
+        Check(_view.Selected == "fast_belt", $"clicking the second tier picks the fast belt (got {_view.Selected})");
+        TierButtons()[2].EmitSignal(BaseButton.SignalName.Pressed);
+        await Wait(0.1);
+        Check(_view.Selected == "fast_belt", $"a locked tier can't be picked (got {_view.Selected})");
         Key(Godot.Key.Key1);
         await Wait(0.1);
-        Check(_view.Selected == "fast_belt", $"pressing 1 twice picks the fast belt (got {_view.Selected})");
-        Key(Godot.Key.Key1);
-        await Wait(0.1);
-        Check(_view.Selected == null, "a third press puts the belt away");
+        Check(_view.Selected == null && TierButtons().Count == 0, "pressing 1 again puts the belt and its tiers away");
         Key(Godot.Key.Key1);
         await Wait(0.1);
         Check(_view.Selected == "fast_belt", $"1 starts with the belt tier used last (got {_view.Selected})");
+        Key(Godot.Key.Tab);
+        await Wait(0.1);
+        Check(_view.Selected == "belt", $"Tab skips the locked express belt and wraps to the belt (got {_view.Selected})");
         Key(Godot.Key.Escape);
         await Wait(0.1);
         Key(Godot.Key.Key0);
         await Wait(0.1);
-        Key(Godot.Key.Key0);
+        Key(Godot.Key.Tab);
         await Wait(0.1);
-        Check(_view.Selected == "big_pole", $"0 twice steps from the power pole to the big pole (got {_view.Selected})");
+        Check(_view.Selected == "big_pole", $"0 then Tab steps from the power pole to the big pole (got {_view.Selected})");
         Shot("09e_big_pole_ghost");
         Key(Godot.Key.Escape);
         await Wait(0.1);
