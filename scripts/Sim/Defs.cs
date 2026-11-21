@@ -109,6 +109,7 @@ public static class Defs
         new("overdrive", "Overdrive", "Machines work {0} as fast", new Color("e8665a"), 15, new[] { 1.25f, 1.5f, 2f }, 1.5f),
         new("quick_arms", "Arm Tonic", "Inserters swing {0} as fast", new Color("5aa9e8"), 8, new[] { 1.25f, 1.5f, 2f }, 1.5f),
         new("rock_crusher", "Rock Crusher", "Mining by hand gives {0} ore", new Color("62b86a"), 4, new[] { 2f, 5f, 10f }, 5f),
+        new("belt_rush", "Belt Rush", "Belts move {0} as fast", new Color("f08a3c"), 10, new[] { 2f, 3f, 5f, 10f }, 2f), // whole numbers only: each is a belt pass per tick
     };
     public static readonly Cosmetic[] Cosmetics =
     {

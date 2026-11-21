@@ -119,7 +119,7 @@ public sealed class Belt : Entity
     public override void Accept(World w, string item, Vector2I from, float overflow = 0)
     {
         float p = EntryFor(w, from), prev = p;
-        var it = new Item { Id = item, Arrived = w.Tick };
+        var it = new Item { Id = item, Arrived = w.CarrierPass };
         // Entering from behind: Prev sits one tick back, over the edge, so the item glides on instead of pausing a tick.
         if (p == 0) { p = Mathf.Min(overflow, Tail - Spacing); prev = p - Speed; } // never closer than Spacing to the last item
         else if ((from - Pos).LengthSquared() == 1) // from the side: starts at the side edge and slides to the middle
@@ -140,9 +140,8 @@ public sealed class Belt : Entity
         // An item handed over earlier in this same tick has already moved; it must not move twice.
         foreach (var it in Items)
         {
-            if (it.Arrived == w.Tick) continue;
-            it.Prev = it.Pos;
-            it.PrevSide = it.SideLeft;
+            if (it.Arrived == w.CarrierPass) continue;
+            if (w.BeltPass == 0) { it.Prev = it.Pos; it.PrevSide = it.SideLeft; } // drawing glides over the whole tick
             it.SideLeft = it.SideLeft - Speed > 1e-4f ? it.SideLeft - Speed : 0;
         }
         Working = Items.Count > 0;
@@ -158,7 +157,7 @@ public sealed class Belt : Entity
         for (int i = 0; i < Items.Count; i++)
         {
             var it = Items[i];
-            if (it.Arrived == w.Tick) continue;
+            if (it.Arrived == w.CarrierPass) continue;
             float limit = i == 0 ? cap : Items[i - 1].Pos - Spacing;
             it.Pos = Mathf.Max(it.Pos, Mathf.Min(it.Pos + speed, limit));
             if (i != 0 || it.Pos < 1f) continue;
@@ -419,7 +418,7 @@ public sealed class Crossing : Entity
             for (int i = 0; i < lane.Count; i++)
             {
                 var it = lane[i];
-                it.Prev = it.Pos;
+                if (w.BeltPass == 0) it.Prev = it.Pos;
                 float limit = i == 0 ? 1f + Speed : lane[i - 1].Pos - Spacing; // may run over the edge, see below
                 it.Pos = Mathf.Max(it.Pos, Mathf.Min(it.Pos + Speed, limit));
             }
@@ -544,7 +543,7 @@ public sealed class Splitter : Entity
         for (int i = 0; i < Lane.Count; i++)
         {
             var it = Lane[i];
-            it.Prev = it.Pos;
+            if (w.BeltPass == 0) it.Prev = it.Pos;
             float limit = i == 0 ? 1f + Speed : Lane[i - 1].Pos - Spacing; // may run over the edge, see below
             it.Pos = Mathf.Max(it.Pos, Mathf.Min(it.Pos + Speed, limit));
             if (it.Out < 0 && it.Pos >= 0.5f) it.Out = Pick(w, it.Id);
@@ -618,7 +617,7 @@ public sealed class Tunnel : Entity
         for (int i = 0; i < Lane.Count; i++)
         {
             var it = Lane[i];
-            it.Prev = it.Pos;
+            if (w.BeltPass == 0) it.Prev = it.Pos;
             float limit = i == 0 ? end + (exit == null ? 0 : Speed) : Lane[i - 1].Pos - Spacing; // may run over the end, see below
             it.Pos = Mathf.Max(it.Pos, Mathf.Min(it.Pos + Speed, limit));
         }

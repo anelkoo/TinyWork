@@ -146,6 +146,7 @@ Each step ends in something playable:
 7. Installers and packages. Done: `.\build.ps1 -Version <ver>` builds a Windows installer (Inno Setup, per user, no admin) and a portable zip, a `.deb` (Debian/Ubuntu), a `.pkg.tar.zst` (Arch), an AppImage (other distros) and a Linux tar.gz. All are self-contained, with no .NET or ICU needed. The packaging files are in `packaging/`, and the icon is the Hub (`--export-icon`). The Arch package has not been installed on a real Arch system yet.
 
 8. Content. Done in v0.0.6: milestones 4 to 6, the 14 remaining items (all 30 now exist), the solar array and the Long Wires upgrade.
+   v0.0.7 added screws, nails and rods (now in building costs), six belt tiers, Mk2/Mk3 machines, upgrading in place, own music and the Belt Rush potion.
 
 Juice and sound get added to each system as it lands.
 

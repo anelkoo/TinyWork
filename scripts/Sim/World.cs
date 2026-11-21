@@ -454,16 +454,24 @@ public sealed class World
         return _tickOrder;
     }
 
+    public long CarrierPass; // counts every carrier pass, so a belt knows which items it was handed during this one
+    public int BeltPass;     // 0 on the normal pass, 1.. on the extra passes Belt Rush adds
+
     public void Step()
     {
         Tick++;
         EnsureFluids();
         StepPower();
+        CarrierPass++;
         foreach (var e in TickOrder())
         {
             e.Tick(this);
             e.Idle = e.Working ? 0 : e.Idle + 1;
         }
+        // Belt Rush moves everything that carries items again, as a whole, so items cross several tiles in one tick.
+        for (BeltPass = 1; BeltPass < (int)Strength("belt_rush"); BeltPass++, CarrierPass++)
+            foreach (var e in TickOrder()) if (IsCarrier(e)) e.Tick(this);
+        BeltPass = 0;
         if (Tick % 20 == 0) AutoSellPass();
         StepPotions();
         if (Tick % StatBucketTicks == 0)

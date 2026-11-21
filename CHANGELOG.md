@@ -4,6 +4,9 @@ Everything that changed since the last release goes under "Unreleased". A new re
 
 ## Unreleased
 
+## v0.0.7 Beta (2026-11-21)
+
+- Belt Rush potion in the Hub: belts, splitters, undergrounds and crossings move x2, x3, x5 or x10 as fast while it runs. A basic belt on x10 carries 80 items/s.
 - Screws, nails and rods from every metal: iron, copper and steel. In an assembler one plate makes 4 screws, 4 nails or 2 rods, and each sells for a bit more than its share of the plate. Steel parts unlock with steel smelting. A new metal only needs one line to get all three parts.
 - Buildings now use the new parts. Chests and Fast Belts take iron nails; Splitters and Pumps take iron screws; Underground Belts, Pipes and Underground Pipes take iron rods; Refineries take steel screws; Big and Super Poles and the Solar Array take steel rods. Buildings you have from the start still cost plates, so a new game plays the same until the Assembler. Removing a building refunds what it costs now, so a chest from an old save gives back plates and nails.
 - Lightning Rod: 2 copper rods and 1 steel plate in an assembler. For now it's an item to sell, like everything else.

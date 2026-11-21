@@ -51,6 +51,7 @@ public static class SelfTest
         Test("every metal makes screws, nails and rods; they survive a save", MetalParts);
         Test("own music folder lists only music files, in name order", MusicFolder);
         Test("every belt, splitter and underground tier at full load keeps spacing and loses nothing", CarriersAtFullLoad);
+        Test("Belt Rush x10 moves ten times as much and loses nothing", BeltRush);
         Test("Mk2 and Mk3 machines work two and three times as fast", MachineTiers);
         Test("a better tier goes straight onto the old one, refunds it, keeps the recipe; undo swaps back", UpgradeInPlace);
         GD.Print(_fails == 0 ? "SELFTEST PASS" : $"SELFTEST FAIL ({_fails})");
@@ -255,9 +256,10 @@ public static class SelfTest
     // A 30-tile line backs up full from item sources, then a void opens at its end: the backed-up queue drains
     // at exactly what the line can carry. mid: a splitter (x 28) or an underground pair (x 25 and 28) near the end.
     // Returns items per second at the void.
-    static float FullLoad(string belt, string mid)
+    static float FullLoad(string belt, string mid, float rush = 1)
     {
         var w = Sandbox();
+        if (rush > 1) { w.Coins = 1_000_000_000; Check(w.BuyPotion("belt_rush", rush, 60), "buying Belt Rush"); }
         var src = new List<ItemSource> { (ItemSource)w.Place("source", new(0, 0), 0, config: "gear") };
         foreach (int x in new[] { 1, 2, 3, 4, 5 }) src.Add((ItemSource)w.Place("source", new(x, 1), 3, config: "gear"));
         bool split = mid != null && Defs.BaseOf(mid) is "splitter" or "crossing";
@@ -269,15 +271,27 @@ public static class SelfTest
         void Run(int ticks) { for (int t = 0; t < ticks; t++) { w.Step(); CheckSpacing(w); made += src.Count(s => s.Working); } }
         Run(2000);
         var sink = (ItemVoid)w.Place("void", new(31, 0), 0);
-        Run(10);
+        int window = rush > 1 ? 10 : 40; // a rushed line drains the backed-up queue faster than the sources refill it
+        Run(window / 4);
         long before = sink.Eaten;
-        Run(40);
-        float rate = (sink.Eaten - before) / 2f;
+        Run(window);
+        float rate = (sink.Eaten - before) * World.TicksPerSecond / (float)window;
         Run(300);
         var all = new List<string>();
         foreach (var e in w.Entities) e.Contents(all);
         Check(made == sink.Eaten + all.Count, $"{belt}/{mid}: made {made}, eaten {sink.Eaten}, in transit {all.Count}");
         return rate;
+    }
+
+    static void BeltRush()
+    {
+        float plain = FullLoad("belt", null);
+        foreach (var mid in new string[] { null, "tunnel", "crossing" })
+        {
+            float rushed = FullLoad("belt", mid, 10);
+            GD.Print($"         belt{(mid != null ? " + " + mid : "")} x10: {rushed:0.#} items/s (plain {plain:0.#})");
+            Check(rushed >= plain * 9, $"Belt Rush x10 on belt/{mid} carries {rushed:0.#} items/s, plain {plain:0.#}");
+        }
     }
 
     static void CarriersAtFullLoad()
