@@ -4,6 +4,8 @@ Everything that changed since the last release goes under "Unreleased". A new re
 
 ## Unreleased
 
+## v0.1.0 Beta (2026-11-22)
+
 - Every building from milestone 1 on now needs screws, nails or rods (or an item made from them), except the Assembler, which makes them. New: Express Belts take 2 steel nails and Hyper Splitters 6 steel screws. Buildings you have from the start stay on plates, so a new game can never get stuck.
 - Splitters can have a filter: click one and pick an item. That item goes out to the sides and everything else goes straight on. Without a filter they work as before.
 - Chests can have a limit per item (10, 50 or 100): click a chest to set it. Once it holds that many of an item, it takes no more of that item.
