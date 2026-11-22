@@ -27,7 +27,9 @@ public static class Defs
     public static readonly Dictionary<string, BuildingDef> Buildings = new();
     public static readonly List<Recipe> Recipes = new();
     public static readonly (string Id, string Name, int PerPlate)[] Parts = { ("screw", "Screw", 4), ("nail", "Nail", 4), ("rod", "Rod", 2) };
-    public static readonly string[] Ores ={ "iron_ore", "copper_ore", "stone", "coal" };
+    // The first four keep their starter patches on the inner ring around the Hub (World.OreAt), so old saves keep their ore.
+    public static readonly string[] Ores ={ "iron_ore", "copper_ore", "stone", "coal", "tin_ore", "lead_ore", "gold_ore", "quartz", "wood", "sparkcrystal" };
+    public const int FirstOres = 4;
     public static readonly string[] BaseUnlocks = { "belt", "crossing", "inserter", "miner", "furnace", "pole", "generator" };
     public static readonly string[] BuildOrder = { "belt", "fast_belt", "express_belt", "turbo_belt", "hyper_belt", "ultra_belt", "crossing", "inserter", "inserter_mk2", "inserter_mk3", "miner", "miner_mk2", "miner_mk3", "furnace", "furnace_mk2", "furnace_mk3", "assembler", "assembler_mk2", "assembler_mk3", "chest", "pole", "big_pole", "super_pole", "generator", "splitter", "fast_splitter", "hyper_splitter", "tunnel", "fast_tunnel", "hyper_tunnel", "pipe", "pipe_tunnel", "pump", "refinery", "solar", "lightning_rod" };
     // Every building has a hotbar slot, locked ones greyed out, so slots never shift when something unlocks.
@@ -142,14 +144,23 @@ public static class Defs
         Item("copper_ore", "Copper Ore", "e0894f", 1);
         Item("stone", "Stone", "c9b391", 1);
         Item("coal", "Coal", "4a4652", 1);
+        Item("tin_ore", "Tin Ore", "b4cfa0", 1);
+        Item("lead_ore", "Lead Ore", "8a7aa8", 1);
+        Item("gold_ore", "Gold Ore", "d9a93a", 2);
+        Item("quartz", "Quartz", "e6dff0", 2);
+        Item("wood", "Wood", "9c6b3c", 1);
+        Item("sparkcrystal", "Sparkcrystal", "7ee8d8", 3);
         Item("iron_plate", "Iron Plate", "c8d4e3", 3);
         Item("copper_plate", "Copper Plate", "f2a66b", 3);
         Item("brick", "Brick", "c4624a", 4);
         Item("steel_plate", "Steel Plate", "7d8aa0", 18);
+        Item("tin_plate", "Tin Plate", "d6e8c8", 3);
+        Item("lead_plate", "Lead Plate", "a598c0", 3);
+        Item("gold_plate", "Gold Plate", "f5cf5a", 7);
         Item("gear", "Gear", "aeb8c6", 7);
         Item("copper_wire", "Copper Wire", "f0a05a", 2);
         // Parts made from every metal's plate: one entry here per new metal, one per new part.
-        foreach (var (metal, name, unlock) in new (string, string, string)[] { ("iron", "Iron", null), ("copper", "Copper", null), ("steel", "Steel", "steel") })
+        foreach (var (metal, name, unlock) in new (string, string, string)[] { ("iron", "Iron", null), ("copper", "Copper", null), ("steel", "Steel", "steel"), ("tin", "Tin", null), ("lead", "Lead", null), ("gold", "Gold", null) })
             foreach (var (part, partName, n) in Parts)
             {
                 var plate = Items[metal + "_plate"];
@@ -157,7 +168,7 @@ public static class Defs
                 Recipes.Add(new($"{metal}_{part}", "assembler", new[] { (plate.Id, 1) }, $"{metal}_{part}", n, 20, unlock));
             }
         Item("lightning_rod", "Lightning Rod", "e8c15a", 28);
-        Recipes.Add(new("lightning_rod", "assembler", new[] { ("copper_rod", 2), ("steel_plate", 1) }, "lightning_rod", 1, 40, "steel"));
+        Recipes.Add(new("lightning_rod", "assembler", new[] { ("copper_rod", 2), ("steel_plate", 1), ("sparkcrystal", 1) }, "lightning_rod", 1, 40, "steel"));
         Item("circuit", "Circuit", "62b86a", 16);
         Item("plastic", "Plastic", "e9e4f2", 12);
         Item("sulfur", "Sulfur", "e8d84a", 10);
@@ -226,6 +237,9 @@ public static class Defs
         Recipes.Add(new("copper_plate", "furnace", new[] { ("copper_ore", 1) }, "copper_plate", 1, 40));
         Recipes.Add(new("brick", "furnace", new[] { ("stone", 2) }, "brick", 1, 60));
         Recipes.Add(new("steel_plate", "furnace", new[] { ("iron_plate", 5) }, "steel_plate", 1, 100, "steel"));
+        Recipes.Add(new("tin_plate", "furnace", new[] { ("tin_ore", 1) }, "tin_plate", 1, 40));
+        Recipes.Add(new("lead_plate", "furnace", new[] { ("lead_ore", 1) }, "lead_plate", 1, 40));
+        Recipes.Add(new("gold_plate", "furnace", new[] { ("gold_ore", 1) }, "gold_plate", 1, 60));
         Recipes.Add(new("gear", "assembler", new[] { ("iron_plate", 2) }, "gear", 1, 20));
         Recipes.Add(new("copper_wire", "assembler", new[] { ("copper_plate", 1) }, "copper_wire", 2, 20));
         // Refinery: at most one fluid in (from the pipe behind it), fluid or item out (pipe or inserter in front).
@@ -238,14 +252,14 @@ public static class Defs
         Recipes.Add(new("sand", "assembler", new[] { ("stone", 1) }, "sand", 2, 20, "sand"));
         Recipes.Add(new("glass", "furnace", new[] { ("sand", 2) }, "glass", 1, 60, "glass"));
         Recipes.Add(new("lens", "assembler", new[] { ("glass", 2), ("copper_plate", 1) }, "lens", 1, 40, "lens"));
-        Recipes.Add(new("battery", "assembler", new[] { ("sulfur", 1), ("copper_plate", 1), ("iron_plate", 1) }, "battery", 1, 40, "battery"));
+        Recipes.Add(new("battery", "assembler", new[] { ("sulfur", 1), ("lead_plate", 1), ("copper_plate", 1) }, "battery", 1, 40, "battery"));
         Recipes.Add(new("motor", "assembler", new[] { ("steel_plate", 1), ("gear", 2), ("copper_wire", 2) }, "motor", 1, 60, "motor"));
-        Recipes.Add(new("lamp", "assembler", new[] { ("glass", 1), ("copper_wire", 2), ("iron_plate", 1) }, "lamp", 1, 40, "lamp"));
+        Recipes.Add(new("lamp", "assembler", new[] { ("glass", 1), ("copper_wire", 2), ("tin_plate", 1) }, "lamp", 1, 40, "lamp"));
         // Milestone 5: smarter parts and the first products
-        Recipes.Add(new("smart_chip", "assembler", new[] { ("circuit", 2), ("plastic", 1) }, "smart_chip", 1, 60, "smart_chip"));
-        Recipes.Add(new("frame", "assembler", new[] { ("steel_plate", 2), ("plastic", 1) }, "frame", 1, 60, "frame"));
+        Recipes.Add(new("smart_chip", "assembler", new[] { ("circuit", 2), ("plastic", 1), ("gold_plate", 1) }, "smart_chip", 1, 60, "smart_chip"));
+        Recipes.Add(new("frame", "assembler", new[] { ("steel_plate", 2), ("wood", 2) }, "frame", 1, 60, "frame"));
         Recipes.Add(new("toy_robot", "assembler", new[] { ("motor", 1), ("circuit", 1), ("plastic", 2) }, "toy_robot", 1, 80, "toy_robot"));
-        Recipes.Add(new("clock", "assembler", new[] { ("gear", 3), ("glass", 1), ("battery", 1) }, "clock", 1, 80, "clock"));
+        Recipes.Add(new("clock", "assembler", new[] { ("gear", 3), ("quartz", 1), ("battery", 1) }, "clock", 1, 80, "clock"));
         Recipes.Add(new("solar_panel", "assembler", new[] { ("glass", 2), ("circuit", 1), ("steel_plate", 1) }, "solar_panel", 1, 80, "solar_panel"));
         // Milestone 6: the big ones. The Sky Beacon sells for the most.
         Recipes.Add(new("drone", "assembler", new[] { ("motor", 2), ("smart_chip", 1), ("frame", 1), ("battery", 1) }, "drone", 1, 120, "drone"));

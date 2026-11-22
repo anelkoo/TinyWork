@@ -397,6 +397,9 @@ public partial class Main
         await Wait(0.5);
         Shot("26_all_recipes");
         _hud.ClosePanel();
+        _view.SetCamera(Vector2.Zero, 0.5f);
+        await Wait(1.5); // ground chunks bake a few per frame
+        Shot("27_ore_overview");
         _view.SetCamera(Vector2.Zero, 2);
 
         // Mini-size layout without the real always-on-top window: same size, HUD in mini mode.

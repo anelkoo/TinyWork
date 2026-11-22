@@ -54,6 +54,7 @@ public static class SelfTest
         Test("Belt Rush x10 moves ten times as much and loses nothing", BeltRush);
         Test("items sort into their list groups", ItemGroups);
         Test("lightning hits only rods, powers their network for a while, then stops", LightningRods);
+        Test("new ores never move old ore tiles; each has a starter patch near the Hub", OreLayout);
         Test("Mk2 and Mk3 machines work two and three times as fast", MachineTiers);
         Test("a better tier goes straight onto the old one, refunds it, keeps the recipe; undo swaps back", UpgradeInPlace);
         GD.Print(_fails == 0 ? "SELFTEST PASS" : $"SELFTEST FAIL ({_fails})");
@@ -320,6 +321,44 @@ public static class SelfTest
             charged = rods.Count(r => r.Charge > 0);
         }
         Check(strikes >= 15, $"ten rods over 5 minutes should see plenty of lightning (got {strikes})");
+    }
+
+    static void OreLayout()
+    {
+        string[] old = { "iron_ore", "copper_ore", "stone", "coal" };
+        foreach (int seed in new[] { 1, 42, 4242, 99991 })
+        {
+            var w = new World(seed);
+            var noise = new FastNoiseLite[old.Length];
+            for (int i = 0; i < old.Length; i++) noise[i] = new FastNoiseLite { Seed = seed + i * 101, Frequency = 0.035f, NoiseType = FastNoiseLite.NoiseTypeEnum.SimplexSmooth };
+            string Before(Vector2I t) // OreAt as it was with four ores
+            {
+                float d = ((Vector2)t).Length();
+                if (d < 6) return null;
+                for (int i = 0; i < old.Length; i++)
+                {
+                    float a = Mathf.Tau * (i + 0.5f) / old.Length + seed % 7;
+                    var c = new Vector2(Mathf.Cos(a), Mathf.Sin(a)) * 13f;
+                    if ((t - c).Length() < 4.2f + 1.3f * noise[i].GetNoise2D(t.X * 3, t.Y * 3)) return old[i];
+                }
+                if (d < 22) return null;
+                for (int i = 0; i < old.Length; i++) if (noise[i].GetNoise2D(t.X, t.Y) > 0.5f) return old[i];
+                return null;
+            }
+            var near = new HashSet<string>();
+            int moved = 0;
+            for (int x = -80; x <= 80; x++)
+                for (int y = -80; y <= 80; y++)
+                {
+                    var t = new Vector2I(x, y);
+                    string was = Before(t), now = w.OreAt(t);
+                    if (was != null && now != was || was == null && Array.IndexOf(old, now) >= 0) moved++;
+                    if (now != null && ((Vector2)t).Length() < 26) near.Add(now);
+                }
+            Check(moved == 0, $"seed {seed}: {moved} tiles changed their old ore");
+            var missing = Defs.Ores.Where(o => !near.Contains(o)).ToList();
+            Check(missing.Count == 0, $"seed {seed}: no starter patch for {string.Join(", ", missing)}");
+        }
     }
 
     static void ItemGroups()

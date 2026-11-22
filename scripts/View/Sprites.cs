@@ -589,6 +589,18 @@ public static class Sprites
             c.R(3, 0, 2, 2, Colors.White); c.P(2, 1, col); c.P(5, 1, col);
             c.R(3, 2, 2, 4, Ink); c.R(2, 6, 4, 2, Ink); c.R(3, 6, 2, 1, Metal);
         }
+        else if (id == "wood") // a log with rings on its end
+        {
+            c.Box(0, 2, 8, 5, col, Ink);
+            c.R(1, 3, 1, 3, col.Lightened(0.35f)); c.P(1, 4, col.Darkened(0.3f));
+            c.R(3, 3, 4, 1, col.Darkened(0.25f)); c.R(3, 5, 3, 1, col.Darkened(0.25f));
+        }
+        else if (id == "quartz" || id == "sparkcrystal") // a pointed crystal, sparkcrystal with a glint
+        {
+            c.R(3, 0, 2, 1, Ink); c.R(2, 1, 4, 6, Ink); c.R(3, 7, 2, 1, Ink);
+            c.R(3, 1, 2, 6, col); c.R(3, 1, 1, 5, col.Lightened(0.4f));
+            if (id == "sparkcrystal") { c.P(6, 1, Glow); c.P(7, 0, Glow); c.P(1, 5, Glow); }
+        }
         else // ores: a lumpy rock
         {
             c.R(2, 1, 4, 1, Ink); c.R(1, 2, 6, 4, Ink); c.R(2, 6, 4, 1, Ink); c.R(0, 3, 8, 2, Ink);

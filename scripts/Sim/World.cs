@@ -300,17 +300,29 @@ public sealed class World
         if (Flat || ForcedOre.Count > 0) return ForcedOre.GetValueOrDefault(t);
         float d = ((Vector2)t).Length();
         if (d < 6) return null;
-        // A guaranteed starter patch of every ore around the Hub, rotated per seed.
-        for (int i = 0; i < Defs.Ores.Length; i++)
-        {
-            float a = Mathf.Tau * (i + 0.5f) / Defs.Ores.Length + Seed % 7;
-            var c = new Vector2(Mathf.Cos(a), Mathf.Sin(a)) * 13f;
-            if ((t - c).Length() < 4.2f + 1.3f * _noise[i].GetNoise2D(t.X * 3, t.Y * 3)) return Defs.Ores[i];
-        }
-        if (d < 22) return null;
-        for (int i = 0; i < Defs.Ores.Length; i++)
-            if (_noise[i].GetNoise2D(t.X, t.Y) > 0.5f) return Defs.Ores[i];
+        // The first ores first, exactly as before newer ones came, so an old save keeps every ore tile it had:
+        // a starter patch each on the inner ring around the Hub, rotated per seed, then the far fields.
+        int n = Defs.FirstOres;
+        for (int i = 0; i < n; i++)
+            if (InPatch(t, i, i, n, 13f, 4.2f)) return Defs.Ores[i];
+        if (d >= 22)
+            for (int i = 0; i < n; i++)
+                if (_noise[i].GetNoise2D(t.X, t.Y) > 0.5f) return Defs.Ores[i];
+        // Newer ores only take tiles that had none: their starter patches on an outer ring, then their far fields.
+        for (int i = n; i < Defs.Ores.Length; i++)
+            if (InPatch(t, i, i - n, Defs.Ores.Length - n, 19f, 3.4f)) return Defs.Ores[i];
+        if (d >= 22)
+            for (int i = n; i < Defs.Ores.Length; i++)
+                if (_noise[i].GetNoise2D(t.X, t.Y) > 0.5f) return Defs.Ores[i];
         return null;
+    }
+
+    // Ore i's starter patch: slot k of a ring of count patches at radius r around the Hub, size wobbling with the noise.
+    bool InPatch(Vector2I t, int i, int k, int count, float r, float size)
+    {
+        float a = Mathf.Tau * (k + 0.5f) / count + Seed % 7;
+        var c = new Vector2(Mathf.Cos(a), Mathf.Sin(a)) * r;
+        return (t - c).Length() < size + 1.3f * _noise[i].GetNoise2D(t.X * 3, t.Y * 3);
     }
 
     public Entity At(Vector2I t) => Grid.GetValueOrDefault(t);
