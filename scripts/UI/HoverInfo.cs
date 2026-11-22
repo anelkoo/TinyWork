@@ -74,7 +74,7 @@ public sealed partial class Hud
                 lines.Add(b.Items.Count == 0 ? "Empty" : $"Carrying {b.Items.Count} item{(b.Items.Count == 1 ? "" : "s")}");
                 break;
             case Splitter sp:
-                lines.Add("Hands items out front, right and left in turn");
+                lines.Add(sp.Filter == null ? "Hands items out front, right and left in turn" : $"{N(sp.Filter)} goes to the sides, the rest straight on");
                 if (sp.Lane.Count > 0) lines.Add($"Holding {sp.Lane.Count}");
                 break;
             case Tunnel tu:
@@ -108,7 +108,7 @@ public sealed partial class Hud
                 lines.Add($"Output: {a.OutN} {N(r.Out)}");
                 break;
             case Chest c:
-                lines.Add($"{c.Count}/{Chest.Cap} items");
+                lines.Add($"{c.Count}/{Chest.Cap} items" + (c.Limit > 0 ? $", at most {c.Limit} of each" : ""));
                 foreach (var (id, n) in c.Inv.OrderByDescending(x => x.Value).Take(3)) lines.Add($"{n} {N(id)}");
                 break;
             case Pole p:
@@ -124,6 +124,11 @@ public sealed partial class Hud
             case Solar so:
                 lines.Add($"Gives {Defs.SolarKW:0} kW, day and night, no fuel");
                 if (W.NetOf(so) is { } sn) lines.Add($"Network uses {sn.Demand:0} of {sn.Capacity:0} kW");
+                else lines.Add("No pole nearby");
+                break;
+            case Accumulator ac:
+                lines.Add($"Holds {ac.Stored:0} of {Defs.AccumulatorKJ:0} kJ of free power");
+                if (W.NetOf(ac) is { } an) lines.Add($"Network uses {an.Demand:0} of {an.Capacity:0} kW");
                 else lines.Add("No pole nearby");
                 break;
             case LightningRod lr:

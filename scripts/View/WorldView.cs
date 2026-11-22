@@ -549,6 +549,7 @@ public sealed partial class WorldView : Node2D
                         DrawTexture(Sprites.Items[it.Id], Px(ip - Vector2.One * 4));
                     }
                     Sprite(Sprites.Splitter, c, Angle(sp.Rot), sq);
+                    if (sp.Filter != null) DrawTextureRect(Sprites.Items[sp.Filter], new Rect2(c - Vector2.One * 3, Vector2.One * 6), false);
                     break;
                 case Tunnel tu:
                     if (!tu.Exit) DrawTunnelItems(tu, f, false);
@@ -559,6 +560,12 @@ public sealed partial class WorldView : Node2D
                     break;
                 case Pipe pi:
                     DrawPipe(pi, c);
+                    if (pi.Type == "tank") DrawTank(pi, c);
+                    break;
+                case Accumulator ac:
+                    Sprite(Sprites.Icons["accumulator"], c, 0, sq);
+                    float charge = ac.Stored / Defs.AccumulatorKJ; // a gauge that fills from the bottom
+                    DrawRect(new Rect2(c + new Vector2(-1, 5 - Mathf.Round(8 * charge)), new Vector2(2, Mathf.Round(8 * charge))), Sprites.Glow);
                     break;
                 case Pump pu:
                     Sprite(Sprites.Pump, c, Angle(pu.Rot), sq);
@@ -683,6 +690,20 @@ public sealed partial class WorldView : Node2D
         Generator => true,
         _ => false,
     };
+
+    // A round-shouldered tank over the pipe joints, filled to its network's level.
+    void DrawTank(Pipe p, Vector2 c)
+    {
+        var body = new Rect2(c - new Vector2(6, 7), new Vector2(12, 14));
+        DrawRect(body, Sprites.Ink);
+        DrawRect(body.Grow(-1), Sprites.PipeBody);
+        if (W.FluidOf(p) is { Fluid: { } f } net && net.Cap > 0)
+        {
+            float h = Mathf.Round(10 * net.Amount / net.Cap);
+            DrawRect(new Rect2(c + new Vector2(-4, 5 - h), new Vector2(8, h)), Defs.Items[f].Color);
+        }
+        DrawRect(new Rect2(c + new Vector2(-4, -6), new Vector2(2, 1)), Sprites.PipeBody.Lightened(0.3f));
+    }
 
     void DrawPipe(Pipe p, Vector2 c)
     {

@@ -351,6 +351,7 @@ public sealed class World
         public readonly List<Generator> Gens = new();
         public readonly List<Solar> Solars = new();
         public readonly List<LightningRod> Rods = new();
+        public readonly List<Accumulator> Accs = new();
         public readonly List<Entity> Users = new();
         public readonly List<(Pole A, Pole B)> Wires = new();
         public float Demand, Capacity, Satisfaction; // kW, kW, 0..1
@@ -412,6 +413,7 @@ public sealed class World
                         if (e is Generator g) { net.Gens.Add(g); _netOf[g] = net; }
                         else if (e is Solar so) { net.Solars.Add(so); _netOf[so] = net; }
                         else if (e is LightningRod lr) { net.Rods.Add(lr); _netOf[lr] = net; }
+                        else if (e is Accumulator ac) { net.Accs.Add(ac); _netOf[ac] = net; }
                         else if (Defs.UsesPower(e.Type)) { net.Users.Add(e); _netOf[e] = net; }
                     }
             _nets.Add(net);
@@ -428,11 +430,23 @@ public sealed class World
             int capable = 0;
             foreach (var g in net.Gens) { g.Gas = GasNextTo(g); g.Working = false; if (g.CanSupply) { cap += GeneratorKW; capable++; } }
             float solar = net.Solars.Count * Defs.SolarKW + net.Rods.Count(r => r.Charge > 0) * Defs.LightningKW; // free (sun, lightning), so used before any coal
-            cap += solar;
+            float stored = 0;
+            foreach (var a in net.Accs) { a.Working = false; stored += Mathf.Min(Defs.AccumulatorKW, a.Stored * TicksPerSecond); }
+            cap += solar + stored;
             net.Demand = demand;
             net.Capacity = cap;
             net.Satisfaction = cap <= 0 ? 0 : demand <= 0 ? 1 : Mathf.Min(1, cap / demand);
-            float fromGens = demand * net.Satisfaction - solar;
+            // Free power first, then accumulators, then generators. Free power nobody uses charges the accumulators.
+            float need = demand * net.Satisfaction, fromAcc = Mathf.Clamp(need - solar, 0, stored), left = fromAcc, spare = solar - need;
+            foreach (var a in net.Accs)
+            {
+                float kw = left > 0 ? -Mathf.Min(left, Mathf.Min(Defs.AccumulatorKW, a.Stored * TicksPerSecond))
+                    : Mathf.Max(0, Mathf.Min(spare, Mathf.Min(Defs.AccumulatorKW, (Defs.AccumulatorKJ - a.Stored) * TicksPerSecond)));
+                if (kw < 0) left += kw; else spare -= kw;
+                a.Stored = Mathf.Clamp(a.Stored + kw / TicksPerSecond, 0, Defs.AccumulatorKJ);
+                a.Working = kw != 0;
+            }
+            float fromGens = need - solar - fromAcc;
             if (fromGens <= 0 || capable == 0) continue;
             float perGenKJ = fromGens / capable / World.TicksPerSecond;
             foreach (var g in net.Gens) if (g.CanSupply) g.Draw(perGenKJ);
@@ -608,7 +622,7 @@ public sealed class World
         public readonly List<Pipe> Pipes = new();
         public string Fluid;
         public float Amount;
-        public float Cap => Pipes.Count * Defs.PipeCap;
+        public float Cap; // the sum of Defs.CapOf over its pipes, set when the network is built
         public float Room(string f) => Fluid == null || Fluid == f ? Cap - Amount : 0;
 
         public float Fill(string f, float amount)
@@ -661,8 +675,8 @@ public sealed class World
     {
         foreach (var net in _fluidNets)
         {
-            float share = net.Amount / net.Pipes.Count, total = 0;
-            foreach (var p in net.Pipes) { p.Fluid = net.Fluid; p.Amount = net.Fluid == null ? 0 : share; total += p.Amount; }
+            float share = net.Cap > 0 ? net.Amount / net.Cap : 0, total = 0; // per unit of room, so a tank keeps its bigger share
+            foreach (var p in net.Pipes) { p.Fluid = net.Fluid; p.Amount = net.Fluid == null ? 0 : share * Defs.CapOf(p.Type); total += p.Amount; }
             net.Amount = total;
         }
     }
@@ -685,6 +699,7 @@ public sealed class World
             {
                 var p = todo.Dequeue();
                 net.Pipes.Add(p);
+                net.Cap += Defs.CapOf(p.Type);
                 foreach (var q in PipeLinks(p)) if (_fluidOf.TryAdd(q, net)) todo.Enqueue(q);
             }
             var totals = new Dictionary<string, float>();

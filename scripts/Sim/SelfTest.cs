@@ -32,6 +32,9 @@ public static class SelfTest
         Test("fluid survives network rebuilds and saves", FluidConserved);
         Test("joining two fluids keeps the larger one", FluidMixing);
         Test("pump -> refinery -> plastic, sparkgas powers a generator", RefineryChain);
+        Test("a splitter filter sends one item to the sides; a chest limit caps each item; both survive a save", SorterAndLimit);
+        Test("a tank adds room to its pipe network and keeps its fluid through a save", TankRoom);
+        Test("an accumulator charges from spare solar, then powers machines on its own", Accumulators);
         Test("copper melts and alloys with tin into bronze; steam and fuel power a generator", AlloysAndFuels);
         Test("items glide over belt edges without pausing", GlideAcrossEdges);
         Test("coin rush doubles sales, then wears off", CoinRush);
@@ -900,6 +903,57 @@ public static class SelfTest
         var refunds = new List<string>();
         foreach (var e in w.Entities) e.Contents(refunds);
         Check(!refunds.Any(Defs.IsFluid), "fluids must never be refunded as items");
+    }
+
+    static void SorterAndLimit()
+    {
+        var w = Sandbox();
+        var src = (Chest)w.Place("chest", new(0, 0), 0);
+        src.Inv["iron_plate"] = 20; src.Inv["copper_plate"] = 20;
+        w.Place("inserter", new(1, 0), 0);
+        ((Splitter)w.Place("splitter", new(2, 0), 0)).Config = "copper_plate";
+        var front = (Chest)w.Place("chest", new(3, 0), 0);
+        var right = (Chest)w.Place("chest", new(2, 1), 0);
+        var left = (Chest)w.Place("chest", new(2, -1), 0);
+        left.Config = "5";
+        for (int i = 0; i < 4000; i++) w.Step();
+        Check(front.Count == 20 && front.Inv.GetValueOrDefault("iron_plate") == 20, $"front should get the 20 iron plates and nothing else, got {front.Count}");
+        Check(left.Count == 5 && right.Count == 15 && right.Inv.GetValueOrDefault("copper_plate") == 15, $"copper should split 5 left (limit) and 15 right, got {left.Count} and {right.Count}");
+        var b = World.FromSave(Persist.Deserialize(Persist.Serialize(w.ToSave())));
+        Check(b.At(new(2, 0)) is Splitter { Filter: "copper_plate" } && b.At(new(2, -1)) is Chest { Limit: 5 }, "filter or limit got lost in the save");
+    }
+
+    static void TankRoom()
+    {
+        var w = Sandbox();
+        w.Place("pump", new(0, 0), 0);
+        w.Place("pipe", new(1, 0), 0);
+        var tank = (Pipe)w.Place("tank", new(2, 0), 0);
+        w.Place("pipe", new(3, 0), 0);
+        Check(w.FluidOf(tank).Cap == 2 * Defs.PipeCap + Defs.TankCap, $"network holds {w.FluidOf(tank).Cap}");
+        for (int i = 0; i < 600; i++) w.Step();
+        float amount = w.FluidOf(tank).Amount;
+        Check(amount > 500 && w.FluidOf(tank).Fluid == "water", $"pump should have filled 600 water past the pipes' 200, holds {amount}");
+        var b = World.FromSave(Persist.Deserialize(Persist.Serialize(w.ToSave())));
+        Check(b.FluidOf((Pipe)b.At(new(2, 0))) is { Fluid: "water" } n && Mathf.Abs(n.Amount - amount) < 0.01f, "tank lost water in the save");
+    }
+
+    static void Accumulators()
+    {
+        var w = Sandbox();
+        w.Place("pole", new(0, 0), 0);
+        w.Place("solar", new(1, 0), 0);
+        var acc = (Accumulator)w.Place("accumulator", new(0, 1), 0);
+        for (int i = 0; i < 400; i++) w.Step(); // 20 s of 100 kW nobody uses
+        Check(Mathf.Abs(acc.Stored - 2000) < 10, $"should store about 2000 kJ, has {acc.Stored}");
+        var b = World.FromSave(Persist.Deserialize(Persist.Serialize(w.ToSave())));
+        Check(b.At(new(0, 1)) is Accumulator { Stored: var s } && Mathf.Abs(s - acc.Stored) < 0.01f, "charge got lost in the save");
+
+        var (pw, m, g) = PowerRig(true, 0); // a generator without coal, so only the accumulator can help
+        var full = (Accumulator)pw.Place("accumulator", new(0, 3), 0);
+        full.Stored = Defs.AccumulatorKJ;
+        for (int i = 0; i < 100; i++) pw.Step();
+        Check(pw.PowerBoost(m) > 1.9f && full.Stored < Defs.AccumulatorKJ - 300, $"accumulator should power the miner, boost {pw.PowerBoost(m)}, left {full.Stored}");
     }
 
     static void AlloysAndFuels()

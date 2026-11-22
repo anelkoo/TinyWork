@@ -31,12 +31,12 @@ public static class Defs
     public static readonly string[] Ores ={ "iron_ore", "copper_ore", "stone", "coal", "tin_ore", "lead_ore", "gold_ore", "quartz", "wood", "sparkcrystal", "zinc_ore" };
     public const int FirstOres = 4;
     public static readonly string[] BaseUnlocks = { "belt", "crossing", "inserter", "miner", "furnace", "pole", "generator" };
-    public static readonly string[] BuildOrder = { "belt", "fast_belt", "express_belt", "turbo_belt", "hyper_belt", "ultra_belt", "crossing", "inserter", "inserter_mk2", "inserter_mk3", "miner", "miner_mk2", "miner_mk3", "furnace", "furnace_mk2", "furnace_mk3", "assembler", "assembler_mk2", "assembler_mk3", "chest", "pole", "big_pole", "super_pole", "generator", "splitter", "fast_splitter", "hyper_splitter", "tunnel", "fast_tunnel", "hyper_tunnel", "pipe", "pipe_tunnel", "pump", "refinery", "solar", "lightning_rod" };
+    public static readonly string[] BuildOrder = { "belt", "fast_belt", "express_belt", "turbo_belt", "hyper_belt", "ultra_belt", "crossing", "inserter", "inserter_mk2", "inserter_mk3", "miner", "miner_mk2", "miner_mk3", "furnace", "furnace_mk2", "furnace_mk3", "assembler", "assembler_mk2", "assembler_mk3", "chest", "pole", "big_pole", "super_pole", "generator", "splitter", "fast_splitter", "hyper_splitter", "tunnel", "fast_tunnel", "hyper_tunnel", "pipe", "pipe_tunnel", "pump", "refinery", "solar", "lightning_rod", "tank", "accumulator" };
     // Every building has a hotbar slot, locked ones greyed out, so slots never shift when something unlocks.
     // Keys 1-9 and 0 reach the first ten. Pressing a tiered slot again (belts, poles) steps through its unlocked tiers.
     // Sandbox tools: no milestone unlocks them, so outside sandbox they stay locked and hidden.
     public static readonly string[] SandboxOnly = { "source", "void" };
-    public static readonly string[] HotbarOrder = { "belt", "inserter", "miner", "furnace", "crossing", "splitter", "tunnel", "assembler", "chest", "pole", "generator", "pipe", "pipe_tunnel", "pump", "refinery", "solar", "lightning_rod" };
+    public static readonly string[] HotbarOrder = { "belt", "inserter", "miner", "furnace", "crossing", "splitter", "tunnel", "assembler", "chest", "pole", "generator", "pipe", "pipe_tunnel", "pump", "refinery", "solar", "lightning_rod", "tank", "accumulator" };
 
     // Power (kW) a machine draws while it works. Power only ever speeds things up: see World.PowerBoost.
     public static readonly Dictionary<string, float> PowerUse = new() { ["miner"] = 90, ["furnace"] = 90, ["assembler"] = 75, ["inserter"] = 15, ["pump"] = 30, ["refinery"] = 120 };
@@ -48,7 +48,10 @@ public static class Defs
     // Fluids a generator burns from a pipe next to it, kJ per unit.
     public static readonly Dictionary<string, float> GasKJ = new() { ["sparkgas"] = 200, ["steam"] = 300 };
     public const int TunnelRange = 5, PipeTunnelRange = 10; // how far apart an entrance and its exit may be
-    public const float PipeCap = 100, PumpRate = 1; // fluid units per pipe tile, units per tick
+    public const float PipeCap = 100, TankCap = 2000, PumpRate = 1; // fluid units per pipe tile (or tank), units per tick
+    public static float CapOf(string pipe) => pipe == "tank" ? TankCap : PipeCap;
+    // An accumulator stores up to AccumulatorKJ of free power (solar, lightning) and gives or takes at most AccumulatorKW.
+    public const float AccumulatorKJ = 6000, AccumulatorKW = 300;
     // Tier families share one hotbar slot, like the belts. Better poles wire further and power a bigger square.
     public static readonly string[] BeltTiers = { "belt", "fast_belt", "express_belt", "turbo_belt", "hyper_belt", "ultra_belt" }, PoleTiers = { "pole", "big_pole", "super_pole" };
     // Every tier family: the first id is the base building, which names the hotbar slot, the entity class and the recipes.
@@ -94,7 +97,7 @@ public static class Defs
         new("First Plates", new[] { ("iron_plate", 40), ("copper_plate", 20) }, new[] { "assembler", "chest", "splitter", "tunnel" }),
         new("Gears Turning", new[] { ("gear", 40), ("copper_wire", 60) }, new[] { "fast_belt", "steel", "big_pole", "miner_mk2", "furnace_mk2", "inserter_mk2", "lightning_rod" }),
         new("Smart Factory", new[] { ("circuit", 30), ("steel_plate", 15) }, new[] { "express_belt", "super_pole", "pipe", "pipe_tunnel", "pump", "refinery", "assembler_mk2", "fast_splitter", "fast_tunnel", "molten_metal", "bronze_plate", "brass_plate", "steam" }),
-        new("Clear Glass", new[] { ("plastic", 40), ("sulfur", 30) }, new[] { "sand", "glass", "lens", "battery", "motor", "lamp", "turbo_belt", "concrete", "acid", "fertilizer" }),
+        new("Clear Glass", new[] { ("plastic", 40), ("sulfur", 30) }, new[] { "sand", "glass", "lens", "battery", "motor", "lamp", "turbo_belt", "concrete", "acid", "fertilizer", "tank", "accumulator" }),
         new("Bright Ideas", new[] { ("lamp", 40), ("battery", 30), ("motor", 30) }, new[] { "smart_chip", "frame", "toy_robot", "clock", "solar_panel", "solar", "hyper_belt", "miner_mk3", "furnace_mk3", "inserter_mk3", "hyper_splitter", "hyper_tunnel", "oil", "diesel", "fuel", "explosive" }),
         new("Reach the Sky", new[] { ("toy_robot", 20), ("clock", 20), ("solar_panel", 20) }, new[] { "drone", "computer", "sky_beacon", "ultra_belt", "assembler_mk3" }),
     };
@@ -244,6 +247,8 @@ public static class Defs
         Building("refinery", "Refinery", 1, ("steel_plate", 4), ("circuit", 5), ("brick", 10), ("steel_screw", 6));
         Building("solar", "Solar Array", 1, ("solar_panel", 2), ("steel_rod", 4));
         Building("lightning_rod", "Lightning Rod", 1, ("lightning_rod", 1), ("steel_plate", 2)); // the item, on a steel foot
+        Building("tank", "Tank", 1, ("steel_plate", 4), ("brass_plate", 4), ("iron_rod", 4));
+        Building("accumulator", "Accumulator", 1, ("battery", 5), ("bronze_plate", 4), ("copper_wire", 6));
         Building("hub", "Hub", 3);
         Building("source", "Item Source", 1);
         Building("void", "Item Void", 1);

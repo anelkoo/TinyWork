@@ -46,7 +46,8 @@ public abstract class Entity
         "pole" => new Pole(),
         "splitter" => new Splitter(),
         "tunnel" => new Tunnel(),
-        "pipe" or "pipe_tunnel" => new Pipe(),
+        "pipe" or "pipe_tunnel" or "tank" => new Pipe(),
+        "accumulator" => new Accumulator(),
         "pump" => new Pump(),
         "refinery" => new Refinery(),
         "hub" => new Hub(),
@@ -328,9 +329,11 @@ public sealed class Chest : Entity
 {
     public const int Cap = 200;
     public readonly Dictionary<string, int> Inv = new();
+    public int Limit; // 0: none. Otherwise it takes no more of an item once it holds this many.
     public int Count => Inv.Values.Sum();
 
-    public override bool CanAccept(World w, string item, Vector2I from) => Count < Cap;
+    public override bool CanAccept(World w, string item, Vector2I from) => Count < Cap && (Limit == 0 || Inv.GetValueOrDefault(item) < Limit);
+    public override string Config { get => Limit > 0 ? Limit.ToString() : null; set => Limit = int.TryParse(value, out var n) ? Math.Clamp(n, 0, Cap) : 0; }
     public override void Accept(World w, string item, Vector2I from, float overflow = 0) => AddInv(Inv, item, 1);
 
     public override string TakeAny(Func<string, bool> ok)
@@ -341,8 +344,8 @@ public sealed class Chest : Entity
     }
 
     public override void Contents(List<string> into) { foreach (var (i, n) in Inv) for (int k = 0; k < n; k++) into.Add(i); }
-    public override void Save(EntityData d) => d.Inv = new(Inv);
-    public override void Load(EntityData d) { if (d.Inv != null) foreach (var (i, n) in d.Inv) Inv[i] = n; }
+    public override void Save(EntityData d) { d.Inv = new(Inv); d.An = Limit; }
+    public override void Load(EntityData d) { if (d.Inv != null) foreach (var (i, n) in d.Inv) Inv[i] = n; Limit = Math.Clamp(d.An, 0, Cap); }
 }
 
 // Takes from the tile behind, drops in front. Only picks up what the target can take (and the filter allows).
@@ -492,6 +495,14 @@ public sealed class Generator : Entity
 // Links to poles up to Defs.WireRangeOf(type) away and powers machines within Defs.PoleReachOf(type) tiles.
 public sealed class Pole : Entity { }
 
+// Stores free power (solar, lightning) that its network does not use, and gives it back before generators burn fuel.
+public sealed class Accumulator : Entity
+{
+    public float Stored; // kJ
+    public override void Save(EntityData d) => d.P = Stored;
+    public override void Load(EntityData d) => Stored = Mathf.Clamp(d.P, 0, Defs.AccumulatorKJ);
+}
+
 // Everything delivered here goes into central storage and counts toward the current milestone.
 // Gives Defs.SolarKW to the power network of a pole that reaches it, all the time, with no fuel.
 public sealed class Solar : Entity
@@ -532,7 +543,11 @@ public sealed class Splitter : Entity
     public sealed class Item { public string Id; public float Pos, Prev; public int Out = -1, Wait; }
     public readonly List<Item> Lane = new(); // front first
     public int Next; // the output that gets the next item: 0 front, 1 right, 2 left
+    public string Filter; // set: only this item goes out to the sides, everything else straight on
     static readonly int[] Turn = { 0, 1, 3 };
+
+    bool Allowed(int o, string item) => Filter == null || (item == Filter) == (o != 0);
+    public override string Config { get => Filter; set => Filter = value != null && Defs.Items.TryGetValue(value, out var d) && !d.Fluid ? value : null; }
 
     public Vector2I OutTile(int k) => Pos + Dirs[(Rot + Turn[k]) % 4];
     public override bool OutputsTo(Vector2I t) => t != Back && (t - Pos).LengthSquared() == 1;
@@ -550,7 +565,7 @@ public sealed class Splitter : Entity
             for (int k = 0; k < 3; k++)
             {
                 int o = (Next + k) % 3;
-                if (w.At(OutTile(o)) is not { } t || pass == 0 && !t.CanAccept(w, item, Pos)) continue;
+                if (!Allowed(o, item) || w.At(OutTile(o)) is not { } t || pass == 0 && !t.CanAccept(w, item, Pos)) continue;
                 Next = (o + 1) % 3;
                 return o;
             }
@@ -580,7 +595,7 @@ public sealed class Splitter : Entity
                 for (int k = 1; k <= 3 && !ok; k++) // switch only to an output that can take it right now
                 {
                     int o = (Math.Max(front.Out, 0) + k) % 3;
-                    if (w.At(OutTile(o)) is { } t && t.CanAccept(w, front.Id, Pos)) { front.Out = o; target = t; ok = true; }
+                    if (Allowed(o, front.Id) && w.At(OutTile(o)) is { } t && t.CanAccept(w, front.Id, Pos)) { front.Out = o; target = t; ok = true; }
                 }
             }
             if (!ok) break;
@@ -599,11 +614,13 @@ public sealed class Splitter : Entity
         d.Pos = Lane.Select(i => i.Pos).ToList();
         d.Ints = Lane.Select(i => i.Out).ToList();
         d.Bn = Next;
+        d.A = Filter;
     }
 
     public override void Load(EntityData d)
     {
         Next = d.Bn % 3;
+        Config = d.A;
         if (d.Items != null)
             for (int i = 0; i < d.Items.Count; i++)
                 Lane.Add(new Item { Id = d.Items[i], Pos = d.Pos[i], Prev = d.Pos[i], Out = d.Ints != null && i < d.Ints.Count && d.Ints[i] is >= -1 and < 3 ? d.Ints[i] : -1 });
@@ -666,7 +683,7 @@ public sealed class Tunnel : Entity
     }
 }
 
-// Plain pipes and underground pipes. Connected pipes share one World.FluidNet; Fluid and Amount are this
+// Plain pipes, tanks (a pipe that holds Defs.TankCap) and underground pipes. Connected pipes share one World.FluidNet; Fluid and Amount are this
 // tile's share of it, written back by World.SpreadFluids before a save or a network rebuild.
 public sealed class Pipe : Entity
 {
@@ -674,7 +691,7 @@ public sealed class Pipe : Entity
     public float Amount;
 
     // Plain pipes join on all four sides; an underground pipe only on its open end (and to its partner).
-    public bool Opens(Vector2I t) => Type == "pipe" || t == (Exit ? Front : Back);
+    public bool Opens(Vector2I t) => Type != "pipe_tunnel" || t == (Exit ? Front : Back);
     public override void Save(EntityData d) { d.A = Fluid; d.P = Amount; }
     public override void Load(EntityData d) { Fluid = Defs.IsFluid(d.A) ? d.A : null; Amount = Fluid == null ? 0 : d.P; }
 }

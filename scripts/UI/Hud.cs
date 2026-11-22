@@ -499,9 +499,10 @@ public sealed partial class Hud : Control
             case Hub: OpenHub(SellTab); break;
             case Assembler a: OpenRecipePicker(a); break;
             case Inserter i: OpenFilterPicker(i); break;
+            case Splitter sp: PickItem("Splitter filter", "This item goes out to the sides, everything else straight on. Without a filter items take turns on all three outputs.", sp.Filter, true, id => sp.Filter = id); break;
             case Chest c: OpenChest(c); break;
             case Pipe p: OpenPipe(p); break;
-            case Pole or Generator or Solar: OpenPower(e); break;
+            case Pole or Generator or Solar or Accumulator: OpenPower(e); break;
             case ItemSource src: PickItem("Item source", "Makes this item out of nothing and hands it to the tile in front.", src.Item, false, id => src.Item = id); break;
         }
     }
@@ -521,7 +522,8 @@ public sealed partial class Hud : Control
                 return;
             }
             static string N(int n, string word) => $"{n} {word}{(n == 1 ? "" : "s")}";
-            status.Text = $"{N(net.Poles.Count, "pole")}, {N(net.Gens.Count, "generator")}, {N(net.Solars.Count, "solar array")}, {N(net.Users.Count, "machine")}";
+            status.Text = $"{N(net.Poles.Count, "pole")}, {N(net.Gens.Count, "generator")}, {N(net.Solars.Count, "solar array")}, {N(net.Users.Count, "machine")}"
+                + (net.Accs.Count > 0 ? $", {N(net.Accs.Count, "accumulator")} holding {net.Accs.Sum(a => a.Stored):0} of {net.Accs.Count * Defs.AccumulatorKJ:0} kJ" : "");
             use.Text = $"Using {net.Demand:0} kW of {net.Capacity:0} kW";
             gens.Text = $"Coal in generators: {net.Gens.Sum(g => g.Fuel)}, fuel: {net.Gens.Sum(g => g.Cans)}" + (net.Gens.Count == 0 ? "  (no generator on this network yet)" : "");
             speed.Text = $"Machines here run at {100 * (1 + net.Satisfaction):0}% speed";
@@ -534,7 +536,7 @@ public sealed partial class Hud : Control
         speed = Ui.MakeLabel("", 16, Ui.Accent);
         bar = new ProgressBar { MaxValue = 1, ShowPercentage = false, CustomMinimumSize = new Vector2(0, 12) };
         foreach (var c in new Control[] { status, speed, bar, use, gens }) body.AddChild(c);
-        var info = Ui.MakeLabel("Power is a bonus: machines work without it, and run up to twice as fast with enough power. Generators burn coal; feed them with an inserter or a belt. Solar arrays give 100 kW each with no fuel, and are used first.", 12, Ui.Muted);
+        var info = Ui.MakeLabel("Power is a bonus: machines work without it, and run up to twice as fast with enough power. Generators burn coal; feed them with an inserter or a belt. Solar arrays give 100 kW each with no fuel, and are used first. Accumulators store free power nobody uses and give it back before generators burn fuel.", 12, Ui.Muted);
         info.AutowrapMode = TextServer.AutowrapMode.WordSmart;
         body.AddChild(info);
     }
@@ -713,7 +715,16 @@ public sealed partial class Hud : Control
         list = new VBoxContainer();
         body.AddChild(total);
         body.AddChild(list);
-        body.AddChild(Ui.MakeLabel("Inserters fill and empty chests.", 12, Ui.Muted));
+        var limits = new HBoxContainer();
+        foreach (int n in new[] { 0, 10, 50, 100 })
+        {
+            var b = Ui.MakeButton(n == 0 ? "No limit" : $"{n} each", () => { c.Limit = n; ClosePanel(); OpenChest(c); }, Sfx);
+            if (c.Limit == n) b.AddThemeStyleboxOverride("normal", Ui.Box(Ui.BtnHover, Ui.Accent, 3));
+            limits.AddChild(b);
+        }
+        body.AddChild(Ui.MakeLabel("Limit per item", 13, Ui.Muted));
+        body.AddChild(limits);
+        body.AddChild(Ui.MakeLabel("Inserters fill and empty chests. With a limit it takes no more of an item once it holds that many.", 12, Ui.Muted));
     }
 
     void OpenPipe(Pipe p)
