@@ -675,6 +675,10 @@ public static class SelfTest
             Check(avail.Contains(id), $"{id} can never be made");
             Check(d.Fluid ? Defs.GasKJ.ContainsKey(id) || Defs.Recipes.Any(r => r.In.Any(x => x.Item == id)) : d.Price > 0, $"{id} is neither sold nor used");
         }
+        // Every building a milestone unlocks needs screws, nails or rods, or an item made from them. Not the assembler: parts are made in it.
+        bool Parts(string item) => Defs.GroupOf(item) == "Metal parts" || Defs.RecipeById(item) is { } r && r.In.Any(x => Defs.GroupOf(x.Item) == "Metal parts");
+        foreach (var b in Defs.Buildings.Keys.Where(b => Defs.UnlockTier(b) > 0 && b != "assembler"))
+            Check(Defs.Buildings[b].Cost.Any(c => Parts(c.Item)), $"{b} needs no screws, nails or rods");
         // Only refineries take fluids, and at most one (from the pipe behind them).
         foreach (var r in Defs.Recipes)
             Check(r.In.Count(x => Defs.IsFluid(x.Item)) <= (r.Machine == "refinery" ? 1 : 0) && (r.Machine == "refinery" || !Defs.IsFluid(r.Out)), $"{r.Id} breaks the fluid rule");

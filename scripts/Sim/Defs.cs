@@ -210,7 +210,7 @@ public static class Defs
 
         Building("belt", "Belt", 1, ("iron_plate", 1));
         Building("fast_belt", "Fast Belt", 1, ("iron_plate", 1), ("gear", 1), ("iron_nail", 2));
-        Building("express_belt", "Express Belt", 1, ("steel_plate", 1), ("gear", 1));
+        Building("express_belt", "Express Belt", 1, ("steel_plate", 1), ("gear", 1), ("steel_nail", 2));
         Building("turbo_belt", "Turbo Belt", 1, ("steel_plate", 1), ("gear", 2), ("steel_screw", 2));
         Building("hyper_belt", "Hyper Belt", 1, ("steel_plate", 1), ("copper_rod", 2), ("plastic", 1));
         Building("ultra_belt", "Ultra Belt", 1, ("steel_plate", 1), ("motor", 1), ("steel_screw", 2));
@@ -224,7 +224,7 @@ public static class Defs
         Building("assembler_mk2", "Assembler Mk2", 1, ("steel_plate", 4), ("circuit", 4), ("steel_screw", 8));
         Building("assembler_mk3", "Assembler Mk3", 1, ("frame", 2), ("smart_chip", 4), ("steel_screw", 12));
         Building("fast_splitter", "Fast Splitter", 1, ("steel_plate", 4), ("gear", 4), ("steel_screw", 4));
-        Building("hyper_splitter", "Hyper Splitter", 1, ("steel_plate", 6), ("motor", 2), ("smart_chip", 1));
+        Building("hyper_splitter", "Hyper Splitter", 1, ("steel_plate", 6), ("motor", 2), ("smart_chip", 1), ("steel_screw", 6));
         Building("fast_tunnel", "Fast Underground Belt", 1, ("steel_plate", 6), ("gear", 4), ("steel_rod", 4));
         Building("hyper_tunnel", "Hyper Underground Belt", 1, ("steel_plate", 8), ("motor", 2), ("steel_rod", 6));
         // Buildings from the start stay on plates: parts need an assembler, and so does the assembler itself.
@@ -248,7 +248,7 @@ public static class Defs
         Building("solar", "Solar Array", 1, ("solar_panel", 2), ("steel_rod", 4));
         Building("lightning_rod", "Lightning Rod", 1, ("lightning_rod", 1), ("steel_plate", 2)); // the item, on a steel foot
         Building("tank", "Tank", 1, ("steel_plate", 4), ("brass_plate", 4), ("iron_rod", 4));
-        Building("accumulator", "Accumulator", 1, ("battery", 5), ("bronze_plate", 4), ("copper_wire", 6));
+        Building("accumulator", "Accumulator", 1, ("battery", 5), ("bronze_plate", 4), ("copper_screw", 6));
         Building("hub", "Hub", 3);
         Building("source", "Item Source", 1);
         Building("void", "Item Void", 1);
