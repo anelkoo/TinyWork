@@ -4,6 +4,8 @@ Everything that changed since the last release goes under "Unreleased". A new re
 
 ## Unreleased
 
+## v0.1.1 Beta (2026-11-22)
+
 - Item book: press I or click Items at the top. It lists every item in the game by group. Click one to see what it sells for, how many you have, how to get it, which recipes use it, which buildings cost it and which milestones need it. Clicking an item in storage on the left opens its page too.
 - The Hub's Sell, Shop and Potions tabs stay at the top of the window while the list below scrolls.
 - Brew your own has two sliders now: one for the strength and one for the length.
