@@ -5,3 +5,6 @@ obj/
 export/
 *.translation
 tools/
+
+# graphify knowledge map (local, rebuilt with /graphify)
+graphify-out/
