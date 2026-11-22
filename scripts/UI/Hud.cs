@@ -73,7 +73,8 @@ public sealed partial class Hud : Control
             var count = Ui.MakeLabel("0");
             var row = Ui.Row(Ui.Icon(Sprites.Items[id]), count);
             row.Visible = false;
-            row.TooltipText = HowToMake(id);
+            row.TooltipText = HowToMake(id) + "\nClick for details";
+            row.GuiInput += e => { if (e is InputEventMouseButton { Pressed: true, ButtonIndex: MouseButton.Left }) { OpenItem(id); row.AcceptEvent(); } };
             _itemGroups[Defs.GroupIndex(id)].Grid.AddChild(row);
             _rows[id] = (row, count, 0);
         }
@@ -125,14 +126,16 @@ public sealed partial class Hud : Control
         build.TooltipText = "All buildings (Q)";
         var stats = Ui.MakeButton("Stats", OpenStats, Sfx);
         stats.TooltipText = "Production per item and coins per minute (P)";
+        var items = Ui.MakeButton("Items", OpenItems, Sfx);
+        items.TooltipText = "Every item: price, how to get it, what uses it (I)";
         var bps = Ui.MakeButton("Blueprints", OpenBlueprints, Sfx);
         bps.TooltipText = "Saved copies, shared by every save (B). Ctrl+C copies an area";
         _miniBtn = Ui.MakeButton("Mini", () => ToggleMini?.Invoke(), Sfx);
         var menu = Ui.MakeButton("Menu", () => OpenMenu?.Invoke(), Sfx);
         menu.TooltipText = "Save, settings, main menu, quit (Esc)";
         _bigOnly.AddRange(_speedBtns);
-        _bigOnly.AddRange(new Control[] { gap, stats, bps });
-        foreach (var b in _speedBtns.Concat(new Control[] { gap, build, stats, bps, _miniBtn, menu })) { b.FocusMode = FocusModeEnum.None; top.AddChild(b); }
+        _bigOnly.AddRange(new Control[] { gap, stats, items, bps });
+        foreach (var b in _speedBtns.Concat(new Control[] { gap, build, stats, items, bps, _miniBtn, menu })) { b.FocusMode = FocusModeEnum.None; top.AddChild(b); }
 
         _toast = Ui.MakeLabel("", 16, Ui.Accent);
         _toast.SetAnchorsAndOffsetsPreset(LayoutPreset.CenterBottom);
@@ -143,7 +146,7 @@ public sealed partial class Hud : Control
         _toast.AddThemeConstantOverride("outline_size", 6);
         AddChild(_toast);
 
-        _hints = Ui.MakeLabel("Click ore to mine   Click a building to open it   1-0 build (Tab: next tier)   Q all buildings   R rotate   Right-click remove   Ctrl+Z undo   Ctrl+C copy   V underground   Space pause   F7 mini   F8 hide", 13, Ui.Text);
+        _hints = Ui.MakeLabel("Click ore to mine   Click a building to open it   1-0 build (Tab: next tier)   Q all buildings   I items   R rotate   Right-click remove   Ctrl+Z undo   Ctrl+C copy   V underground   Space pause   F7 mini   F8 hide", 13, Ui.Text);
         _hints.SetAnchorsAndOffsetsPreset(LayoutPreset.BottomLeft);
         _hints.GrowVertical = GrowDirection.Begin;
         _hints.Position += new Vector2(10, -66);
@@ -455,7 +458,8 @@ public sealed partial class Hud : Control
     // ---------- Panels ----------
 
     // A dimmed overlay with a centred panel. Sized to fit the current window, scrolls when content is long.
-    public VBoxContainer OpenPanel(string title, float width = 520, Action tick = null)
+    // header stays above the scrolling body, always visible.
+    public VBoxContainer OpenPanel(string title, float width = 520, Action tick = null, Control header = null)
     {
         ClosePanel();
         var dim = new ColorRect { Color = new Color(0, 0, 0, 0.35f) };
@@ -474,6 +478,7 @@ public sealed partial class Hud : Control
         var close = Ui.MakeButton("Close", ClosePanel, Sfx);
         close.TooltipText = "Close (Esc)";
         v.AddChild(Ui.Row(Ui.Grow(Ui.MakeLabel(title, _mini ? 16 : 20)), close));
+        if (header != null) v.AddChild(header);
         var scroll = new ScrollContainer { SizeFlagsVertical = SizeFlags.ExpandFill, HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled };
         v.AddChild(scroll);
         var body = new VBoxContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill };
@@ -566,13 +571,11 @@ public sealed partial class Hud : Control
 
     public void OpenHub(int tab)
     {
-        Label coins = null;
         var refresh = new List<Action>();
-        var body = OpenPanel("Hub", 620, () => { coins.Text = $"{W.Coins} coins"; foreach (var r in refresh) r(); });
-        coins = Ui.MakeLabel("", 16, new Color("f7c948"));
+        var coins = Ui.MakeLabel("", 16, new Color("f7c948"));
         var tabs = new[] { Ui.MakeButton("Sell", () => OpenHub(SellTab), Sfx), Ui.MakeButton("Shop", () => OpenHub(ShopTab), Sfx), Ui.MakeButton("Potions", () => OpenHub(PotionTab), Sfx) };
         tabs[tab].AddThemeStyleboxOverride("normal", Ui.Box(Ui.BtnHover, Ui.Accent, 3));
-        body.AddChild(Ui.Row(tabs[0], tabs[1], tabs[2], Ui.Icon(Sprites.Coin), coins));
+        var body = OpenPanel("Hub", 620, () => { coins.Text = $"{W.Coins} coins"; foreach (var r in refresh) r(); }, Ui.Row(tabs[0], tabs[1], tabs[2], Ui.Icon(Sprites.Coin), coins));
 
         if (tab == PotionTab) { FillPotions(body, refresh); return; }
         if (tab == SellTab)

@@ -191,17 +191,16 @@ public sealed partial class AppWindow : Node
     }
 
     // Borderless mini window: grab one of the edges facing away from the anchored corner to resize.
-    public override void _Input(InputEvent e)
+    // A wide grip and a resize cursor, so you don't have to hit a hairline.
+    DisplayServer.WindowResizeEdge? EdgeAt(Vector2 pos)
     {
-        if (Mode != WindowMode.Mini || e is not InputEventMouseButton { Pressed: true, ButtonIndex: MouseButton.Left } mb) return;
-        const int grip = 6;
-        var p = (Vector2I)mb.Position;
+        const int grip = 16;
+        var p = (Vector2I)pos;
         var s = W.Size;
-        bool l = p.X < grip, r = p.X >= s.X - grip, t = p.Y < grip, b = p.Y >= s.Y - grip;
         bool anchorRight = AnchorRight, anchorBottom = AnchorBottom;
-        bool h = anchorRight ? l : r, v = anchorBottom ? t : b;
-        if (!h && !v) return;
-        var edge = (h, v, anchorRight, anchorBottom) switch
+        bool h = anchorRight ? p.X < grip : p.X >= s.X - grip, v = anchorBottom ? p.Y < grip : p.Y >= s.Y - grip;
+        if (!h && !v) return null;
+        return (h, v, anchorRight, anchorBottom) switch
         {
             (true, true, true, true) => DisplayServer.WindowResizeEdge.TopLeft,
             (true, true, true, false) => DisplayServer.WindowResizeEdge.BottomLeft,
@@ -212,6 +211,32 @@ public sealed partial class AppWindow : Node
             (false, true, _, true) => DisplayServer.WindowResizeEdge.Top,
             _ => DisplayServer.WindowResizeEdge.Bottom,
         };
+    }
+
+    bool _resizeCursor;
+
+    public override void _Input(InputEvent e)
+    {
+        if (Mode != WindowMode.Mini)
+        {
+            if (_resizeCursor) { _resizeCursor = false; Input.SetDefaultCursorShape(); }
+            return;
+        }
+        if (e is InputEventMouseMotion mm)
+        {
+            var hover = _hover > 0 ? EdgeAt(mm.Position) : null; // only once the window has grown to full size
+            _resizeCursor = hover != null;
+            Input.SetDefaultCursorShape(hover switch
+            {
+                DisplayServer.WindowResizeEdge.Left or DisplayServer.WindowResizeEdge.Right => Input.CursorShape.Hsize,
+                DisplayServer.WindowResizeEdge.Top or DisplayServer.WindowResizeEdge.Bottom => Input.CursorShape.Vsize,
+                DisplayServer.WindowResizeEdge.TopLeft or DisplayServer.WindowResizeEdge.BottomRight => Input.CursorShape.Fdiagsize,
+                DisplayServer.WindowResizeEdge.TopRight or DisplayServer.WindowResizeEdge.BottomLeft => Input.CursorShape.Bdiagsize,
+                _ => Input.CursorShape.Arrow,
+            });
+            return;
+        }
+        if (e is not InputEventMouseButton { Pressed: true, ButtonIndex: MouseButton.Left } mb || EdgeAt(mb.Position) is not { } edge) return;
         GetViewport().SetInputAsHandled();
         W.StartResize(edge);
     }

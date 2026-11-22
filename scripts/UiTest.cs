@@ -14,6 +14,8 @@ public partial class Main
 {
     int _uiFails;
 
+    static bool InScroll(Node n) { for (var p = n.GetParent(); p != null; p = p.GetParent()) if (p is ScrollContainer) return true; return false; }
+
     static System.Collections.Generic.IEnumerable<T> FindAll<T>(Node root) where T : Node
     {
         foreach (var c in root.GetChildren())
@@ -100,6 +102,9 @@ public partial class Main
         _hud.OpenHub(Hud.PotionTab);
         await Wait(0.5);
         Shot("05b_potions");
+        Check(FindAll<HSlider>(_hud).Count(sl => sl.IsVisibleInTree()) == 2, "brewing has two sliders: strength and length");
+        var sellTab = FindAll<Button>(_hud).First(b => b.Text == "Sell");
+        Check(!InScroll(sellTab), "the Hub tabs sit above the scrolling list");
         var rushButton = FindAll<Button>(_hud).First(b => b.Text.StartsWith("2 min"));
         long beforeCoins = _world.Coins, earnedBefore = _world.CoinsEarned, rushCost = _world.PotionCost("coin_rush", 2f, 2);
         rushButton.EmitSignal(BaseButton.SignalName.Pressed);
@@ -282,6 +287,18 @@ public partial class Main
         Shot("20_stats");
         Key(Godot.Key.Escape);
         await Wait(0.2);
+        Key(Godot.Key.I);
+        await Wait(0.4);
+        var plateName = Defs.Items["iron_plate"].Name;
+        Check(_hud.HasPanel && FindAll<Button>(_hud).Any(b => b.Text == plateName), "I opens the item book");
+        Shot("20b_items");
+        FindAll<Button>(_hud).First(b => b.Text == plateName).EmitSignal(BaseButton.SignalName.Pressed);
+        await Wait(0.4);
+        Check(FindAll<Label>(_hud).Any(l => l.Text.StartsWith("Sells for")) && FindAll<Label>(_hud).Any(l => l.Text == "Used in") && FindAll<Label>(_hud).Any(l => l.Text.StartsWith("Furnace")),
+            "clicking an item shows its price, how to get it and what uses it");
+        Shot("20c_item_detail");
+        Key(Godot.Key.Escape);
+        await Wait(0.2);
         var spot = new Vector2I(-12, -12);
         foreach (var (item, n) in Defs.Buildings["chest"].Cost) _world.AddStorage(item, n * 2); // enough for the chest and its redo
         _world.BeginAction(); _world.Place("chest", spot, 0); _world.EndAction();
@@ -304,6 +321,12 @@ public partial class Main
         await Wait(0.4);
         Check(_hud.HasPanel && FindAll<LineEdit>(_hud).Any(), "B opens blueprints with a name field for the current copy");
         Shot("22_blueprints");
+        var camBefore = _view.CamTarget;
+        FindAll<LineEdit>(_hud).First().GrabFocus();
+        Input.ParseInputEvent(new InputEventKey { Keycode = Godot.Key.Up, Pressed = true });
+        await Wait(0.3);
+        Input.ParseInputEvent(new InputEventKey { Keycode = Godot.Key.Up, Pressed = false });
+        Check(_view.CamTarget == camBefore, "arrow keys in a text field don't move the camera");
         Key(Godot.Key.Escape);
         Key(Godot.Key.Escape);
         await Wait(0.2);

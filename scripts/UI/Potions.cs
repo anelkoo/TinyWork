@@ -67,37 +67,39 @@ public sealed partial class Hud
         body.AddChild(Ui.MakeLabel("Brew your own", 16));
         var kind = new OptionButton { FocusMode = FocusModeEnum.None };
         foreach (var p in Defs.Potions) kind.AddIconItem(Sprites.Potions[p.Id], p.Name);
-        var power = StrengthPicker(Defs.Potions[0]);
+        // Two sliders: strength steps through the potion's strengths, length runs in whole minutes.
+        HSlider Slider(double min, double max, double value) => new() { MinValue = min, MaxValue = max, Step = 1, Value = value, SizeFlagsHorizontal = SizeFlags.ExpandFill, SizeFlagsVertical = SizeFlags.ShrinkCenter, CustomMinimumSize = new Vector2(100, 0) };
+        Label Value() { var l = Ui.MakeLabel("", 14, Ui.Muted); l.CustomMinimumSize = new Vector2(60, 0); l.HorizontalAlignment = HorizontalAlignment.Right; return l; }
+        var power = Slider(0, Defs.Potions[0].Strengths.Length - 1, Array.IndexOf(Defs.Potions[0].Strengths, Defs.Potions[0].Default));
+        power.TooltipText = "Strength. Strengths never stack: the strongest runs first, weaker ones wait.";
         kind.ItemSelected += i => // each potion has its own strengths
         {
             var p = Defs.Potions[i];
-            power.Clear();
-            foreach (var s in p.Strengths) power.AddItem(Defs.X(s));
-            power.Selected = Array.IndexOf(p.Strengths, p.Default);
+            power.MaxValue = p.Strengths.Length - 1;
+            power.Value = Array.IndexOf(p.Strengths, p.Default);
         };
-        var minutes = new HSlider { MinValue = 1, MaxValue = Defs.PotionMaxMinutes, Step = 1, Value = 30, SizeFlagsHorizontal = SizeFlags.ExpandFill, SizeFlagsVertical = SizeFlags.ShrinkCenter, CustomMinimumSize = new Vector2(100, 0) };
-        var minLabel = Ui.MakeLabel("", 14, Ui.Muted);
-        minLabel.CustomMinimumSize = new Vector2(60, 0);
-        minLabel.HorizontalAlignment = HorizontalAlignment.Right;
-        var brew = Ui.MakeButton("", () => Buy(Defs.Potions[kind.Selected], Defs.Potions[kind.Selected].Strengths[power.Selected], (int)minutes.Value), Sfx);
+        var minutes = Slider(1, Defs.PotionMaxMinutes, 30);
+        var powerLabel = Value();
+        var minLabel = Value();
+        var brew = Ui.MakeButton("", () => Buy(Defs.Potions[kind.Selected], Defs.Potions[kind.Selected].Strengths[(int)power.Value], (int)minutes.Value), Sfx);
         brew.CustomMinimumSize = new Vector2(_mini ? 96 : 140, 36);
         refresh.Add(() =>
         {
             var p = Defs.Potions[kind.Selected];
-            if (power.Selected < 0 || power.Selected >= p.Strengths.Length) return;
-            float s = p.Strengths[power.Selected];
+            int si = Math.Clamp((int)power.Value, 0, p.Strengths.Length - 1);
+            float s = p.Strengths[si];
             int m = (int)minutes.Value;
             long cost = W.PotionCost(p.Id, s, m);
+            powerLabel.Text = Defs.X(s);
             minLabel.Text = $"{m} min";
             brew.Text = $"Brew · {Compact(cost)}c";
             brew.Disabled = W.Coins < cost || W.PotionMinutesLeft(p.Id, s) + m > Defs.PotionMaxMinutes;
         });
-        if (_mini)
-        {
-            body.AddChild(Ui.Row(kind, power, brew));
-            body.AddChild(Ui.Row(minutes, minLabel));
-        }
-        else body.AddChild(Ui.Row(kind, power, minutes, minLabel, brew));
+        Label Name(string t) { var l = Ui.MakeLabel(t, 14); l.CustomMinimumSize = new Vector2(70, 0); return l; }
+        kind.SizeFlagsHorizontal = SizeFlags.ExpandFill;
+        body.AddChild(Ui.Row(kind, brew));
+        body.AddChild(Ui.Row(Name("Strength"), power, powerLabel));
+        body.AddChild(Ui.Row(Name("Length"), minutes, minLabel));
     }
 
     void Buy(Potion p, float strength, int minutes)

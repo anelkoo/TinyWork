@@ -16,6 +16,7 @@ public sealed partial class WorldView : Node2D
     const float ZoomCooldown = 0.12f; // a fast wheel spin moves one step at a time, not five
     float _lastZoom = -1;
     public Func<bool> Blocked; // a menu is open: the wheel belongs to it, never to the map
+    public Func<bool> Typing;  // a text field has focus: WASD and arrows type, they don't move the camera
     const float PixelScale = 2; // screen pixels per art pixel at zoom 1
 
     public World W;
@@ -298,7 +299,8 @@ public sealed partial class WorldView : Node2D
         var move = new Vector2(
             (Input.IsKeyPressed(Key.D) || Input.IsKeyPressed(Key.Right) ? 1 : 0) - (Input.IsKeyPressed(Key.A) || Input.IsKeyPressed(Key.Left) ? 1 : 0),
             (Input.IsKeyPressed(Key.S) || Input.IsKeyPressed(Key.Down) ? 1 : 0) - (Input.IsKeyPressed(Key.W) || Input.IsKeyPressed(Key.Up) ? 1 : 0));
-        if (GetWindow().HasFocus()) _camTarget += move.Normalized() * 520 * _dt / Cam.Zoom.X;
+        bool typing = Typing?.Invoke() == true; // keys typed into a text field must not move the camera
+        if (GetWindow().HasFocus() && !typing) _camTarget += move.Normalized() * 1100 * _dt / Cam.Zoom.X;
 
         float z = J("screen") ? Mathf.Lerp(Cam.Zoom.X / PixelScale, _targetZoom, 1 - Mathf.Exp(-8 * _dt)) : _targetZoom;
         Cam.Zoom = Vector2.One * z * PixelScale;

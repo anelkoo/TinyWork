@@ -4,6 +4,13 @@ Everything that changed since the last release goes under "Unreleased". A new re
 
 ## Unreleased
 
+- Item book: press I or click Items at the top. It lists every item in the game by group. Click one to see what it sells for, how many you have, how to get it, which recipes use it, which buildings cost it and which milestones need it. Clicking an item in storage on the left opens its page too.
+- The Hub's Sell, Shop and Potions tabs stay at the top of the window while the list below scrolls.
+- Brew your own has two sliders now: one for the strength and one for the length.
+- Arrow keys and WASD no longer move the camera while you type in a text or number field.
+- The camera moves about twice as fast with WASD and the arrow keys.
+- The mini window is easier to resize: the edge you can grab is wider, and the cursor changes when you're on it.
+
 ## v0.1.0 Beta (2026-11-22)
 
 - Every building from milestone 1 on now needs screws, nails or rods (or an item made from them), except the Assembler, which makes them. New: Express Belts take 2 steel nails and Hyper Splitters 6 steel screws. Buildings you have from the start stay on plates, so a new game can never get stuck.

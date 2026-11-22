@@ -175,6 +175,7 @@ public partial class Main : Node
         _uiRoot.AddChild(_hud);
         _view.Toast = _hud.Toast;
         _view.Blocked = () => _hud.HasPanel || _menu != null;
+        _view.Typing = () => _hud.GetViewport().GuiGetFocusOwner() is LineEdit or TextEdit; // the HUD has its own viewport
         _hud.OpenMenu += ToggleMenu;
         _hud.ToggleMini += _win.ToggleMode;
         _sinceSave = 0;
@@ -243,6 +244,7 @@ public partial class Main : Node
         else if (k.Keycode == Key.Q) _hud.OpenBuildMenu();
         else if (k.Keycode == Key.B) _hud.OpenBlueprints();
         else if (k.Keycode == Key.P) _hud.OpenStats();
+        else if (k.Keycode == Key.I) _hud.OpenItems();
         else if (!_view.HandleKey(k.Keycode)) return;
         GetViewport().SetInputAsHandled();
     }
