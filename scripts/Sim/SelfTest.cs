@@ -32,6 +32,7 @@ public static class SelfTest
         Test("fluid survives network rebuilds and saves", FluidConserved);
         Test("joining two fluids keeps the larger one", FluidMixing);
         Test("pump -> refinery -> plastic, sparkgas powers a generator", RefineryChain);
+        Test("copper melts and alloys with tin into bronze; steam and fuel power a generator", AlloysAndFuels);
         Test("items glide over belt edges without pausing", GlideAcrossEdges);
         Test("coin rush doubles sales, then wears off", CoinRush);
         Test("potions stack up to the cap and cost more later in the game", PotionPrices);
@@ -364,7 +365,8 @@ public static class SelfTest
     static void ItemGroups()
     {
         foreach (var (id, group) in new[] { ("coal", "Ores"), ("brick", "Plates"), ("steel_plate", "Plates"), ("copper_nail", "Metal parts"), ("steel_rod", "Metal parts"),
-                                            ("lightning_rod", "Products"), ("gear", "Intermediates"), ("solar_panel", "Intermediates"), ("sky_beacon", "Products"), ("water", "Fluids") })
+                                            ("lightning_rod", "Products"), ("gear", "Intermediates"), ("solar_panel", "Intermediates"), ("sky_beacon", "Products"), ("water", "Fluids"),
+                                            ("bronze_plate", "Plates"), ("zinc_rod", "Metal parts"), ("explosive", "Products"), ("concrete", "Intermediates"), ("steam", "Fluids") })
             Check(Defs.GroupOf(id) == group, $"{id} is in {Defs.GroupOf(id)}, expected {group}");
     }
 
@@ -664,6 +666,15 @@ public static class SelfTest
                 foreach (var (item, _) in Defs.Milestones[t].Need)
                     Check(avail.Contains(item), $"milestone {t + 1} needs {item}, which can't be made yet");
         }
+        // Every item can be made in the end, and is sold (has a price) or, for fluids, used by a recipe or a generator.
+        foreach (var (id, d) in Defs.Items)
+        {
+            Check(avail.Contains(id), $"{id} can never be made");
+            Check(d.Fluid ? Defs.GasKJ.ContainsKey(id) || Defs.Recipes.Any(r => r.In.Any(x => x.Item == id)) : d.Price > 0, $"{id} is neither sold nor used");
+        }
+        // Only refineries take fluids, and at most one (from the pipe behind them).
+        foreach (var r in Defs.Recipes)
+            Check(r.In.Count(x => Defs.IsFluid(x.Item)) <= (r.Machine == "refinery" ? 1 : 0) && (r.Machine == "refinery" || !Defs.IsFluid(r.Out)), $"{r.Id} breaks the fluid rule");
     }
 
     // Where an item was drawn last tick (Prev) must be where it really was, also right after it changed belts.
@@ -889,6 +900,36 @@ public static class SelfTest
         var refunds = new List<string>();
         foreach (var e in w.Entities) e.Contents(refunds);
         Check(!refunds.Any(Defs.IsFluid), "fluids must never be refunded as items");
+    }
+
+    static void AlloysAndFuels()
+    {
+        // copper chest -> inserter -> refinery (molten metal) -> pipe -> refinery (bronze) <- inserter <- tin chest; bronze out to a chest
+        var w = Sandbox();
+        ((Chest)w.Place("chest", new(0, 2), 0)).Inv["copper_plate"] = 40;
+        w.Place("inserter", new(0, 1), 3);
+        w.SetRecipe((Assembler)w.Place("refinery", new(0, 0), 0), "molten_metal");
+        w.Place("pipe", new(1, 0), 0);
+        w.SetRecipe((Assembler)w.Place("refinery", new(2, 0), 0), "bronze_plate");
+        ((Chest)w.Place("chest", new(2, 2), 0)).Inv["tin_plate"] = 40;
+        w.Place("inserter", new(2, 1), 3);
+        w.Place("inserter", new(2, -1), 3);
+        w.Place("chest", new(2, -2), 0);
+        for (int i = 0; i < 3000; i++) w.Step();
+        var bronze = ((Chest)w.At(new(2, -2))).Inv.GetValueOrDefault("bronze_plate");
+        Check(bronze >= 10, $"only {bronze} bronze made");
+
+        // A generator with one fuel canister, and one next to a pipe of steam, each power a miner.
+        foreach (bool steam in new[] { false, true })
+        {
+            var (pw, m, g) = PowerRig(true, 0);
+            if (steam) { pw.Place("pipe", new(2, 2), 0); pw.FluidNetAt(new(2, 2), new(1, 2)).Fill("steam", 100); }
+            else Check(g.CanAccept(pw, "fuel", g.Pos) && !g.CanAccept(pw, "plastic", g.Pos), "generators take fuel, not plastic");
+            if (!steam) g.Accept(pw, "fuel", g.Pos);
+            for (int i = 0; i < 200; i++) pw.Step();
+            Check(pw.PowerBoost(m) > 1.9f, $"{(steam ? "steam" : "fuel")} should power the generator, boost {pw.PowerBoost(m)}");
+            if (!steam) { var back = new List<string>(); g.Contents(back); Check(g.Cans == 0 && g.Energy > Defs.FuelKJ - 1000 && back.Count == 0, $"fuel canister not burnt: {g.Cans} left, {g.Energy} kJ"); }
+        }
     }
 
     static void BigPoles()

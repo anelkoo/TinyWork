@@ -457,24 +457,26 @@ public sealed class Crossing : Entity
     }
 }
 
-// Burns coal for its power network. Fed by inserters or straight from a belt.
+// Burns coal or fuel for its power network. Fed by inserters or straight from a belt.
 public sealed class Generator : Entity
 {
     public const int FuelCap = 10;
     public int Fuel;      // coal waiting to burn
+    public int Cans;      // fuel canisters waiting to burn, used before coal
     public float Energy;  // kJ left from the coal that is burning now
 
-    public World.FluidNet Gas; // a sparkgas pipe next to it, looked up by the world each tick
+    public World.FluidNet Gas; // a pipe of something in Defs.GasKJ next to it, looked up by the world each tick
 
-    public bool CanSupply => Energy > 0 || Fuel > 0 || Gas is { Fluid: "sparkgas", Amount: >= 1 };
-    public override bool CanAccept(World w, string item, Vector2I from) => item == "coal" && Fuel < FuelCap;
-    public override void Accept(World w, string item, Vector2I from, float overflow = 0) => Fuel++;
+    public bool CanSupply => Energy > 0 || Fuel > 0 || Cans > 0 || Gas is { Amount: >= 1 } g && Defs.GasKJ.ContainsKey(g.Fluid);
+    public override bool CanAccept(World w, string item, Vector2I from) => item == "coal" ? Fuel < FuelCap : item == "fuel" && Cans < FuelCap;
+    public override void Accept(World w, string item, Vector2I from, float overflow = 0) { if (item == "fuel") Cans++; else Fuel++; }
 
     // Takes kJ from the burning coal, lighting the next piece when needed. Returns what it could give.
     public float Draw(float kj)
     {
+        if (Energy < kj && Cans > 0) { Cans--; Energy += Defs.FuelKJ; }
         if (Energy < kj && Fuel > 0) { Fuel--; Energy += Defs.CoalKJ; }
-        if (Energy < kj && Gas != null) Energy += Gas.Drain("sparkgas", Mathf.CeilToInt((kj - Energy) / Defs.SparkgasKJ)) * Defs.SparkgasKJ;
+        if (Energy < kj && Gas?.Fluid is { } f && Defs.GasKJ.TryGetValue(f, out var per)) Energy += Gas.Drain(f, Mathf.CeilToInt((kj - Energy) / per)) * per;
         float got = Mathf.Min(Energy, kj);
         Energy -= got;
         Working = got > 0;
@@ -482,9 +484,9 @@ public sealed class Generator : Entity
     }
 
     public override string Status => Idle > StallTicks && !CanSupply ? "starved" : null;
-    public override void Contents(List<string> into) { for (int i = 0; i < Fuel; i++) into.Add("coal"); }
-    public override void Save(EntityData d) { d.An = Fuel; d.P = Energy; }
-    public override void Load(EntityData d) { Fuel = d.An; Energy = d.P; }
+    public override void Contents(List<string> into) { for (int i = 0; i < Fuel; i++) into.Add("coal"); for (int i = 0; i < Cans; i++) into.Add("fuel"); }
+    public override void Save(EntityData d) { d.An = Fuel; d.Bn = Cans; d.P = Energy; }
+    public override void Load(EntityData d) { Fuel = d.An; Cans = d.Bn; Energy = d.P; }
 }
 
 // Links to poles up to Defs.WireRangeOf(type) away and powers machines within Defs.PoleReachOf(type) tiles.

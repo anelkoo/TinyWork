@@ -589,6 +589,27 @@ public static class Sprites
             c.R(3, 0, 2, 2, Colors.White); c.P(2, 1, col); c.P(5, 1, col);
             c.R(3, 2, 2, 4, Ink); c.R(2, 6, 4, 2, Ink); c.R(3, 6, 2, 1, Metal);
         }
+        else if (id == "concrete") // a grey block with grit
+        {
+            c.Box(0, 1, 8, 6, col, Ink);
+            c.P(2, 3, col.Darkened(0.3f)); c.P(5, 2, col.Darkened(0.3f)); c.P(4, 5, col.Darkened(0.3f)); c.R(1, 2, 2, 1, col.Lightened(0.3f));
+        }
+        else if (id == "fertilizer") // a tied sack
+        {
+            c.R(3, 0, 2, 2, Ink); c.R(1, 2, 6, 6, Ink);
+            c.R(2, 3, 4, 4, col); c.P(3, 1, col.Darkened(0.3f)); c.P(2, 3, col.Lightened(0.4f));
+        }
+        else if (id == "fuel") // a canister with a spout
+        {
+            c.R(5, 0, 2, 2, Ink); c.Box(1, 1, 6, 7, col, Ink);
+            c.R(2, 2, 2, 1, Ink); c.P(2, 4, col.Lightened(0.4f));
+        }
+        else if (id == "explosive") // three sticks with a burning fuse
+        {
+            c.R(1, 3, 6, 5, Ink);
+            for (int x = 1; x < 7; x += 2) c.R(x, 4, 1, 3, col);
+            c.R(4, 1, 1, 2, Ink); c.P(5, 0, Glow);
+        }
         else if (id == "wood") // a log with rings on its end
         {
             c.Box(0, 2, 8, 5, col, Ink);

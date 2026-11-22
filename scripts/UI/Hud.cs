@@ -523,7 +523,7 @@ public sealed partial class Hud : Control
             static string N(int n, string word) => $"{n} {word}{(n == 1 ? "" : "s")}";
             status.Text = $"{N(net.Poles.Count, "pole")}, {N(net.Gens.Count, "generator")}, {N(net.Solars.Count, "solar array")}, {N(net.Users.Count, "machine")}";
             use.Text = $"Using {net.Demand:0} kW of {net.Capacity:0} kW";
-            gens.Text = $"Coal in generators: {net.Gens.Sum(g => g.Fuel)}" + (net.Gens.Count == 0 ? "  (no generator on this network yet)" : "");
+            gens.Text = $"Coal in generators: {net.Gens.Sum(g => g.Fuel)}, fuel: {net.Gens.Sum(g => g.Cans)}" + (net.Gens.Count == 0 ? "  (no generator on this network yet)" : "");
             speed.Text = $"Machines here run at {100 * (1 + net.Satisfaction):0}% speed";
             bar.Value = Ui.Enabled ? Mathf.Lerp(bar.Value, net.Satisfaction, 0.2) : net.Satisfaction;
         });
@@ -728,7 +728,7 @@ public sealed partial class Hud : Control
         });
         what = Ui.MakeLabel("", 16, Ui.Accent);
         bar = new ProgressBar { MaxValue = 1, ShowPercentage = false, CustomMinimumSize = new Vector2(0, 12) };
-        var info = Ui.MakeLabel("Pipes that touch form one network holding a single fluid. Pumps push water into the pipe in front of them. Refineries take fluid from behind and put it out in front. Generators next to a sparkgas pipe burn it. Press V to see underground pipes.", 12, Ui.Muted);
+        var info = Ui.MakeLabel("Pipes that touch form one network holding a single fluid. Pumps push water into the pipe in front of them. Refineries take fluid from behind and put it out in front. Generators next to a sparkgas or steam pipe burn it. Press V to see underground pipes.", 12, Ui.Muted);
         info.AutowrapMode = TextServer.AutowrapMode.WordSmart;
         foreach (var c in new Control[] { what, bar, info }) body.AddChild(c);
     }

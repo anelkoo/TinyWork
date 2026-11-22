@@ -587,8 +587,8 @@ public sealed partial class WorldView : Node2D
                         DrawRect(new Rect2(c + new Vector2(-4, 3), new Vector2(4, 2)), Sprites.Glow with { A = 0.7f + 0.3f * Mathf.Sin(_time * 21) });
                         if (prod && GD.Randf() < _dt * 3) _juice.Puff(c + new Vector2(-4, -9), new Color(0.35f, 0.33f, 0.36f, 0.6f));
                     }
-                    // fuel gauge: one pixel per coal
-                    for (int k = 0; k < g.Fuel; k++) DrawRect(new Rect2(c + new Vector2(-6 + k, 7), Vector2.One), Sprites.Ink);
+                    // fuel gauge: one pixel per coal or fuel canister
+                    for (int k = 0; k < Mathf.Min(g.Fuel + g.Cans, 12); k++) DrawRect(new Rect2(c + new Vector2(-6 + k, 7), Vector2.One), Sprites.Ink);
                     break;
                 case Chest ch:
                     Sprite(Sprites.Chest, c, 0, sq * (ch.Count > 0 && prod ? new Vector2(1, 1 + 0.02f * Mathf.Sin(_time * 3)) : Vector2.One));

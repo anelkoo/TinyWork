@@ -28,7 +28,7 @@ public static class Defs
     public static readonly List<Recipe> Recipes = new();
     public static readonly (string Id, string Name, int PerPlate)[] Parts = { ("screw", "Screw", 4), ("nail", "Nail", 4), ("rod", "Rod", 2) };
     // The first four keep their starter patches on the inner ring around the Hub (World.OreAt), so old saves keep their ore.
-    public static readonly string[] Ores ={ "iron_ore", "copper_ore", "stone", "coal", "tin_ore", "lead_ore", "gold_ore", "quartz", "wood", "sparkcrystal" };
+    public static readonly string[] Ores ={ "iron_ore", "copper_ore", "stone", "coal", "tin_ore", "lead_ore", "gold_ore", "quartz", "wood", "sparkcrystal", "zinc_ore" };
     public const int FirstOres = 4;
     public static readonly string[] BaseUnlocks = { "belt", "crossing", "inserter", "miner", "furnace", "pole", "generator" };
     public static readonly string[] BuildOrder = { "belt", "fast_belt", "express_belt", "turbo_belt", "hyper_belt", "ultra_belt", "crossing", "inserter", "inserter_mk2", "inserter_mk3", "miner", "miner_mk2", "miner_mk3", "furnace", "furnace_mk2", "furnace_mk3", "assembler", "assembler_mk2", "assembler_mk3", "chest", "pole", "big_pole", "super_pole", "generator", "splitter", "fast_splitter", "hyper_splitter", "tunnel", "fast_tunnel", "hyper_tunnel", "pipe", "pipe_tunnel", "pump", "refinery", "solar", "lightning_rod" };
@@ -44,7 +44,9 @@ public static class Defs
     // Lightning strikes each rod about once every LightningEvery ticks and adds LightningKW to its network for LightningTicks.
     public const float LightningKW = 1200;
     public const int LightningEvery = 90 * 20, LightningTicks = 10 * 20;
-    public const float GeneratorKW = 600, CoalKJ = 4000, SparkgasKJ = 200; // kJ per unit
+    public const float GeneratorKW = 600, CoalKJ = 4000, FuelKJ = 12000; // kJ per unit
+    // Fluids a generator burns from a pipe next to it, kJ per unit.
+    public static readonly Dictionary<string, float> GasKJ = new() { ["sparkgas"] = 200, ["steam"] = 300 };
     public const int TunnelRange = 5, PipeTunnelRange = 10; // how far apart an entrance and its exit may be
     public const float PipeCap = 100, PumpRate = 1; // fluid units per pipe tile, units per tick
     // Tier families share one hotbar slot, like the belts. Better poles wire further and power a bigger square.
@@ -91,9 +93,9 @@ public static class Defs
     {
         new("First Plates", new[] { ("iron_plate", 40), ("copper_plate", 20) }, new[] { "assembler", "chest", "splitter", "tunnel" }),
         new("Gears Turning", new[] { ("gear", 40), ("copper_wire", 60) }, new[] { "fast_belt", "steel", "big_pole", "miner_mk2", "furnace_mk2", "inserter_mk2", "lightning_rod" }),
-        new("Smart Factory", new[] { ("circuit", 30), ("steel_plate", 15) }, new[] { "express_belt", "super_pole", "pipe", "pipe_tunnel", "pump", "refinery", "assembler_mk2", "fast_splitter", "fast_tunnel" }),
-        new("Clear Glass", new[] { ("plastic", 40), ("sulfur", 30) }, new[] { "sand", "glass", "lens", "battery", "motor", "lamp", "turbo_belt" }),
-        new("Bright Ideas", new[] { ("lamp", 40), ("battery", 30), ("motor", 30) }, new[] { "smart_chip", "frame", "toy_robot", "clock", "solar_panel", "solar", "hyper_belt", "miner_mk3", "furnace_mk3", "inserter_mk3", "hyper_splitter", "hyper_tunnel" }),
+        new("Smart Factory", new[] { ("circuit", 30), ("steel_plate", 15) }, new[] { "express_belt", "super_pole", "pipe", "pipe_tunnel", "pump", "refinery", "assembler_mk2", "fast_splitter", "fast_tunnel", "molten_metal", "bronze_plate", "brass_plate", "steam" }),
+        new("Clear Glass", new[] { ("plastic", 40), ("sulfur", 30) }, new[] { "sand", "glass", "lens", "battery", "motor", "lamp", "turbo_belt", "concrete", "acid", "fertilizer" }),
+        new("Bright Ideas", new[] { ("lamp", 40), ("battery", 30), ("motor", 30) }, new[] { "smart_chip", "frame", "toy_robot", "clock", "solar_panel", "solar", "hyper_belt", "miner_mk3", "furnace_mk3", "inserter_mk3", "hyper_splitter", "hyper_tunnel", "oil", "diesel", "fuel", "explosive" }),
         new("Reach the Sky", new[] { ("toy_robot", 20), ("clock", 20), ("solar_panel", 20) }, new[] { "drone", "computer", "sky_beacon", "ultra_belt", "assembler_mk3" }),
     };
 
@@ -150,6 +152,7 @@ public static class Defs
         Item("quartz", "Quartz", "e6dff0", 2);
         Item("wood", "Wood", "9c6b3c", 1);
         Item("sparkcrystal", "Sparkcrystal", "7ee8d8", 3);
+        Item("zinc_ore", "Zinc Ore", "7fa0a8", 1);
         Item("iron_plate", "Iron Plate", "c8d4e3", 3);
         Item("copper_plate", "Copper Plate", "f2a66b", 3);
         Item("brick", "Brick", "c4624a", 4);
@@ -157,10 +160,13 @@ public static class Defs
         Item("tin_plate", "Tin Plate", "d6e8c8", 3);
         Item("lead_plate", "Lead Plate", "a598c0", 3);
         Item("gold_plate", "Gold Plate", "f5cf5a", 7);
+        Item("zinc_plate", "Zinc Plate", "b0cfd4", 3);
+        Item("bronze_plate", "Bronze Plate", "c08a4a", 6);
+        Item("brass_plate", "Brass Plate", "d8b860", 6);
         Item("gear", "Gear", "aeb8c6", 7);
         Item("copper_wire", "Copper Wire", "f0a05a", 2);
         // Parts made from every metal's plate: one entry here per new metal, one per new part.
-        foreach (var (metal, name, unlock) in new (string, string, string)[] { ("iron", "Iron", null), ("copper", "Copper", null), ("steel", "Steel", "steel"), ("tin", "Tin", null), ("lead", "Lead", null), ("gold", "Gold", null) })
+        foreach (var (metal, name, unlock) in new (string, string, string)[] { ("iron", "Iron", null), ("copper", "Copper", null), ("steel", "Steel", "steel"), ("tin", "Tin", null), ("lead", "Lead", null), ("gold", "Gold", null), ("zinc", "Zinc", null) })
             foreach (var (part, partName, n) in Parts)
             {
                 var plate = Items[metal + "_plate"];
@@ -186,9 +192,18 @@ public static class Defs
         Item("drone", "Drone", "5aa9e8", 330);
         Item("computer", "Computer", "3d4250", 330);
         Item("sky_beacon", "Sky Beacon", "fff3a0", 1200);
+        Item("concrete", "Concrete", "a8a8a0", 4);
+        Item("fertilizer", "Fertilizer", "8ac24a", 8);
+        Item("fuel", "Fuel", "e8903a", 10);
+        Item("explosive", "Explosive", "c03838", 24);
         Fluid("water", "Water", "4f8fd9");
         Fluid("black_goo", "Black Goo", "3a2f45");
         Fluid("sparkgas", "Sparkgas", "b6e86a");
+        Fluid("steam", "Steam", "e0e8f0");
+        Fluid("molten_metal", "Molten Metal", "f07a2a");
+        Fluid("acid", "Acid", "c86ae8");
+        Fluid("oil", "Oil", "5a4a2a");
+        Fluid("diesel", "Diesel", "d9b84a");
 
         Building("belt", "Belt", 1, ("iron_plate", 1));
         Building("fast_belt", "Fast Belt", 1, ("iron_plate", 1), ("gear", 1), ("iron_nail", 2));
@@ -240,6 +255,7 @@ public static class Defs
         Recipes.Add(new("tin_plate", "furnace", new[] { ("tin_ore", 1) }, "tin_plate", 1, 40));
         Recipes.Add(new("lead_plate", "furnace", new[] { ("lead_ore", 1) }, "lead_plate", 1, 40));
         Recipes.Add(new("gold_plate", "furnace", new[] { ("gold_ore", 1) }, "gold_plate", 1, 60));
+        Recipes.Add(new("zinc_plate", "furnace", new[] { ("zinc_ore", 1) }, "zinc_plate", 1, 40));
         Recipes.Add(new("gear", "assembler", new[] { ("iron_plate", 2) }, "gear", 1, 20));
         Recipes.Add(new("copper_wire", "assembler", new[] { ("copper_plate", 1) }, "copper_wire", 2, 20));
         // Refinery: at most one fluid in (from the pipe behind it), fluid or item out (pipe or inserter in front).
@@ -247,6 +263,20 @@ public static class Defs
         Recipes.Add(new("plastic", "refinery", new[] { ("black_goo", 20), ("coal", 1) }, "plastic", 2, 40));
         Recipes.Add(new("sparkgas", "refinery", new[] { ("black_goo", 20) }, "sparkgas", 20, 40));
         Recipes.Add(new("sulfur", "refinery", new[] { ("sparkgas", 20), ("stone", 1) }, "sulfur", 2, 60));
+        // Milestone 3: copper melts into molten metal, which alloys into bronze (tin) or brass (zinc). Steam burns in generators.
+        Recipes.Add(new("molten_metal", "refinery", new[] { ("copper_plate", 2) }, "molten_metal", 20, 40, "molten_metal"));
+        Recipes.Add(new("bronze_plate", "refinery", new[] { ("molten_metal", 20), ("tin_plate", 1) }, "bronze_plate", 2, 40, "bronze_plate"));
+        Recipes.Add(new("brass_plate", "refinery", new[] { ("molten_metal", 20), ("zinc_plate", 1) }, "brass_plate", 2, 40, "brass_plate"));
+        Recipes.Add(new("steam", "refinery", new[] { ("water", 20), ("wood", 1) }, "steam", 20, 40, "steam"));
+        // Milestone 4: concrete, and acid for fertilizer
+        Recipes.Add(new("concrete", "refinery", new[] { ("water", 10), ("sand", 2), ("stone", 1) }, "concrete", 2, 60, "concrete"));
+        Recipes.Add(new("acid", "refinery", new[] { ("water", 20), ("sulfur", 1) }, "acid", 20, 40, "acid"));
+        Recipes.Add(new("fertilizer", "refinery", new[] { ("acid", 20), ("stone", 1) }, "fertilizer", 2, 60, "fertilizer"));
+        // Milestone 5: oil to diesel to fuel canisters (generators burn them), and fertilizer + fuel make explosives
+        Recipes.Add(new("oil", "refinery", new[] { ("black_goo", 20), ("wood", 1) }, "oil", 20, 40, "oil"));
+        Recipes.Add(new("diesel", "refinery", new[] { ("oil", 20) }, "diesel", 20, 40, "diesel"));
+        Recipes.Add(new("fuel", "refinery", new[] { ("diesel", 20), ("iron_plate", 1) }, "fuel", 1, 40, "fuel"));
+        Recipes.Add(new("explosive", "assembler", new[] { ("fertilizer", 1), ("fuel", 1) }, "explosive", 1, 60, "explosive"));
         Recipes.Add(new("circuit", "assembler", new[] { ("iron_plate", 1), ("copper_wire", 3) }, "circuit", 1, 30));
         // Milestone 4: glass and the first parts
         Recipes.Add(new("sand", "assembler", new[] { ("stone", 1) }, "sand", 2, 20, "sand"));
@@ -274,7 +304,7 @@ public static class Defs
 
     // Item lists show these groups in this order. The group comes from the id, so a new metal's plate and parts sort themselves.
     public static readonly string[] Groups = { "Ores", "Plates", "Metal parts", "Intermediates", "Products", "Fluids" };
-    static readonly HashSet<string> Products = new() { "lightning_rod", "toy_robot", "clock", "drone", "computer", "sky_beacon" };
+    static readonly HashSet<string> Products = new() { "lightning_rod", "toy_robot", "clock", "drone", "computer", "sky_beacon", "explosive" };
     public static string GroupOf(string id) =>
         IsFluid(id) ? "Fluids" : Products.Contains(id) ? "Products" : System.Array.IndexOf(Ores, id) >= 0 ? "Ores"
         : id.EndsWith("_plate") || id == "brick" ? "Plates" : Parts.Any(p => id.EndsWith("_" + p.Id)) ? "Metal parts" : "Intermediates";

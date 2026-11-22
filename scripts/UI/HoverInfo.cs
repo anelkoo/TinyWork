@@ -117,7 +117,7 @@ public sealed partial class Hud
                     lines.Add($"Network: {net.Gens.Count} generators, {net.Users.Count} machines, {net.Demand:0}/{net.Capacity:0} kW");
                 break;
             case Generator g:
-                lines.Add($"{g.Fuel} coal waiting" + (g.Gas != null ? ", sparkgas pipe connected" : ""));
+                lines.Add($"{g.Fuel} coal" + (g.Cans > 0 ? $", {g.Cans} fuel" : "") + " waiting" + (g.Gas?.Fluid is { } gf ? $", {N(gf)} pipe connected" : ""));
                 if (W.NetOf(g) is { } gn) lines.Add($"Network uses {gn.Demand:0} of {gn.Capacity:0} kW");
                 else lines.Add("No pole nearby");
                 break;

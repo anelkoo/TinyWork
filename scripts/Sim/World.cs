@@ -644,7 +644,7 @@ public sealed class World
     FluidNet GasNextTo(Entity e)
     {
         foreach (var d in Entity.Dirs)
-            if (FluidNetAt(e.Pos + d, e.Pos) is { Fluid: "sparkgas" } n) return n;
+            if (FluidNetAt(e.Pos + d, e.Pos) is { Fluid: { } f } n && Defs.GasKJ.ContainsKey(f)) return n;
         return null;
     }
 
