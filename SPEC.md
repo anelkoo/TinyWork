@@ -147,6 +147,7 @@ Each step ends in something playable:
 
 8. Content. Done in v0.0.6: milestones 4 to 6, the 14 remaining items (all 30 now exist), the solar array and the Long Wires upgrade.
    v0.0.7 added screws, nails and rods (now in building costs), six belt tiers, Mk2/Mk3 machines, upgrading in place, own music and the Belt Rush potion.
+   v0.1.0 finished the materials plan: seven new ores (tin, lead, gold, zinc, quartz, wood, sparkcrystal), bronze and brass from molten metal, concrete, fuel, fertilizer and explosives, the fluids steam, molten metal, acid, oil and diesel, a working Lightning Rod, splitter filters, chest limits, the tank and the accumulator. Every building from milestone 1 on needs screws, nails or rods. Not built: a cooler and a research lab (no job for the first, the second would duplicate milestones).
 
 Juice and sound get added to each system as it lands.
 
