@@ -13,6 +13,8 @@ public sealed record Milestone(string Name, (string Item, int Count)[] Need, str
 // Bought once with coins, then worn in its slot: belt, machine, hat or particle.
 public sealed record Cosmetic(string Id, string Slot, string Name, int Cost, Color Color);
 public sealed record Upgrade(string Id, string Name, string Description, int Max, int BaseCost);
+// Paid from storage, then researched by the Research Labs. Done: the Recipe key (Id) is unlocked, so its recipe variant shows up.
+public sealed record Research(string Id, string Name, string Description, (string Item, int Count)[] Cost, int Ticks);
 // A temporary boost bought with coins. Price per minute is multiplied by World.PriceLevel, which grows with progress.
 // Strengths are the multipliers you can brew; the price scales with the bonus (strength - 1) relative to Default.
 public sealed record Potion(string Id, string Name, string Effect, Color Color, int CoinsPerMinute, float[] Strengths, float Default)
@@ -31,12 +33,12 @@ public static class Defs
     public static readonly string[] Ores ={ "iron_ore", "copper_ore", "stone", "coal", "tin_ore", "lead_ore", "gold_ore", "quartz", "wood", "sparkcrystal", "zinc_ore" };
     public const int FirstOres = 4;
     public static readonly string[] BaseUnlocks = { "belt", "crossing", "inserter", "miner", "furnace", "pole", "generator" };
-    public static readonly string[] BuildOrder = { "belt", "fast_belt", "express_belt", "turbo_belt", "hyper_belt", "ultra_belt", "crossing", "inserter", "inserter_mk2", "inserter_mk3", "miner", "miner_mk2", "miner_mk3", "furnace", "furnace_mk2", "furnace_mk3", "assembler", "assembler_mk2", "assembler_mk3", "chest", "pole", "big_pole", "super_pole", "generator", "splitter", "fast_splitter", "hyper_splitter", "tunnel", "fast_tunnel", "hyper_tunnel", "pipe", "pipe_tunnel", "pump", "refinery", "solar", "lightning_rod", "tank", "accumulator" };
+    public static readonly string[] BuildOrder = { "belt", "fast_belt", "express_belt", "turbo_belt", "hyper_belt", "ultra_belt", "crossing", "inserter", "inserter_mk2", "inserter_mk3", "miner", "miner_mk2", "miner_mk3", "furnace", "furnace_mk2", "furnace_mk3", "assembler", "assembler_mk2", "assembler_mk3", "chest", "pole", "big_pole", "super_pole", "generator", "splitter", "fast_splitter", "hyper_splitter", "tunnel", "fast_tunnel", "hyper_tunnel", "pipe", "pipe_tunnel", "pump", "refinery", "solar", "lightning_rod", "tank", "accumulator", "lab" };
     // Every building has a hotbar slot, locked ones greyed out, so slots never shift when something unlocks.
     // Keys 1-9 and 0 reach the first ten. Pressing a tiered slot again (belts, poles) steps through its unlocked tiers.
     // Sandbox tools: no milestone unlocks them, so outside sandbox they stay locked and hidden.
     public static readonly string[] SandboxOnly = { "source", "void" };
-    public static readonly string[] HotbarOrder = { "belt", "inserter", "miner", "furnace", "crossing", "splitter", "tunnel", "assembler", "chest", "pole", "generator", "pipe", "pipe_tunnel", "pump", "refinery", "solar", "lightning_rod", "tank", "accumulator" };
+    public static readonly string[] HotbarOrder = { "belt", "inserter", "miner", "furnace", "crossing", "splitter", "tunnel", "assembler", "chest", "pole", "generator", "pipe", "pipe_tunnel", "pump", "refinery", "solar", "lightning_rod", "tank", "accumulator", "lab" };
 
     // Power (kW) a machine draws while it works. Power only ever speeds things up: see World.PowerBoost.
     public static readonly Dictionary<string, float> PowerUse = new() { ["miner"] = 90, ["furnace"] = 90, ["assembler"] = 75, ["inserter"] = 15, ["pump"] = 30, ["refinery"] = 120 };
@@ -95,7 +97,7 @@ public static class Defs
     public static readonly Milestone[] Milestones =
     {
         new("First Plates", new[] { ("iron_plate", 40), ("copper_plate", 20) }, new[] { "assembler", "chest", "splitter", "tunnel" }),
-        new("Gears Turning", new[] { ("gear", 40), ("copper_wire", 60) }, new[] { "fast_belt", "steel", "big_pole", "miner_mk2", "furnace_mk2", "inserter_mk2", "lightning_rod" }),
+        new("Gears Turning", new[] { ("gear", 40), ("copper_wire", 60) }, new[] { "fast_belt", "steel", "big_pole", "miner_mk2", "furnace_mk2", "inserter_mk2", "lightning_rod", "lab" }),
         new("Smart Factory", new[] { ("circuit", 30), ("steel_plate", 15) }, new[] { "express_belt", "super_pole", "pipe", "pipe_tunnel", "pump", "refinery", "assembler_mk2", "fast_splitter", "fast_tunnel", "molten_metal", "bronze_plate", "brass_plate", "steam" }),
         new("Clear Glass", new[] { ("plastic", 40), ("sulfur", 30) }, new[] { "sand", "glass", "lens", "battery", "motor", "lamp", "turbo_belt", "concrete", "acid", "fertilizer", "tank", "accumulator" }),
         new("Bright Ideas", new[] { ("lamp", 40), ("battery", 30), ("motor", 30) }, new[] { "smart_chip", "frame", "toy_robot", "clock", "solar_panel", "solar", "hyper_belt", "miner_mk3", "furnace_mk3", "inserter_mk3", "hyper_splitter", "hyper_tunnel", "oil", "diesel", "fuel", "explosive" }),
@@ -111,6 +113,16 @@ public static class Defs
         new("power", "Bigger Generators", "+20% power from every generator", 5, 120),
         new("pump", "Strong Pumps", "+25% water from every pump", 4, 200),
         new("pole_range", "Long Wires", "+2 tiles of wire reach for every pole", 3, 250),
+    };
+
+    // Each research unlocks the recipe variant that has the same Unlock key (see the end of the recipe list). Labs share the work: two labs take half the time.
+    public static readonly Research[] Researches =
+    {
+        new("research_bulk_gears", "Bulk Gears", "Assembler: 3 iron plates make 2 gears", new[] { ("gear", 30), ("iron_plate", 50) }, 1200),
+        new("research_bulk_circuits", "Bulk Circuits", "Assembler: 3 iron plates and 8 copper wire make 4 circuits", new[] { ("circuit", 30), ("copper_wire", 100) }, 1800),
+        new("research_spark_sulfur", "Spark Sulfur", "Assembler: 1 sparkcrystal makes 3 sulfur, no refinery needed", new[] { ("sulfur", 20), ("sparkcrystal", 10) }, 1800),
+        new("research_wood_plastic", "Wood Plastic", "Refinery: 20 water and 2 wood make 3 plastic", new[] { ("plastic", 30), ("wood", 20) }, 2400),
+        new("research_quartz_glass", "Quartz Glass", "Assembler: 1 quartz makes 3 glass", new[] { ("glass", 30), ("quartz", 10) }, 2400),
     };
 
     public static readonly Potion[] Potions =
@@ -249,6 +261,7 @@ public static class Defs
         Building("lightning_rod", "Lightning Rod", 1, ("lightning_rod", 1), ("steel_plate", 2)); // the item, on a steel foot
         Building("tank", "Tank", 1, ("steel_plate", 4), ("brass_plate", 4), ("iron_rod", 4));
         Building("accumulator", "Accumulator", 1, ("battery", 5), ("bronze_plate", 4), ("copper_screw", 6));
+        Building("lab", "Research Lab", 1, ("gear", 6), ("copper_wire", 10), ("iron_screw", 8));
         Building("hub", "Hub", 3);
         Building("source", "Item Source", 1);
         Building("void", "Item Void", 1);
@@ -300,6 +313,12 @@ public static class Defs
         Recipes.Add(new("drone", "assembler", new[] { ("motor", 2), ("smart_chip", 1), ("frame", 1), ("battery", 1) }, "drone", 1, 120, "drone"));
         Recipes.Add(new("computer", "assembler", new[] { ("smart_chip", 3), ("frame", 1), ("glass", 1) }, "computer", 1, 120, "computer"));
         Recipes.Add(new("sky_beacon", "assembler", new[] { ("drone", 1), ("computer", 1), ("solar_panel", 2), ("lens", 2) }, "sky_beacon", 1, 200, "sky_beacon"));
+        // Variants a Research Lab unlocks. They go last so every lookup by output item still finds the plain recipe first.
+        Recipes.Add(new("gear_bulk", "assembler", new[] { ("iron_plate", 3) }, "gear", 2, 30, "research_bulk_gears"));
+        Recipes.Add(new("circuit_bulk", "assembler", new[] { ("iron_plate", 3), ("copper_wire", 8) }, "circuit", 4, 100, "research_bulk_circuits"));
+        Recipes.Add(new("sulfur_spark", "assembler", new[] { ("sparkcrystal", 1) }, "sulfur", 3, 40, "research_spark_sulfur"));
+        Recipes.Add(new("plastic_wood", "refinery", new[] { ("water", 20), ("wood", 2) }, "plastic", 3, 40, "research_wood_plastic"));
+        Recipes.Add(new("glass_quartz", "assembler", new[] { ("quartz", 1) }, "glass", 3, 40, "research_quartz_glass"));
     }
 
     static void Item(string id, string name, string hex, int price) => Items[id] = new ItemDef(id, name, new Color(hex), price);

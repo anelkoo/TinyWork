@@ -32,6 +32,9 @@ public sealed class SaveData
     public SessionStats LastSession; // the session that wrote this save, for the "welcome back" card
     public List<string> Cosmetics = new();
     public Dictionary<string, string> Equipped = new();
+    public List<string> Researched = new();
+    public string Researching;
+    public int ResearchProgress;
 }
 
 public sealed class PotionSave { public string Id; public float Strength; public long Ticks; }
@@ -115,6 +118,9 @@ public sealed class World
 
     // ---------- Cosmetics ----------
     public readonly HashSet<string> Owned = new();
+    public readonly HashSet<string> Researched = new();
+    public string Researching;   // the research the labs are working on, or null
+    public int ResearchProgress; // lab-ticks done on it
     public readonly Dictionary<string, string> Equipped = new(); // slot -> cosmetic id
     public Cosmetic Worn(string slot) => Equipped.TryGetValue(slot, out var id) ? Defs.CosmeticById(id) : null;
 
@@ -202,7 +208,7 @@ public sealed class World
     // Buildings and recipes: the base set, plus whatever finished milestones unlocked. Sandbox has everything.
     public bool IsUnlocked(string key)
     {
-        if (key == null || Free || Array.IndexOf(Defs.BaseUnlocks, key) >= 0) return true;
+        if (key == null || Free || Array.IndexOf(Defs.BaseUnlocks, key) >= 0 || Researched.Contains(key)) return true;
         for (int i = 0; i < MilestoneIndex && i < Defs.Milestones.Length; i++)
             if (Array.IndexOf(Defs.Milestones[i].Unlocks, key) >= 0) return true;
         return false;
@@ -255,6 +261,34 @@ public sealed class World
 
     public const int RawBatch = 10;
     public static long RawCost(string ore) => RawBatch * Defs.Items[ore].Price * 2;
+
+    public int LabCount => Entities.Count(e => e is Lab);
+
+    // Takes the cost from storage and starts the research. One at a time, and it needs a lab.
+    public bool StartResearch(string id)
+    {
+        var r = Array.Find(Defs.Researches, x => x.Id == id);
+        if (r == null || Researching != null || Researched.Contains(id) || LabCount == 0) return false;
+        foreach (var (item, n) in r.Cost) if (Storage.GetValueOrDefault(item) < n) return false;
+        foreach (var (item, n) in r.Cost) AddStorage(item, -n);
+        Researching = id;
+        ResearchProgress = 0;
+        Emit("research_start", Vector2I.Zero, id);
+        return true;
+    }
+
+    void StepResearch()
+    {
+        if (Researching == null) return;
+        var r = Array.Find(Defs.Researches, x => x.Id == Researching);
+        if (r == null) { Researching = null; return; }
+        ResearchProgress += LabCount;
+        if (ResearchProgress < r.Ticks) return;
+        Researched.Add(r.Id);
+        Researching = null;
+        ResearchProgress = 0;
+        Emit("researched", Vector2I.Zero, r.Id);
+    }
 
     public bool BuyRaw(string ore)
     {
@@ -513,6 +547,7 @@ public sealed class World
         BeltPass = 0;
         if (Tick % 20 == 0) AutoSellPass();
         StepPotions();
+        StepResearch();
         if (Tick % StatBucketTicks == 0)
         {
             History.Add(_bucket);
@@ -867,6 +902,9 @@ public sealed class World
         s.LastSession = Session;
         s.Cosmetics.AddRange(Owned.OrderBy(x => x, StringComparer.Ordinal));
         foreach (var kv in Equipped) s.Equipped[kv.Key] = kv.Value;
+        s.Researched.AddRange(Researched.OrderBy(x => x, StringComparer.Ordinal));
+        s.Researching = Researching;
+        s.ResearchProgress = ResearchProgress;
         EnsureFluids();
         SpreadFluids();
         foreach (var e in Entities)
@@ -894,6 +932,12 @@ public sealed class World
         w.LastSession = s.LastSession;
         foreach (var id in s.Cosmetics ?? new()) if (Defs.CosmeticById(id) != null) w.Owned.Add(id);
         foreach (var kv in s.Equipped ?? new()) w.Wear(kv.Key, kv.Value);
+        foreach (var id in s.Researched ?? new()) if (Array.Exists(Defs.Researches, x => x.Id == id)) w.Researched.Add(id);
+        if (s.Researching != null && Array.Exists(Defs.Researches, x => x.Id == s.Researching) && !w.Researched.Contains(s.Researching))
+        {
+            w.Researching = s.Researching;
+            w.ResearchProgress = Math.Max(0, s.ResearchProgress);
+        }
         foreach (var d in s.Entities ?? new())
         {
             if (d?.Type == null || !Defs.Buildings.ContainsKey(d.Type) || Entity.Create(d.Type) is not { } e) { GD.PushWarning($"Unknown building '{d?.Type}' skipped"); continue; }

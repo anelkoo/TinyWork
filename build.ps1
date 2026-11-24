@@ -23,6 +23,10 @@ foreach ($preset in "Linux", "Windows") {
     if (-not (Test-Path $out)) { throw "$preset export failed, see the output above" }
 }
 
+# Jumpscare frames and sound are loaded from a FramesAndSound folder next to the game (gitignored, local only).
+if (-not (Test-Path FramesAndSound)) { throw "FramesAndSound folder missing, the jumpscare would not work" }
+foreach ($d in "export/linux", "export/windows") { Copy-Item FramesAndSound "$d/FramesAndSound" -Recurse }
+
 # Linux portable: Python's tar keeps the exec bit that a Windows tar would lose.
 python -c @"
 import tarfile, pathlib

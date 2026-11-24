@@ -432,6 +432,10 @@ public sealed partial class WorldView : Node2D
                 case "upgraded" or "bought":
                     Sfx.Play("coin");
                     break;
+                case "researched":
+                    Toast?.Invoke($"Research done: {Array.Find(Defs.Researches, x => x.Id == e.Id)?.Name}");
+                    Sfx.Play("milestone", 0);
+                    break;
             }
         }
         // Batch Hub deliveries into "+N" numbers so 8 items/s stays readable.
@@ -620,6 +624,10 @@ public sealed partial class WorldView : Node2D
                 case LightningRod lr:
                     Sprite(Sprites.Icons["lightning_rod"], c, 0, sq);
                     if (lr.Charge > 0 && prod) DrawRect(new Rect2(c + new Vector2(-2, -9), new Vector2(4, 4)), Bolt with { A = 0.5f + 0.4f * Mathf.Sin(_time * 30) }); // the tip glows while charged
+                    break;
+                case Lab lab:
+                    Sprite(Sprites.Icons["lab"], c, 0, sq);
+                    if (lab.Working && prod) DrawRect(new Rect2(c + new Vector2(-1 + (int)(_time * 4) % 3, -6 - (int)(_time * 5) % 4), Vector2.One), Sprites.Glow with { A = 0.8f }); // a bubble rising from the flask
                     break;
                 case ItemVoid:
                     Sprite(Sprites.Icons["void"], c, J("production") ? _time * 2 : 0, sq);

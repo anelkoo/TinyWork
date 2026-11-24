@@ -53,6 +53,7 @@ public abstract class Entity
         "hub" => new Hub(),
         "solar" => new Solar(),
         "lightning_rod" => new LightningRod(),
+        "lab" => new Lab(),
         "source" => new ItemSource(),
         "void" => new ItemVoid(),
         _ => null,
@@ -525,6 +526,12 @@ public sealed class LightningRod : Entity
 
     public override void Save(EntityData d) => d.N = Charge;
     public override void Load(EntityData d) => Charge = Math.Clamp(d.N, 0, Defs.LightningTicks);
+}
+
+// Does the work of the current research (World.Researching); every lab adds one tick of progress per tick.
+public sealed class Lab : Entity
+{
+    public override void Tick(World w) => Working = w.Researching != null;
 }
 
 public sealed class Hub : Entity

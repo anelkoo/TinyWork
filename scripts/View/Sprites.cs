@@ -155,6 +155,7 @@ public static class Sprites
         Icons["void"] = PaintVoid().Tex();
         Icons["solar"] = PaintSolar().Tex();
         Icons["lightning_rod"] = PaintLightningRod().Tex();
+        Icons["lab"] = PaintLab().Tex();
         Icons["tank"] = PaintTank().Tex();
         Icons["accumulator"] = PaintAccumulator().Tex();
         // A higher tier without its own art is its base with one pip per tier in the top-left corner.
@@ -218,6 +219,18 @@ public static class Sprites
         c.R(7, 3, 2, 9, copper); c.R(6, 3, 1, 9, Ink); c.R(9, 3, 1, 9, Ink);
         c.R(7, 1, 2, 2, new Color("e8c15a")); c.P(7, 0, Ink); c.P(8, 0, Ink);
         c.R(5, 6, 6, 1, copper.Darkened(0.3f));
+        return c;
+    }
+
+    // Research lab: a bench with a glowing flask on it.
+    static Canvas PaintLab()
+    {
+        var c = new Canvas(T, T);
+        c.Box(1, 10, 14, 5, MetalDark, Ink);
+        c.Box(5, 4, 6, 7, new Color("a9dcef"), Ink);     // flask
+        c.R(6, 7, 4, 3, new Color("7ee8d8"));            // the liquid
+        c.R(7, 1, 2, 4, Ink); c.P(8, 2, Glow);           // neck
+        c.P(7, 8, Colors.White);
         return c;
     }
 

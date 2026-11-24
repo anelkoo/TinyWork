@@ -38,7 +38,7 @@ public sealed partial class Hud
         var def = Defs.Items[id];
         string N(string x) => Defs.Items[x].Name;
         string Ins((string Item, int Count)[] list) => string.Join(" + ", list.Select(x => $"{x.Count} {N(x.Item)}"));
-        string Milestone(string unlock) => unlock == null ? "" : $"  (milestone {Defs.UnlockTier(unlock)})";
+        string Milestone(string unlock) => unlock == null ? "" : unlock.StartsWith("research_") ? "  (research)" : $"  (milestone {Defs.UnlockTier(unlock)})";
 
         Label stored = null;
         var back = Ui.MakeButton("All items", OpenItems, Sfx);

@@ -42,6 +42,7 @@ public static class SelfTest
         Test("strongest potion runs first, weaker ones wait, never multiplied", PotionOrder);
         Test("potions from v0.0.3 saves still load", LegacyPotions);
         Test("better deals and bigger generators upgrades work", NewUpgrades);
+        Test("research needs a lab, costs storage, unlocks a recipe and survives a save", ResearchWorks);
         Test("big poles wire far, but only to each other", BigPoles);
         Test("drawing across a line makes a crossing; splitter commits and never jams", CrossAndSplit);
         Test("side-loaded items glide in from the side edge", SideGlide);
@@ -1136,6 +1137,27 @@ public static class SelfTest
         s.Potions["rock_crusher"] = World.TicksPerMinute; // how v0.0.3 stored a potion
         var w = World.FromSave(Persist.Deserialize(Persist.Serialize(s)));
         Check(w.Strength("rock_crusher") == 5f && w.PotionMinutesLeft("rock_crusher", 5f) == 1, "an old potion loads at its old strength (x5)");
+    }
+
+    static void ResearchWorks()
+    {
+        var w = World.New("t", "normal", false, 1);
+        var r = Defs.Researches[0];
+        w.MilestoneIndex = 2;
+        foreach (var (item, n) in r.Cost) w.Storage[item] = n;
+        Check(!w.StartResearch(r.Id), "no lab, no research");
+        foreach (var (item, n) in Defs.Buildings["lab"].Cost) w.Storage[item] = n;
+        Check(w.Place("lab", new(5, 5), 0) != null, "the lab can be placed after milestone 2");
+        foreach (var (item, n) in r.Cost) w.Storage[item] = n;
+        Check(!w.IsUnlocked(r.Id) && w.StartResearch(r.Id), "research starts with a lab and the items");
+        Check(r.Cost.All(c => w.Storage.GetValueOrDefault(c.Item) == 0), "the cost came out of storage");
+        for (int i = 0; i < r.Ticks / 2; i++) w.Step();
+        var b = World.FromSave(Persist.Deserialize(Persist.Serialize(w.ToSave())));
+        Check(b.Researching == r.Id && b.ResearchProgress == w.ResearchProgress, "research in progress survives a save");
+        for (int i = 0; i < r.Ticks; i++) w.Step();
+        Check(w.Researching == null && w.IsUnlocked(r.Id), "research finishes and unlocks its recipe");
+        Check(World.FromSave(Persist.Deserialize(Persist.Serialize(w.ToSave()))).IsUnlocked(r.Id), "finished research survives a save");
+        foreach (var re in Defs.Researches) Check(Defs.Recipes.Any(x => x.Unlock == re.Id), $"{re.Id} unlocks no recipe");
     }
 
     static void NewUpgrades()

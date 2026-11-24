@@ -345,7 +345,7 @@ public sealed partial class Hud : Control
         var r = Defs.Recipes.FirstOrDefault(x => x.Out == item);
         if (r == null) return name;
         var ins = string.Join(" + ", r.In.Select(x => $"{x.Count} {N(x.Item)}"));
-        return $"{name}\n{Defs.Buildings[r.Machine].Name}: {ins} makes {r.OutCount} {name}" + (r.Unlock == null ? "" : $"\nUnlocks with milestone {Defs.UnlockTier(r.Unlock)}");
+        return $"{name}\n{Defs.Buildings[r.Machine].Name}: {ins} makes {r.OutCount} {name}" + (r.Unlock == null ? "" : r.Unlock.StartsWith("research_") ? "\nUnlocked by research" : $"\nUnlocks with milestone {Defs.UnlockTier(r.Unlock)}");
     }
 
     static string UnlockNames(Milestone m) =>
@@ -509,6 +509,7 @@ public sealed partial class Hud : Control
             case Inserter i: OpenFilterPicker(i); break;
             case Splitter sp: PickItem("Splitter filter", "This item goes out to the sides, everything else straight on. Without a filter items take turns on all three outputs.", sp.Filter, true, id => sp.Filter = id); break;
             case Chest c: OpenChest(c); break;
+            case Lab: OpenLab(); break;
             case Pipe p: OpenPipe(p); break;
             case Pole or Generator or Solar or Accumulator: OpenPower(e); break;
             case ItemSource src: PickItem("Item source", "Makes this item out of nothing and hands it to the tile in front.", src.Item, false, id => src.Item = id); break;
@@ -702,6 +703,39 @@ public sealed partial class Hud : Control
             Ui.Squishy(b);
             grid.AddChild(b);
         }
+    }
+
+    // Research is paid from storage. Each finished one unlocks a recipe variant in the assembler or refinery.
+    void OpenLab()
+    {
+        Label status = null;
+        var buttons = new List<(Research R, Button B)>();
+        var body = OpenPanel("Research Lab", 460, () =>
+        {
+            var cur = W.Researching == null ? null : Array.Find(Defs.Researches, x => x.Id == W.Researching);
+            status.Text = cur == null ? "Idle. Pick a research." : $"Researching {cur.Name}: {Math.Min(100, 100 * W.ResearchProgress / cur.Ticks)}%";
+            foreach (var (r, b) in buttons)
+            {
+                bool done = W.Researched.Contains(r.Id), afford = r.Cost.All(c => W.Storage.GetValueOrDefault(c.Item) >= c.Count);
+                b.Text = done ? "Done" : W.Researching == r.Id ? "Working" : "Start";
+                b.Disabled = done || W.Researching != null || !afford;
+            }
+        });
+        status = Ui.MakeLabel("", 14, Ui.Muted);
+        body.AddChild(status);
+        foreach (var r in Defs.Researches)
+        {
+            var b = Ui.MakeButton("Start", () => { if (!W.StartResearch(r.Id)) Sfx.Play("error"); }, Sfx);
+            b.CustomMinimumSize = new Vector2(90, 36);
+            buttons.Add((r, b));
+            var info = new VBoxContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill };
+            info.AddChild(Ui.MakeLabel(r.Name, 15));
+            var desc = Ui.MakeLabel($"{r.Description}\nCosts {string.Join(", ", r.Cost.Select(c => $"{c.Count} {Defs.Items[c.Item].Name}"))}, takes {r.Ticks / 20}s with one lab", 12, Ui.Muted);
+            desc.AutowrapMode = TextServer.AutowrapMode.WordSmart;
+            info.AddChild(desc);
+            body.AddChild(Ui.Row(info, b));
+        }
+        body.AddChild(Ui.MakeLabel("More labs share the work and finish sooner.", 12, Ui.Muted));
     }
 
     void OpenChest(Chest c)
