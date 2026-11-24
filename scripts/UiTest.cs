@@ -300,11 +300,22 @@ public partial class Main
         Shot("20c_item_detail");
         Key(Godot.Key.Escape);
         await Wait(0.2);
+        var scareDir = Path.Combine(outDir, "scare"); // three plain frames, so the check needs no real pictures
+        Directory.CreateDirectory(scareDir);
+        foreach (var n in new[] { 1, 2, 10 })
+        {
+            var img = Image.CreateEmpty(64, 36, false, Image.Format.Rgba8);
+            img.Fill(Colors.Red with { A = 0.5f });
+            img.SavePng(Path.Combine(scareDir, $"frame-{n}.png"));
+        }
+        Check(Jumpscare.FrameFiles(scareDir).Select(Path.GetFileName).SequenceEqual(new[] { "frame-1.png", "frame-2.png", "frame-10.png" }), "jumpscare frames play in number order");
         Jumpscare.Show(_sfx, null);
-        await Wait(0.3);
+        Check(!FindAll<Jumpscare>(GetTree().Root).Any(), "no folder, no jumpscare");
+        Jumpscare.Show(_sfx, scareDir);
+        await Wait(0.05);
         Check(FindAll<Jumpscare>(GetTree().Root).Any(), "a jumpscare opens its own window");
-        await Wait(1.3);
-        Check(!FindAll<Jumpscare>(GetTree().Root).Any(), "the jumpscare window closes by itself");
+        await Wait(0.3);
+        Check(!FindAll<Jumpscare>(GetTree().Root).Any(), "the jumpscare window closes after its last frame");
         var spot = new Vector2I(-12, -12);
         foreach (var (item, n) in Defs.Buildings["chest"].Cost) _world.AddStorage(item, n * 2); // enough for the chest and its redo
         _world.BeginAction(); _world.Place("chest", spot, 0); _world.EndAction();

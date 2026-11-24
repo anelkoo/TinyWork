@@ -25,7 +25,7 @@ public sealed class Settings
     public float SfxVolume = 0.8f, MusicVolume = 0.6f;
     public string MusicFolder; // null = the built-in music
     public int ScareChance = 1;  // a jumpscare's chance every second, out of 10000; 0 = never
-    public string ScareFolder;   // the player's own jumpscare frames and sound; null = the built-in face
+    public string ScareFolder;   // the player's own jumpscare frames and sound; null = no jumpscare
     // Juice families: place, production, screen, ui. Each can be off in normal or mini mode.
     public Dictionary<string, bool> Juice = new();
 

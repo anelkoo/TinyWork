@@ -135,8 +135,8 @@ public static class SettingsUi
             int n = Jumpscare.FrameFiles(s.ScareFolder).Count;
             bool snd = Jumpscare.SoundFile(s.ScareFolder) != null;
             var folder = Path.GetFileName(Path.TrimEndingDirectorySeparator(s.ScareFolder ?? ""));
-            name.Text = s.ScareFolder == null ? "Built-in" : n == 0 ? $"{folder}: no pictures, using built-in" : $"{folder} ({n} frames{(snd ? ", sound" : "")})";
-            name.TooltipText = s.ScareFolder ?? "A face drawn by the game";
+            name.Text = s.ScareFolder == null ? "None: no jumpscare" : n == 0 ? $"{folder}: no pictures, no jumpscare" : $"{folder} ({n} frames{(snd ? ", sound" : "")})";
+            name.TooltipText = s.ScareFolder ?? "Pick a folder with frames and a sound";
             builtIn.Visible = s.ScareFolder != null;
         }
         var dialog = new FileDialog { FileMode = FileDialog.FileModeEnum.OpenDir, Access = FileDialog.AccessEnum.Filesystem, UseNativeDialog = true, Title = "Pick a folder with frames (PNG, JPG) and a sound (WAV, OGG, MP3)" };
@@ -146,7 +146,7 @@ public static class SettingsUi
             if (s.ScareFolder != null && Directory.Exists(s.ScareFolder)) dialog.CurrentDir = s.ScareFolder;
             dialog.PopupCentered(new Vector2I(720, 480));
         }, sfx);
-        builtIn = Ui.MakeButton("Built-in", () => { s.ScareFolder = null; Show(); apply(); }, sfx);
+        builtIn = Ui.MakeButton("None", () => { s.ScareFolder = null; Show(); apply(); }, sfx);
         var test = Ui.MakeButton("Test", () => Jumpscare.Show(sfx, s.ScareFolder), sfx);
         var row = Line("Pictures and sound", name, pick, builtIn, test);
         row.AddChild(dialog);
