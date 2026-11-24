@@ -4,6 +4,8 @@ Everything that changed since the last release goes under "Unreleased". A new re
 
 ## Unreleased
 
+## v0.1.2 Beta (2026-11-24)
+
 - A secret: click the "Tiny Works" logo on the title screen 10 times. It unlocks jumpscares with a big celebration (banner, confetti, flash and screen shake). Jumpscares are off until then.
 - Jumpscare: once unlocked, every second there is a 1 in 500 chance of a jumpscare in its own see-through window over the whole screen, even while the game is hidden or in the mini window. It never takes a click. Settings > Jumpscare sets the chance with two numbers, for example 1 / 10 (0 on the left = never), and has its own volume slider. While the jumpscare sound plays, the device volume goes up to 100% and is unmuted, then goes back to what it was (Windows, and Linux with pactl). A checkbox in the same section turns this off. The frames and the sound come from a FramesAndSound folder next to the game, which is not part of the download.
 - Potions remember the strength you picked last, per potion, also after a restart. The Brew your own slider uses the same memory.

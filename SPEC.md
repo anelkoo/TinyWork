@@ -149,6 +149,7 @@ Each step ends in something playable:
    v0.0.7 added screws, nails and rods (now in building costs), six belt tiers, Mk2/Mk3 machines, upgrading in place, own music and the Belt Rush potion.
    v0.1.0 finished the materials plan: seven new ores (tin, lead, gold, zinc, quartz, wood, sparkcrystal), bronze and brass from molten metal, concrete, fuel, fertilizer and explosives, the fluids steam, molten metal, acid, oil and diesel, a working Lightning Rod, splitter filters, chest limits, the tank and the accumulator. Every building from milestone 1 on needs screws, nails or rods. Not built: a cooler and a research lab (no job for the first, the second would duplicate milestones).
    v0.1.1 added the item book (I), fixed Hub tabs, brew sliders for strength and length, a faster camera that ignores keys typed into fields, and an easier mini-window resize.
+   v0.1.2 made saves safer (flushed to disk, a backup of the previous save, a check before writing), remembers potion strengths and hides a jumpscare secret behind the title logo.
 
 Juice and sound get added to each system as it lands.
 
