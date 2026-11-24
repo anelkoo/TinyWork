@@ -13,23 +13,32 @@ public sealed partial class Hud
     public void OpenItems()
     {
         var body = OpenPanel("Items", 660);
+        int cols = _mini ? 2 : 3;
+        Control Make(string id)
+        {
+            var b = new Button { Text = Defs.Items[id].Name, Icon = Sprites.Items[id], ExpandIcon = true, CustomMinimumSize = new Vector2(_mini ? 150 : 206, 40), Alignment = HorizontalAlignment.Left, ClipText = true, FocusMode = FocusModeEnum.None };
+            b.AddThemeConstantOverride("icon_max_width", 22);
+            b.Pressed += () => { W.Used("items", id); Sfx.Play("click"); OpenItem(id); };
+            Ui.Squishy(b);
+            return b;
+        }
+        var add = SearchBox(body, "items", Defs.Items.Keys, Make, cols);
         string group = null;
         GridContainer grid = null;
+        Label head = null;
         foreach (var id in Defs.Items.Keys.OrderBy(Defs.GroupIndex))
         {
             if (Defs.GroupOf(id) != group)
             {
-                GroupHead(body, ref group, id);
-                grid = new GridContainer { Columns = _mini ? 2 : 3 };
+                head = GroupHead(body, ref group, id);
+                grid = new GridContainer { Columns = cols };
                 grid.AddThemeConstantOverride("h_separation", 6);
                 grid.AddThemeConstantOverride("v_separation", 6);
                 body.AddChild(grid);
             }
-            var b = new Button { Text = Defs.Items[id].Name, Icon = Sprites.Items[id], ExpandIcon = true, CustomMinimumSize = new Vector2(_mini ? 150 : 206, 40), Alignment = HorizontalAlignment.Left, ClipText = true, FocusMode = FocusModeEnum.None };
-            b.AddThemeConstantOverride("icon_max_width", 22);
-            b.Pressed += () => { Sfx.Play("click"); OpenItem(id); };
-            Ui.Squishy(b);
+            var b = Make(id);
             grid.AddChild(b);
+            add(b, Defs.Items[id].Name, head);
         }
     }
 

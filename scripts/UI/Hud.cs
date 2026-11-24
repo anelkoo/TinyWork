@@ -553,20 +553,29 @@ public sealed partial class Hud : Control
     public void OpenBuildMenu()
     {
         var body = OpenPanel("All Buildings", 660);
-        var grid = new GridContainer { Columns = _mini ? 2 : 3 }; // three columns: room for "Hyper Underground Belt" and its icon
-        grid.AddThemeConstantOverride("h_separation", 6);
-        grid.AddThemeConstantOverride("v_separation", 6);
-        body.AddChild(grid);
-        foreach (var id in Defs.BuildOrder.Concat(W.Free ? Defs.SandboxOnly : Array.Empty<string>()))
+        int cols = _mini ? 2 : 3; // three columns: room for "Hyper Underground Belt" and its icon
+        var ids = Defs.BuildOrder.Concat(W.Free ? Defs.SandboxOnly : Array.Empty<string>()).ToList();
+        Control Make(string id)
         {
             var def = Defs.Buildings[id];
             bool open = W.IsUnlocked(id);
             var b = new Button { Text = def.Name, Icon = Sprites.Icons[id], ExpandIcon = true, Disabled = !open, CustomMinimumSize = new Vector2(_mini ? 150 : 206, 44), Alignment = HorizontalAlignment.Left };
             b.AddThemeConstantOverride("icon_max_width", 24);
             b.TooltipText = open ? $"Costs {Ui.Cost(def.Cost)}" : $"Unlocks with milestone {Defs.UnlockTier(id)}";
-            b.Pressed += () => { View.StopClip(); View.Selected = id; if (Defs.TiersOf(id) != null) S.LastTier[Defs.BaseOf(id)] = id; Sfx.Play("click"); ClosePanel(); };
+            b.Pressed += () => { W.Used("builds", id); View.StopClip(); View.Selected = id; if (Defs.TiersOf(id) != null) S.LastTier[Defs.BaseOf(id)] = id; Sfx.Play("click"); ClosePanel(); };
             Ui.Squishy(b);
+            return b;
+        }
+        var add = SearchBox(body, "builds", ids, Make, cols);
+        var grid = new GridContainer { Columns = cols };
+        grid.AddThemeConstantOverride("h_separation", 6);
+        grid.AddThemeConstantOverride("v_separation", 6);
+        body.AddChild(grid);
+        foreach (var id in ids)
+        {
+            var b = Make(id);
             grid.AddChild(b);
+            add(b, Defs.Buildings[id].Name, null);
         }
         body.AddChild(Ui.MakeLabel("Locked buildings unlock with milestones. Hover one to see which.", 13, Ui.Muted));
     }
@@ -645,19 +654,29 @@ public sealed partial class Hud : Control
     void OpenRecipePicker(Assembler a)
     {
         var body = OpenPanel($"{Defs.Buildings[a.Type].Name}: pick what it makes", 640);
-        string group = null;
-        foreach (var r in Defs.Recipes.Where(r => r.Machine == Defs.BaseOf(a.Type)).OrderBy(r => Defs.GroupIndex(r.Out)))
+        var recipes = Defs.Recipes.Where(r => r.Machine == Defs.BaseOf(a.Type)).OrderBy(r => Defs.GroupIndex(r.Out)).ToList();
+        Control Make(string id)
         {
-            GroupHead(body, ref group, r.Out);
+            var r = recipes.First(x => x.Id == id);
             bool open = W.IsUnlocked(r.Unlock);
             var ins = string.Join(" + ", r.In.Select(x => $"{x.Count} {Defs.Items[x.Item].Name}"));
             var b = new Button { Text = $"{(r.OutCount > 1 ? r.OutCount + " " : "")}{Defs.Items[r.Out].Name}   from {ins}", Icon = Sprites.Items[r.Out], ExpandIcon = true, Disabled = !open, Alignment = HorizontalAlignment.Left, CustomMinimumSize = new Vector2(0, 40), ClipText = true };
             b.TooltipText = b.Text.Trim(); // the button cuts long recipes in a small window
             b.AddThemeConstantOverride("icon_max_width", 20);
             if (a.RecipeId == r.Id) b.AddThemeStyleboxOverride("normal", Ui.Box(Ui.BtnHover, Ui.Accent, 3));
-            b.Pressed += () => { if (a.RecipeId != r.Id) W.SetRecipe(a, r.Id); Sfx.Play("click"); ClosePanel(); };
+            b.Pressed += () => { W.Used("recipes", r.Id); if (a.RecipeId != r.Id) W.SetRecipe(a, r.Id); Sfx.Play("click"); ClosePanel(); };
             Ui.Squishy(b);
+            return b;
+        }
+        var add = SearchBox(body, "recipes", recipes.Select(r => r.Id).ToList(), Make);
+        string group = null;
+        Label head = null;
+        foreach (var r in recipes)
+        {
+            head = GroupHead(body, ref group, r.Out) ?? head;
+            var b = Make(r.Id);
             body.AddChild(b);
+            add(b, Defs.Items[r.Out].Name, head);
         }
         if (a.RecipeId != null)
             body.AddChild(Ui.MakeButton("Stop (clear recipe)", () => { W.SetRecipe(a, null); ClosePanel(); }, Sfx));
@@ -669,11 +688,14 @@ public sealed partial class Hud : Control
     }
 
     // A heading before the first item of each group in a list.
-    static void GroupHead(VBoxContainer body, ref string last, string id)
+    // Returns the heading, or null when id is still in the same group.
+    static Label GroupHead(VBoxContainer body, ref string last, string id)
     {
-        if (Defs.GroupOf(id) == last) return;
+        if (Defs.GroupOf(id) == last) return null;
         last = Defs.GroupOf(id);
-        body.AddChild(Ui.MakeLabel(last, 13, Ui.Muted));
+        var head = Ui.MakeLabel(last, 13, Ui.Muted);
+        body.AddChild(head);
+        return head;
     }
 
     void OpenFilterPicker(Inserter ins) =>

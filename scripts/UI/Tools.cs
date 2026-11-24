@@ -116,10 +116,12 @@ public sealed partial class Hud
         else body.AddChild(Ui.MakeLabel("Copy an area first: Ctrl+C, then drag a box over it.", 13, Ui.Muted));
 
         if (all.Count == 0) body.AddChild(Ui.MakeLabel("No blueprints yet. They're shared by every save.", 13, Ui.Muted));
-        foreach (var (key, parts) in all)
+        Control Make(string key)
         {
+            var parts = all[key];
             var use = Ui.MakeButton("Use", () =>
             {
+                W.Used("blueprints", key);
                 ClosePanel();
                 View.StartPaste(parts.Select(p => p).ToList());
                 Toast($"{key}: click to place, R turns it, Esc stops");
@@ -134,7 +136,15 @@ public sealed partial class Hud
                 try { Persist.SaveBlueprints(all); } catch (Exception e) { Toast("Couldn't delete: " + e.Message, Ui.Bad, 5); }
                 OpenBlueprints();
             }, Sfx);
-            body.AddChild(Ui.Row(Ui.Grow(Ui.MakeLabel(key, 15)), Ui.MakeLabel($"{parts.Count} buildings", 13, Ui.Muted), use, del));
+            return Ui.Row(Ui.Grow(Ui.MakeLabel(key, 15)), Ui.MakeLabel($"{parts.Count} buildings", 13, Ui.Muted), use, del);
+        }
+        if (all.Count == 0) return;
+        var add = SearchBox(body, "blueprints", all.Keys, Make);
+        foreach (var key in all.Keys)
+        {
+            var row = Make(key);
+            body.AddChild(row);
+            add(row, key, null);
         }
     }
 

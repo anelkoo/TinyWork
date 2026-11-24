@@ -42,6 +42,7 @@ public static class SelfTest
         Test("strongest potion runs first, weaker ones wait, never multiplied", PotionOrder);
         Test("potions from v0.0.3 saves still load", LegacyPotions);
         Test("better deals and bigger generators upgrades work", NewUpgrades);
+        Test("recently used keeps the last 5, newest first, once each, and survives a save", RecentlyUsed);
         Test("research needs a lab, costs storage, unlocks a recipe and survives a save", ResearchWorks);
         Test("big poles wire far, but only to each other", BigPoles);
         Test("drawing across a line makes a crossing; splitter commits and never jams", CrossAndSplit);
@@ -1158,6 +1159,18 @@ public static class SelfTest
         Check(w.Researching == null && w.IsUnlocked(r.Id), "research finishes and unlocks its recipe");
         Check(World.FromSave(Persist.Deserialize(Persist.Serialize(w.ToSave()))).IsUnlocked(r.Id), "finished research survives a save");
         foreach (var re in Defs.Researches) Check(Defs.Recipes.Any(x => x.Unlock == re.Id), $"{re.Id} unlocks no recipe");
+    }
+
+    static void RecentlyUsed()
+    {
+        var w = World.New("t", "normal", false, 1);
+        foreach (var k in new[] { "a", "b", "c", "d", "e", "f", "c" }) w.Used("items", k);
+        w.Used("builds", "x");
+        Check(string.Join(",", w.Recent["items"]) == "c,f,e,d,b", $"items history is {string.Join(",", w.Recent["items"])}");
+        var b = World.FromSave(Persist.Deserialize(Persist.Serialize(w.ToSave())));
+        Check(string.Join(",", b.Recent["items"]) == "c,f,e,d,b" && b.Recent["builds"][0] == "x", "history survives a save");
+        var old = Persist.Deserialize("{\"Version\":1,\"Name\":\"old\",\"Seed\":1}");
+        Check(World.FromSave(old).Recent.Count == 0, "a save without history loads");
     }
 
     static void NewUpgrades()

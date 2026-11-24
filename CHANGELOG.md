@@ -7,6 +7,7 @@ Everything that changed since the last release goes under "Unreleased". A new re
 - Research Lab (milestone 2, costs gears, copper wire and iron screws): click it to start a research. Each one costs items from storage, takes a while, and unlocks a recipe variant: Bulk Gears and Bulk Circuits (more per plate), Spark Sulfur (sulfur from sparkcrystal in an assembler), Wood Plastic (plastic from water and wood in a refinery) and Quartz Glass (glass from quartz in an assembler). One research runs at a time. More labs share the work and finish sooner. Progress is saved.
 - Better Deals has no level limit anymore. Each level still adds 10% coins on auto-sold items. The price doubles up to level 10 and then grows by half per level.
 - The FramesAndSound folder is now part of every download (installer, zip, deb, Arch package, AppImage, tar.gz), so jumpscares work right after installing.
+- Search field at the top of the assembler recipe list, the blueprints, the item book and the build menu. It filters while you type and ignores capitals, and a part of a name is enough ("pla" finds "Iron Plate"). Each of those lists also has a "Recently used" section with the last 5 things you clicked, newest first, saved with the game. It is hidden while you search or when nothing was used yet.
 
 ## v0.1.2 Beta (2026-11-24)
 

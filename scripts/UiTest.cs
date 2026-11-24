@@ -1,3 +1,4 @@
+using System;
 using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
@@ -482,6 +483,31 @@ public partial class Main
         OpenSettings((t, w) => _hud.OpenPanel(t, w));
         await Wait(0.5);
         Shot("14_mini_settings");
+
+        // Search and "Recently used" in the item book
+        _world.Recent.Clear();
+        _hud.OpenItems();
+        await Wait(0.3);
+        var box = FindAll<LineEdit>(_hud).First(l => l.PlaceholderText == "Search");
+        int allItems = FindAll<Button>(_hud).Count(x => x.IsVisibleInTree() && x.Icon != null);
+        Check(!FindAll<Label>(_hud).Any(l => l.IsVisibleInTree() && l.Text == "Recently used"), "no history yet: no Recently used section");
+        box.Text = "PLATE"; box.EmitSignal(LineEdit.SignalName.TextChanged, "PLATE");
+        await Wait(0.1);
+        var shown = FindAll<Button>(_hud).Where(x => x.IsVisibleInTree() && x.Icon != null && Defs.Items.Values.Any(i => i.Name == x.Text)).ToList();
+        Check(shown.Count > 0 && shown.Count < Defs.Items.Count && shown.All(x => x.Text.Contains("plate", StringComparison.OrdinalIgnoreCase)), $"search filters the list live ({shown.Count} of {Defs.Items.Count})");
+        box.Text = "zzzz"; box.EmitSignal(LineEdit.SignalName.TextChanged, "zzzz");
+        await Wait(0.1);
+        Check(FindAll<Label>(_hud).Any(l => l.IsVisibleInTree() && l.Text == "Nothing matches."), "no match shows a hint");
+        box.Text = ""; box.EmitSignal(LineEdit.SignalName.TextChanged, "");
+        await Wait(0.1);
+        Check(FindAll<Button>(_hud).Count(x => x.IsVisibleInTree() && x.Icon != null) == allItems, "an empty field shows everything again");
+        string[] names = { "Iron Plate", "Gear", "Copper Plate" };
+        foreach (var n in names) { _hud.OpenItems(); await Wait(0.2); FindAll<Button>(_hud).First(x => x.IsVisibleInTree() && x.Text == n).EmitSignal(BaseButton.SignalName.Pressed); await Wait(0.1); }
+        _hud.OpenItems();
+        await Wait(0.3);
+        Check(FindAll<Label>(_hud).Any(l => l.IsVisibleInTree() && l.Text == "Recently used"), "Recently used shows after clicking items");
+        Shot("15_items_recent");
+        _hud.ClosePanel();
 
         GD.Print(_uiFails == 0 ? "UITEST PASS" : $"UITEST FAIL ({_uiFails})");
         GetTree().Quit(_uiFails == 0 ? 0 : 1);

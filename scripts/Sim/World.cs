@@ -35,6 +35,7 @@ public sealed class SaveData
     public List<string> Researched = new();
     public string Researching;
     public int ResearchProgress;
+    public Dictionary<string, List<string>> Recent = new();
 }
 
 public sealed class PotionSave { public string Id; public float Strength; public long Ticks; }
@@ -86,6 +87,16 @@ public sealed class World
     public readonly Dictionary<string, int> Reserve = new();     // kept back from auto-sell
     public readonly Dictionary<string, int> Upgrades = new();
     public const int DefaultReserve = 50;
+    // "Recently used" per list (recipes, blueprints, items, builds): the last RecentMax keys clicked, newest first.
+    public const int RecentMax = 5;
+    public readonly Dictionary<string, List<string>> Recent = new();
+    public void Used(string list, string key)
+    {
+        if (!Recent.TryGetValue(list, out var l)) Recent[list] = l = new();
+        l.Remove(key);
+        l.Insert(0, key);
+        if (l.Count > RecentMax) l.RemoveAt(RecentMax);
+    }
     public int Tutorial; // first-start tutorial: steps done, -1 = hidden
 
     // Game speed is not saved: every load starts at 1x and running.
@@ -905,6 +916,7 @@ public sealed class World
         s.Researched.AddRange(Researched.OrderBy(x => x, StringComparer.Ordinal));
         s.Researching = Researching;
         s.ResearchProgress = ResearchProgress;
+        foreach (var kv in Recent) s.Recent[kv.Key] = new(kv.Value);
         EnsureFluids();
         SpreadFluids();
         foreach (var e in Entities)
@@ -938,6 +950,7 @@ public sealed class World
             w.Researching = s.Researching;
             w.ResearchProgress = Math.Max(0, s.ResearchProgress);
         }
+        foreach (var kv in s.Recent ?? new()) foreach (var key in Enumerable.Reverse(kv.Value ?? new())) w.Used(kv.Key, key);
         foreach (var d in s.Entities ?? new())
         {
             if (d?.Type == null || !Defs.Buildings.ContainsKey(d.Type) || Entity.Create(d.Type) is not { } e) { GD.PushWarning($"Unknown building '{d?.Type}' skipped"); continue; }
