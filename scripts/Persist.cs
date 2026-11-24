@@ -24,7 +24,8 @@ public sealed class Settings
     public string HideKey = "F8", ModeKey = "F7"; // Godot key names, e.g. "Ctrl+Shift+F8"
     public float SfxVolume = 0.8f, MusicVolume = 0.6f;
     public string MusicFolder; // null = the built-in music
-    public int ScareOdds = 10000; // a jumpscare has a 1 in this chance every second; 0 = never
+    public int ScareChance = 1;  // a jumpscare's chance every second, out of 10000; 0 = never
+    public string ScareFolder;   // the player's own jumpscare frames and sound; null = the built-in face
     // Juice families: place, production, screen, ui. Each can be off in normal or mini mode.
     public Dictionary<string, bool> Juice = new();
 

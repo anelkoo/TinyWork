@@ -7,4 +7,8 @@
     <!-- No ICU needed: English-only UI, and minimal Linux installs don't ship libicu. -->
     <InvariantGlobalization>true</InvariantGlobalization>
   </PropertyGroup>
+  <!-- Local mod files next to the project, not part of the game. -->
+  <ItemGroup>
+    <Compile Remove="FunnyFoxy/**" />
+  </ItemGroup>
 </Project>

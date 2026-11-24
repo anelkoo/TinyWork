@@ -4,7 +4,7 @@ Everything that changed since the last release goes under "Unreleased". A new re
 
 ## Unreleased
 
-- Jumpscare: every second there is a 1 in 10,000 chance that a pale face with red eyes jumps at the screen for about a second, with a screech. Settings > Jumpscare sets the chance to 1 in 1,000, 1 in 10,000, 1 in 100,000 or Never.
+- Jumpscare: every second there is a 1 in 10,000 chance of a jumpscare in its own see-through window over the whole screen, even while the game is hidden or in the mini window. It never takes a click. Settings > Jumpscare sets the chance (0 to 10,000 out of 10,000, 0 = never) and has a Test button. Under Pictures and sound you can pick a folder with your own frames (PNG, JPG or WebP, played at 30 fps in number order) and a sound (WAV, OGG or MP3); without one, a face drawn by the game screeches at you.
 
 ## v0.1.1 Beta (2026-11-22)
 
