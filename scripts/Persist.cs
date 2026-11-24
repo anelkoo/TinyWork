@@ -27,6 +27,7 @@ public sealed class Settings
     public int ScareHits = 1, ScareOutOf = 500; // a jumpscare's chance every second: ScareHits in ScareOutOf; 0 = never
     public bool ScareUnlocked; // off until the title logo is clicked 10 times
     public float ScareVolume = 0.8f;
+    public bool ScareMaxDevice = true; // device volume to 100% while the jumpscare sound plays, then back
     public Dictionary<string, float> PotionStrength = new(); // per potion id: the strength last picked
     // Juice families: place, production, screen, ui. Each can be off in normal or mini mode.
     public Dictionary<string, bool> Juice = new();

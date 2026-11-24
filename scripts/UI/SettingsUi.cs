@@ -92,6 +92,9 @@ public static class SettingsUi
             outOf.ValueChanged += v => { s.ScareOutOf = (int)v; apply(); };
             body.AddChild(Line("Chance every second", hits, Ui.MakeLabel("/", 14), outOf));
             body.AddChild(Slider("Volume", 0, 1, s.ScareVolume, v => s.ScareVolume = v, apply)); // not halved in the mini window
+            var maxDevice = new CheckBox { Text = "Turn the device volume up to 100% for it (set back after)", ButtonPressed = s.ScareMaxDevice, FocusMode = Control.FocusModeEnum.None };
+            maxDevice.Toggled += on => { s.ScareMaxDevice = on; apply(); };
+            body.AddChild(maxDevice);
         }
 
         Section(body, "Start");

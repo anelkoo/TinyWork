@@ -318,9 +318,9 @@ public partial class Main
             img.SavePng(Path.Combine(scareDir, $"frame-{n}.png"));
         }
         Check(Jumpscare.FrameFiles(scareDir).Select(Path.GetFileName).SequenceEqual(new[] { "frame-1.png", "frame-2.png", "frame-10.png" }), "jumpscare frames play in number order");
-        Jumpscare.Show(_sfx, 0, Path.Combine(outDir, "missing"));
+        Jumpscare.Show(_sfx, 0, folder: Path.Combine(outDir, "missing"));
         Check(!FindAll<Jumpscare>(GetTree().Root).Any(), "no frames, no jumpscare");
-        Jumpscare.Show(_sfx, 0, scareDir);
+        Jumpscare.Show(_sfx, 0, folder: scareDir);
         await Wait(0.05);
         Check(FindAll<Jumpscare>(GetTree().Root).Any(), "a jumpscare opens its own window");
         await Wait(0.3);

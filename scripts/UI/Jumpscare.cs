@@ -3,6 +3,7 @@ using System.IO;
 using System.Linq;
 using System.Text.RegularExpressions;
 using Godot;
+using TinyWorks.Platform;
 using TinyWorks.View;
 
 namespace TinyWorks.UI;
@@ -17,6 +18,7 @@ public sealed partial class Jumpscare : Control
     static string _loaded; // the folder the cache below belongs to
     static List<Texture2D> _frames = new();
     static AudioStream _sound;
+    static (float Level, bool Muted)? _deviceBefore; // the device volume to give back once the sound ends
 
     float _t;
     TextureRect _pic;
@@ -48,7 +50,7 @@ public sealed partial class Jumpscare : Control
     static string Folder => OS.HasFeature("editor") ? ProjectSettings.GlobalizePath("res://FramesAndSound")
         : Path.Combine(Path.GetDirectoryName(OS.GetExecutablePath()), "FramesAndSound");
 
-    public static void Show(Sfx sfx, float volume, string folder = null) // folder: only the UI test passes its own
+    public static void Show(Sfx sfx, float volume, bool maxDevice = false, string folder = null) // folder: only the UI test passes its own
     {
         folder ??= Folder;
         var root = sfx.GetTree().Root;
@@ -76,9 +78,18 @@ public sealed partial class Jumpscare : Control
             // On the Sfx node, not the window, so the sound plays to its end after the last frame.
             var p = new AudioStreamPlayer { Stream = _sound, VolumeDb = Mathf.LinearToDb(volume) };
             sfx.AddChild(p);
-            p.Finished += p.QueueFree;
+            if (maxDevice && _deviceBefore == null && (_deviceBefore = DeviceVolume.Get()) != null) DeviceVolume.Set(1, false);
+            p.Finished += () => { RestoreDevice(); p.QueueFree(); };
+            p.TreeExiting += RestoreDevice; // the game closing mid-scream still gives the volume back
             p.Play();
         }
+    }
+
+    public static void RestoreDevice()
+    {
+        if (_deviceBefore is not { } v) return;
+        _deviceBefore = null;
+        DeviceVolume.Set(v.Level, v.Muted);
     }
 
     public override void _Process(double delta)
