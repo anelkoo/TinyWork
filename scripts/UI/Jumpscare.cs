@@ -8,8 +8,8 @@ using TinyWorks.View;
 namespace TinyWorks.UI;
 
 // A jumpscare in its own borderless, transparent, click-through window over the whole screen.
-// It plays the player's own frames and sound from a folder they pick (frames at 30 fps, in number order).
-// No folder picked, or no pictures in it: no jumpscare.
+// It plays the frames (30 fps, in number order) and the sound from the FramesAndSound folder: the project folder
+// while developing, next to the executable in a build. The folder is never committed or exported.
 public sealed partial class Jumpscare : Control
 {
     const float Fps = 30;
@@ -45,8 +45,12 @@ public sealed partial class Jumpscare : Control
         };
     }
 
-    public static void Show(Sfx sfx, string folder)
+    static string Folder => OS.HasFeature("editor") ? ProjectSettings.GlobalizePath("res://FramesAndSound")
+        : Path.Combine(Path.GetDirectoryName(OS.GetExecutablePath()), "FramesAndSound");
+
+    public static void Show(Sfx sfx, string folder = null) // folder: only the UI test passes its own
     {
+        folder ??= Folder;
         var root = sfx.GetTree().Root;
         if (root.GetChildren().OfType<Window>().Any(w => w.GetChildCount() > 0 && w.GetChild(0) is Jumpscare)) return; // one at a time
         Load(folder);

@@ -35,7 +35,7 @@ public partial class Main
         T Find<T>() where T : Entity => _world.Entities.OfType<T>().First();
         void CtrlKey(Key k, bool shift = false) { Input.ParseInputEvent(new InputEventKey { Keycode = k, CtrlPressed = true, ShiftPressed = shift, Pressed = true }); Input.ParseInputEvent(new InputEventKey { Keycode = k, CtrlPressed = true, Pressed = false }); }
 
-        _s.ScareChance = 0; // no surprise jumpscare in the middle of the screenshots
+        _s.ScareHits = 0; // no surprise jumpscare in the middle of the screenshots
         LoadGame(_s.LastSlot);
         await Wait(0.35);
         Shot("01_celebration");
@@ -309,8 +309,8 @@ public partial class Main
             img.SavePng(Path.Combine(scareDir, $"frame-{n}.png"));
         }
         Check(Jumpscare.FrameFiles(scareDir).Select(Path.GetFileName).SequenceEqual(new[] { "frame-1.png", "frame-2.png", "frame-10.png" }), "jumpscare frames play in number order");
-        Jumpscare.Show(_sfx, null);
-        Check(!FindAll<Jumpscare>(GetTree().Root).Any(), "no folder, no jumpscare");
+        Jumpscare.Show(_sfx, Path.Combine(outDir, "missing"));
+        Check(!FindAll<Jumpscare>(GetTree().Root).Any(), "no frames, no jumpscare");
         Jumpscare.Show(_sfx, scareDir);
         await Wait(0.05);
         Check(FindAll<Jumpscare>(GetTree().Root).Any(), "a jumpscare opens its own window");

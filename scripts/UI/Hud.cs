@@ -401,7 +401,7 @@ public sealed partial class Hud : Control
         UpdateHoverCard();
         UpdateSpeed();
         for (_scareT += delta; _scareT >= 1; _scareT--) // one roll per real second
-            if (GD.Randi() % 10000 < S.ScareChance) Jumpscare.Show(Sfx, S.ScareFolder);
+            if (S.ScareOutOf > 0 && GD.Randi() % (uint)S.ScareOutOf < S.ScareHits) Jumpscare.Show(Sfx);
         bool showStorage = S.StatOn("storage");
         foreach (var id in Defs.Items.Keys)
         {

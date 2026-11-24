@@ -83,10 +83,12 @@ public static class SettingsUi
         body.AddChild(MusicPicker(s, apply, sfx));
 
         Section(body, "Jumpscare");
-        var chance = new SpinBox { MinValue = 0, MaxValue = 10000, Step = 1, Value = s.ScareChance, Suffix = "/ 10 000", CustomMinimumSize = new Vector2(150, 0), TooltipText = "Chance every second. 0 = never." };
-        chance.ValueChanged += v => { s.ScareChance = (int)v; apply(); };
-        body.AddChild(Line("Chance every second", chance));
-        body.AddChild(ScarePicker(s, apply, sfx));
+        // Two numbers, e.g. 1 / 10: the chance every second. 0 on the left = never.
+        var hits = new SpinBox { MinValue = 0, MaxValue = 1000000, Step = 1, Value = s.ScareHits, CustomMinimumSize = new Vector2(110, 0), TooltipText = "0 = never" };
+        var outOf = new SpinBox { MinValue = 1, MaxValue = 1000000, Step = 1, Value = s.ScareOutOf, CustomMinimumSize = new Vector2(130, 0) };
+        hits.ValueChanged += v => { s.ScareHits = (int)v; apply(); };
+        outOf.ValueChanged += v => { s.ScareOutOf = (int)v; apply(); };
+        body.AddChild(Line("Chance every second", hits, Ui.MakeLabel("/", 14), outOf));
 
         Section(body, "Start");
         var skip = new CheckBox { Text = "Skip the title screen and open the last save", ButtonPressed = s.SkipTitle, FocusMode = Control.FocusModeEnum.None };
@@ -118,37 +120,6 @@ public static class SettingsUi
         }, sfx);
         builtIn = Ui.MakeButton("Built-in", () => { s.MusicFolder = null; Show(); apply(); }, sfx);
         var row = Line("Music", name, pick, builtIn);
-        row.AddChild(dialog);
-        Show();
-        return row;
-    }
-
-    // Your own jumpscare: a folder of frames (PNG, JPG, WebP, played at 30 fps in number order) and a sound.
-    static Control ScarePicker(Settings s, Action apply, Sfx sfx)
-    {
-        var name = Ui.MakeLabel("", 14, Ui.Muted);
-        name.TextOverrunBehavior = TextServer.OverrunBehavior.TrimEllipsis;
-        name.CustomMinimumSize = new Vector2(150, 0);
-        Button builtIn = null;
-        void Show()
-        {
-            int n = Jumpscare.FrameFiles(s.ScareFolder).Count;
-            bool snd = Jumpscare.SoundFile(s.ScareFolder) != null;
-            var folder = Path.GetFileName(Path.TrimEndingDirectorySeparator(s.ScareFolder ?? ""));
-            name.Text = s.ScareFolder == null ? "None: no jumpscare" : n == 0 ? $"{folder}: no pictures, no jumpscare" : $"{folder} ({n} frames{(snd ? ", sound" : "")})";
-            name.TooltipText = s.ScareFolder ?? "Pick a folder with frames and a sound";
-            builtIn.Visible = s.ScareFolder != null;
-        }
-        var dialog = new FileDialog { FileMode = FileDialog.FileModeEnum.OpenDir, Access = FileDialog.AccessEnum.Filesystem, UseNativeDialog = true, Title = "Pick a folder with frames (PNG, JPG) and a sound (WAV, OGG, MP3)" };
-        dialog.DirSelected += dir => { s.ScareFolder = dir; Show(); apply(); };
-        var pick = Ui.MakeButton("Choose folder", () =>
-        {
-            if (s.ScareFolder != null && Directory.Exists(s.ScareFolder)) dialog.CurrentDir = s.ScareFolder;
-            dialog.PopupCentered(new Vector2I(720, 480));
-        }, sfx);
-        builtIn = Ui.MakeButton("None", () => { s.ScareFolder = null; Show(); apply(); }, sfx);
-        var test = Ui.MakeButton("Test", () => Jumpscare.Show(sfx, s.ScareFolder), sfx);
-        var row = Line("Pictures and sound", name, pick, builtIn, test);
         row.AddChild(dialog);
         Show();
         return row;

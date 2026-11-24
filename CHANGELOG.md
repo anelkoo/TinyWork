@@ -4,7 +4,7 @@ Everything that changed since the last release goes under "Unreleased". A new re
 
 ## Unreleased
 
-- Jumpscare: once you pick a folder, every second there is a 1 in 10,000 chance of a jumpscare in its own see-through window over the whole screen, even while the game is hidden or in the mini window. It never takes a click. Settings > Jumpscare sets the chance (0 to 10,000 out of 10,000, 0 = never) and has a Test button. Under Pictures and sound you can pick a folder with your own frames (PNG, JPG or WebP, played at 30 fps in number order) and a sound (WAV, OGG or MP3). Without a folder there is no jumpscare.
+- Jumpscare: every second there is a 1 in 10,000 chance of a jumpscare in its own see-through window over the whole screen, even while the game is hidden or in the mini window. It never takes a click. Settings > Jumpscare sets the chance with two numbers, for example 1 / 10 (0 on the left = never). The frames and the sound come from a FramesAndSound folder next to the game, which is not part of the download.
 
 ## v0.1.1 Beta (2026-11-22)
 
