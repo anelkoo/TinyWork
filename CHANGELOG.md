@@ -4,6 +4,8 @@ Everything that changed since the last release goes under "Unreleased". A new re
 
 ## Unreleased
 
+- Better Deals has no level limit anymore. Each level still adds 10% coins on auto-sold items. The price doubles up to level 10 and then grows by half per level.
+
 ## v0.1.2 Beta (2026-11-24)
 
 - A secret: click the "Tiny Works" logo on the title screen 10 times. It unlocks jumpscares with a big celebration (banner, confetti, flash and screen shake). Jumpscares are off until then.

@@ -47,7 +47,8 @@ A relaxing, peaceful factory-builder in the same genre as Factorio. Original art
 - **Central storage:** the Hub feeds one global pool. Building costs come out of the pool, and removing a building refunds 100%.
 - **Coins:** each item can be set to auto-sell at the Hub. Coins buy cosmetics (belt and machine colours, Hub hats, particle styles), global upgrades and raw materials.
   - Upgrades: Faster Machines, Quick Arms, Strong Hands, Better Deals, Bigger Generators, Strong Pumps and Long Wires (+2 tiles of wire reach per level, 3 levels). Prices double per level.
-  - Not built: music tracks in the shop (there is one synthesized loop) and a Hub capacity upgrade. Central storage has no limit to raise, and the user decided to leave it that way.
+  - Better Deals is endless: +10% per level, with a price that doubles up to level 10 and then grows x1.5 per level.
+  - No music tracks in the shop: you pick your own music folder in Settings > Sound > Music. There is no Hub capacity upgrade either, since central storage has no limit.
 - **Potions** (a Hub tab): Coin Rush, Overdrive, Arm Tonic and Rock Crusher, bought for 2 or 10 minutes or any length from 1 to 120. Each comes in three strengths. Strengths never stack: the strongest runs first and weaker ones wait. Prices grow with milestones and coins earned, and timers only run while the game runs.
 - **Start:** a small starter kit, and you can click ore patches to mine by hand at any time.
 - **Sandbox:** everything unlocked, free building, an item source and an item void, and speed controls.
@@ -142,9 +143,8 @@ Each step ends in something playable:
    - Refinery recipes: water + coal → black goo; black goo + coal → plastic; black goo → sparkgas; sparkgas + stone → sulfur. Generators next to a sparkgas pipe burn it (200 kJ per unit).
    - New items: plastic and sulfur, plus the fluids water, black goo and sparkgas.
    - Milestones 4 to 6 came later, in v0.0.6. The customizable hotbar was dropped: every building got its own slot instead.
-6. Undo, copy/paste, blueprints, Sandbox tools, stats. Done in v0.0.5, together with game speed, the welcome-back card, music and the cosmetics shop. The music is synthesized in code instead of coming from a CC0 source, and music tracks are not in the shop.
-7. Installers and packages. Done: `.\build.ps1 -Version <ver>` builds a Windows installer (Inno Setup, per user, no admin) and a portable zip, a `.deb` (Debian/Ubuntu), a `.pkg.tar.zst` (Arch), an AppImage (other distros) and a Linux tar.gz. All are self-contained, with no .NET or ICU needed. The packaging files are in `packaging/`, and the icon is the Hub (`--export-icon`). The Arch package has not been installed on a real Arch system yet.
-
+6. Undo, copy/paste, blueprints, Sandbox tools, stats. Done in v0.0.5, together with game speed, the welcome-back card, music and the cosmetics shop. The music is synthesized in code instead of coming from a CC0 source, and you can pick your own music folder instead of buying tracks.
+7. Installers and packages. Done: `.\build.ps1 -Version <ver>` builds a Windows installer (Inno Setup, per user, no admin) and a portable zip, a `.deb` (Debian/Ubuntu), a `.pkg.tar.zst` (Arch), an AppImage (other distros) and a Linux tar.gz. All are self-contained, with no .NET or ICU needed. The packaging files are in `packaging/`, and the icon is the Hub (`--export-icon`).
 8. Content. Done in v0.0.6: milestones 4 to 6, the 14 remaining items (all 30 now exist), the solar array and the Long Wires upgrade.
    v0.0.7 added screws, nails and rods (now in building costs), six belt tiers, Mk2/Mk3 machines, upgrading in place, own music and the Belt Rush potion.
    v0.1.0 finished the materials plan: seven new ores (tin, lead, gold, zinc, quartz, wood, sparkcrystal), bronze and brass from molten metal, concrete, fuel, fertilizer and explosives, the fluids steam, molten metal, acid, oil and diesel, a working Lightning Rod, splitter filters, chest limits, the tank and the accumulator. Every building from milestone 1 on needs screws, nails or rods. Not built: a cooler and a research lab (no job for the first, the second would duplicate milestones).

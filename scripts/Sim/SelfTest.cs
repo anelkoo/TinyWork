@@ -1149,6 +1149,8 @@ public static class SelfTest
         w.Upgrades["power"] = 5;
         Check(Mathf.Abs(w.GeneratorKW - 2 * Defs.GeneratorKW) < 0.01f, "5 generator upgrades double the output");
         foreach (var u in Defs.Upgrades) Check(Defs.UpgradeCost(u, u.Max - 1) > 0, $"{u.Id} top level cost overflows");
+        var deals = Array.Find(Defs.Upgrades, x => x.Id == "sell_price");
+        Check(Defs.UpgradeCost(deals, 9) == 150L << 9 && Defs.UpgradeCost(deals, 11) > Defs.UpgradeCost(deals, 10) && Defs.UpgradeCost(deals, 5000) > 0, "Better Deals keeps getting dearer without overflowing");
     }
 
     // Pass "--legacy <dir>" with copies of real saves to check they still load (never the live save folder).

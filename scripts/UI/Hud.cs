@@ -622,7 +622,7 @@ public sealed partial class Hud : Control
             refresh.Add(() =>
             {
                 int lvl = W.Up(u.Id);
-                level.Text = $"Lv {lvl}/{u.Max}";
+                level.Text = u.Max == int.MaxValue ? $"Lv {lvl}" : $"Lv {lvl}/{u.Max}";
                 bool maxed = lvl >= u.Max;
                 long cost = maxed ? 0 : Defs.UpgradeCost(u, lvl);
                 buy.Text = maxed ? "Maxed" : $"Buy · {cost}c";

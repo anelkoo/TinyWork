@@ -107,7 +107,7 @@ public static class Defs
         new("machine_speed", "Faster Machines", "+10% speed for miners, furnaces, assemblers and refineries", 10, 100),
         new("arm_speed", "Quick Arms", "+15% inserter speed", 6, 80),
         new("hand", "Strong Hands", "+1 ore per click when mining by hand", 5, 30),
-        new("sell_price", "Better Deals", "+10% coins for everything auto-sold", 10, 150),
+        new("sell_price", "Better Deals", "+10% coins for everything auto-sold, endless", int.MaxValue, 150),
         new("power", "Bigger Generators", "+20% power from every generator", 5, 120),
         new("pump", "Strong Pumps", "+25% water from every pump", 4, 200),
         new("pole_range", "Long Wires", "+2 tiles of wire reach for every pole", 3, 250),
@@ -318,7 +318,13 @@ public static class Defs
     public static bool IsBelt(string type) => BaseOf(type) == "belt";
     public static bool IsFluid(string id) => id != null && Items.TryGetValue(id, out var d) && d.Fluid;
     public static Recipe RecipeById(string id) => Recipes.FirstOrDefault(r => r.Id == id);
-    public static int UpgradeCost(Upgrade u, int level) => u.BaseCost << level;
+    // Doubles per level up to level 10, then grows x1.5 per level (endless upgrades), capped so it never overflows.
+    public static long UpgradeCost(Upgrade u, int level)
+    {
+        if (level < 10) return (long)u.BaseCost << level;
+        double c = ((long)u.BaseCost << 10) * System.Math.Pow(1.5, level - 10);
+        return c >= long.MaxValue / 2 ? long.MaxValue / 2 : (long)c;
+    }
 
     public static string LockedWhy(string type) =>
         System.Array.IndexOf(SandboxOnly, type) >= 0 ? $"{Buildings[type].Name} is a sandbox tool" : $"{Buildings[type].Name} unlocks with milestone {UnlockTier(type)}";
