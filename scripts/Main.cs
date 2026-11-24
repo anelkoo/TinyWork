@@ -24,6 +24,7 @@ public partial class Main : Node
     TitleScreen _title;
     string _slot;
     double _sinceSave;
+    bool _loading, _saving; // never save half-loaded worlds, never start a save inside another
 
     public override void _Ready()
     {
@@ -137,7 +138,8 @@ public partial class Main : Node
 
     void ShowTitle()
     {
-        _title = new TitleScreen { Sfx = _sfx, LastSlot = _s.LastSlot };
+        _title = new TitleScreen { Sfx = _sfx, LastSlot = _s.LastSlot, S = _s };
+        _title.SecretFound += ApplySettings;
         _title.LoadSlot += LoadGame;
         _title.NewGame += (name, mode, flat) =>
             StartGame(World.New(name, mode, flat, (int)(GD.Randi() % 1_000_000)), Persist.NewSlotId(), Vector2.Zero, 1);
@@ -207,7 +209,7 @@ public partial class Main : Node
         box.AddChild(Ui.MakeButton("Save Now", () =>
         {
             CloseMenu();
-            if (SaveNow(verify: true)) { _hud.Toast($"Saved \"{_world.Name}\" at {DateTime.Now:HH:mm:ss}", Ui.Good, 3); _sfx.Play("coin"); }
+            if (SaveNow()) { _hud.Toast($"Saved \"{_world.Name}\" at {DateTime.Now:HH:mm:ss}", Ui.Good, 3); _sfx.Play("coin"); }
             else _sfx.Play("error");
         }, _sfx));
         box.AddChild(Ui.MakeButton("Settings", () => { CloseMenu(); OpenSettings((t, wd) => _hud.OpenPanel(t, wd)); }, _sfx));
@@ -272,12 +274,14 @@ public partial class Main : Node
         if (what == NotificationWMCloseRequest) QuitGame();
     }
 
-    // verify: read the file back, so "Saved" is only shown when it really is on disk.
-    bool SaveNow(bool verify = false)
+    // Persist.SaveSlot checks the save and reads the file back, so "Saved" is only shown when it really is on disk.
+    bool SaveNow()
     {
         _sinceSave = 0;
+        if (_loading || _saving) return false;
+        _saving = true;
         bool ok = true;
-        if (_world != null)
+        if (_world != null && _view != null)
         {
             try
             {
@@ -286,9 +290,8 @@ public partial class Main : Node
                 data.CamY = _view.CamTarget.Y;
                 data.Zoom = _view.ZoomTarget;
                 Persist.SaveSlot(_slot, data);
-                if (verify && Persist.LoadSlot(_slot).Entities.Count != data.Entities.Count) throw new System.IO.IOException("the file on disk doesn't match the game");
             }
-            catch (Exception e) { ok = false; _hud?.Toast("Save failed: " + e.Message, Ui.Bad, 6); GD.PushError(e.ToString()); }
+            catch (Exception e) { ok = false; _hud?.Toast("Save failed, your last save is kept: " + e.Message, Ui.Bad, 6); GD.PushError(e.ToString()); }
         }
         _s.WindowMode = _win.Mode.ToString();
         _s.MiniOpacity = _win.MiniOpacity;
@@ -296,6 +299,7 @@ public partial class Main : Node
         var n = _win.NormalRect;
         (_s.NormalX, _s.NormalY, _s.NormalW, _s.NormalH) = (n.Position.X, n.Position.Y, n.Size.X, n.Size.Y);
         try { Persist.SaveSettings(_s); } catch (Exception e) { GD.PushError(e.ToString()); }
+        _saving = false;
         return ok;
     }
 

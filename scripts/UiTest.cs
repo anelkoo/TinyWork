@@ -36,6 +36,15 @@ public partial class Main
         void CtrlKey(Key k, bool shift = false) { Input.ParseInputEvent(new InputEventKey { Keycode = k, CtrlPressed = true, ShiftPressed = shift, Pressed = true }); Input.ParseInputEvent(new InputEventKey { Keycode = k, CtrlPressed = true, Pressed = false }); }
 
         _s.ScareHits = 0; // no surprise jumpscare in the middle of the screenshots
+        _s.ScareUnlocked = false;
+        ShowTitle();
+        await Wait(0.2);
+        var logo = FindAll<Control>(_title).First(c => c.GetType().Name == "BouncyTitle");
+        for (int i = 0; i < 10; i++) logo.EmitSignal(Control.SignalName.GuiInput, new InputEventMouseButton { ButtonIndex = MouseButton.Left, Pressed = true });
+        await Wait(0.5);
+        Shot("00_secret");
+        Check(_s.ScareUnlocked && Persist.LoadSettings().ScareUnlocked, "ten clicks on the logo unlock jumpscares and save it");
+        Check(FindAll<Label>(_title).Any(l => l.Text == "SECRET UNLOCKED!"), "the secret shows its banner");
         LoadGame(_s.LastSlot);
         await Wait(0.35);
         Shot("01_celebration");
@@ -309,9 +318,9 @@ public partial class Main
             img.SavePng(Path.Combine(scareDir, $"frame-{n}.png"));
         }
         Check(Jumpscare.FrameFiles(scareDir).Select(Path.GetFileName).SequenceEqual(new[] { "frame-1.png", "frame-2.png", "frame-10.png" }), "jumpscare frames play in number order");
-        Jumpscare.Show(_sfx, Path.Combine(outDir, "missing"));
+        Jumpscare.Show(_sfx, 0, Path.Combine(outDir, "missing"));
         Check(!FindAll<Jumpscare>(GetTree().Root).Any(), "no frames, no jumpscare");
-        Jumpscare.Show(_sfx, scareDir);
+        Jumpscare.Show(_sfx, 0, scareDir);
         await Wait(0.05);
         Check(FindAll<Jumpscare>(GetTree().Root).Any(), "a jumpscare opens its own window");
         await Wait(0.3);

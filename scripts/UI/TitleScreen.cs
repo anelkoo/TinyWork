@@ -13,6 +13,15 @@ public sealed partial class TitleScreen : Control
     public event Action<string> LoadSlot;
     public event Action<string, string, bool> NewGame; // name, mode, flat
     public event Action Quit, OpenSettings;
+    public Settings S;
+    public event Action SecretFound; // the logo was clicked 10 times: jumpscares are now on
+
+    const int SecretClicks = 10;
+    int _clicks;
+    readonly Juice _juice = new();
+    float _party, _flash; // seconds of confetti left; white flash, fading
+    CenterContainer _center;
+    BouncyTitle _title;
 
     VBoxContainer _page;
     float _t;
@@ -27,12 +36,13 @@ public sealed partial class TitleScreen : Control
 
         var box = new VBoxContainer();
         box.AddThemeConstantOverride("separation", 10);
-        var title = new BouncyTitle();
+        var title = _title = new BouncyTitle();
+        title.GuiInput += e => { if (e is InputEventMouseButton { Pressed: true, ButtonIndex: MouseButton.Left } m) LogoClicked(title.GetGlobalMousePosition() - GlobalPosition); };
         box.AddChild(title);
         _page = new VBoxContainer();
         _page.AddThemeConstantOverride("separation", 8);
         box.AddChild(_page);
-        var center = new CenterContainer();
+        var center = _center = new CenterContainer();
         center.SetAnchorsAndOffsetsPreset(LayoutPreset.FullRect);
         center.AddChild(box);
         AddChild(center);
@@ -143,9 +153,65 @@ public sealed partial class TitleScreen : Control
         d.PopupCentered();
     }
 
+    // Every click bounces the logo a little harder. The tenth unlocks the secret, once.
+    void LogoClicked(Vector2 at)
+    {
+        _clicks++;
+        _title.PivotOffset = _title.Size / 2;
+        float pop = 1 + Mathf.Min(_clicks, SecretClicks) * 0.03f;
+        _title.CreateTween().TweenProperty(_title, "scale", Vector2.One, 0.3).From(Vector2.One * pop).SetTrans(Tween.TransitionType.Back).SetEase(Tween.EaseType.Out);
+        _juice.Burst(at, Ui.Accent, 6 + _clicks * 2, 180, 4, 500, 0.6f);
+        _juice.Shake(0.04f * _clicks);
+        Sfx?.Play(_clicks < SecretClicks ? "rotate" : "click");
+        if (_clicks == SecretClicks && S is { ScareUnlocked: false }) Celebrate();
+    }
+
+    void Celebrate()
+    {
+        S.ScareUnlocked = true;
+        SecretFound?.Invoke();
+        _party = 3.5f;
+        _flash = 1;
+        Sfx?.Play("milestone");
+        Sfx?.Play("thunder");
+        Sfx?.Play("coin");
+        var box = new VBoxContainer { MouseFilter = MouseFilterEnum.Ignore };
+        var head = Ui.MakeLabel("SECRET UNLOCKED!", Size.Y < 420 ? 28 : 52, new Color("f7c948"));
+        var sub = Ui.MakeLabel("You found the treasure. Jumpscares are on now.\nSettings > Jumpscare, if you dare.", Size.Y < 420 ? 13 : 18, Ui.Text);
+        foreach (var l in new[] { head, sub }) { l.HorizontalAlignment = HorizontalAlignment.Center; l.AddThemeConstantOverride("outline_size", 8); l.AddThemeColorOverride("font_outline_color", Ui.Ink); box.AddChild(l); }
+        var banner = new CenterContainer { MouseFilter = MouseFilterEnum.Ignore };
+        banner.SetAnchorsAndOffsetsPreset(LayoutPreset.FullRect);
+        banner.OffsetTop = -Size.Y * 0.3f; // above the menu buttons
+        banner.OffsetBottom = -Size.Y * 0.3f;
+        banner.AddChild(box);
+        AddChild(banner);
+        box.Resized += () => box.PivotOffset = box.Size / 2;
+        var tw = box.CreateTween();
+        tw.TweenProperty(box, "scale", Vector2.One, 0.6).From(Vector2.One * 3).SetTrans(Tween.TransitionType.Elastic).SetEase(Tween.EaseType.Out);
+        tw.Parallel().TweenProperty(box, "rotation", 0f, 0.6).From(-0.3f).SetTrans(Tween.TransitionType.Back).SetEase(Tween.EaseType.Out);
+        tw.TweenInterval(3.5);
+        tw.TweenProperty(box, "modulate", Colors.Transparent, 0.8);
+        tw.TweenCallback(Callable.From(banner.QueueFree));
+    }
+
     public override void _Process(double delta)
     {
         _t += (float)delta;
+        float dt = (float)delta;
+        if (_party > 0) // confetti from everywhere and a screen that won't stop shaking
+        {
+            _party -= dt;
+            _juice.Shake(dt * 3);
+            for (int i = 0; i < 3; i++)
+            {
+                var c = Color.FromHsv(_rng.Randf(), 0.7f, 1);
+                _juice.Burst(new Vector2(_rng.Randf() * Size.X, _rng.RandfRange(0.1f, 0.7f) * Size.Y), c, 8, 320, _rng.RandfRange(3, 7), 450, 1.4f);
+            }
+            if (_rng.Randf() < dt * 4) Sfx?.Play("coin");
+        }
+        _flash = Mathf.Max(0, _flash - dt * 2);
+        _juice.Update(dt);
+        _center.Position = _juice.ShakeOffset * 5;
         for (int i = 0; i < _drift.Length; i++)
         {
             var d = _drift[i];
@@ -164,6 +230,8 @@ public sealed partial class TitleScreen : Control
             var p = d.P * Size + new Vector2(Mathf.Sin(_t + d.Speed) * 10, 0);
             DrawTextureRect(Sprites.Items[d.Item], new Rect2(p.Round(), Vector2.One * 24), false, new Color(1, 1, 1, 0.35f));
         }
+        _juice.Draw(this);
+        if (_flash > 0) DrawRect(new Rect2(Vector2.Zero, Size), Colors.White with { A = _flash * 0.8f });
     }
 
     sealed partial class BouncyTitle : Control

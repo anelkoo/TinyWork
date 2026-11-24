@@ -82,13 +82,17 @@ public static class SettingsUi
         body.AddChild(Line("Music volume", music, musicLabel));
         body.AddChild(MusicPicker(s, apply, sfx));
 
-        Section(body, "Jumpscare");
-        // Two numbers, e.g. 1 / 10: the chance every second. 0 on the left = never.
-        var hits = new SpinBox { MinValue = 0, MaxValue = 1000000, Step = 1, Value = s.ScareHits, CustomMinimumSize = new Vector2(110, 0), TooltipText = "0 = never" };
-        var outOf = new SpinBox { MinValue = 1, MaxValue = 1000000, Step = 1, Value = s.ScareOutOf, CustomMinimumSize = new Vector2(130, 0) };
-        hits.ValueChanged += v => { s.ScareHits = (int)v; apply(); };
-        outOf.ValueChanged += v => { s.ScareOutOf = (int)v; apply(); };
-        body.AddChild(Line("Chance every second", hits, Ui.MakeLabel("/", 14), outOf));
+        if (s.ScareUnlocked) // a secret: the section only shows once the title logo was clicked 10 times
+        {
+            Section(body, "Jumpscare");
+            // Two numbers, e.g. 1 / 10: the chance every second. 0 on the left = never.
+            var hits = new SpinBox { MinValue = 0, MaxValue = 1000000, Step = 1, Value = s.ScareHits, CustomMinimumSize = new Vector2(110, 0), TooltipText = "0 = never" };
+            var outOf = new SpinBox { MinValue = 1, MaxValue = 1000000, Step = 1, Value = s.ScareOutOf, CustomMinimumSize = new Vector2(130, 0) };
+            hits.ValueChanged += v => { s.ScareHits = (int)v; apply(); };
+            outOf.ValueChanged += v => { s.ScareOutOf = (int)v; apply(); };
+            body.AddChild(Line("Chance every second", hits, Ui.MakeLabel("/", 14), outOf));
+            body.AddChild(Slider("Volume", 0, 1, s.ScareVolume, v => s.ScareVolume = v, apply)); // not halved in the mini window
+        }
 
         Section(body, "Start");
         var skip = new CheckBox { Text = "Skip the title screen and open the last save", ButtonPressed = s.SkipTitle, FocusMode = Control.FocusModeEnum.None };

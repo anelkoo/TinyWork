@@ -886,7 +886,7 @@ public sealed class World
             if (Defs.PotionById(kv.Key) is { } p && kv.Value > 0) w.AddPotion(p.Id, p.Default, kv.Value);
         foreach (var ps in s.PotionStacks ?? new())
             if (Defs.PotionById(ps.Id) is { } p && Array.IndexOf(p.Strengths, ps.Strength) >= 0 && ps.Ticks > 0) w.AddPotion(ps.Id, ps.Strength, ps.Ticks);
-        foreach (var kv in s.Storage) w.Storage[kv.Key] = kv.Value;
+        foreach (var kv in s.Storage ?? new()) w.Storage[kv.Key] = kv.Value;
         foreach (var kv in s.Delivered ?? new()) w.Delivered[kv.Key] = kv.Value;
         foreach (var i in s.AutoSell ?? new()) w.AutoSell.Add(i);
         foreach (var kv in s.Reserve ?? new()) w.Reserve[kv.Key] = kv.Value;
@@ -894,9 +894,9 @@ public sealed class World
         w.LastSession = s.LastSession;
         foreach (var id in s.Cosmetics ?? new()) if (Defs.CosmeticById(id) != null) w.Owned.Add(id);
         foreach (var kv in s.Equipped ?? new()) w.Wear(kv.Key, kv.Value);
-        foreach (var d in s.Entities)
+        foreach (var d in s.Entities ?? new())
         {
-            if (!Defs.Buildings.ContainsKey(d.Type) || Entity.Create(d.Type) is not { } e) { GD.PushWarning($"Unknown building '{d.Type}' skipped"); continue; }
+            if (d?.Type == null || !Defs.Buildings.ContainsKey(d.Type) || Entity.Create(d.Type) is not { } e) { GD.PushWarning($"Unknown building '{d?.Type}' skipped"); continue; }
             e.Type = d.Type;
             e.Pos = new Vector2I(d.X, d.Y);
             e.Rot = d.Rot;

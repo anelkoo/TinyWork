@@ -13,12 +13,26 @@ public sealed partial class Hud
 {
     static readonly int[] PresetMinutes = { 2, 10 };
 
-    // A dropdown of a potion's strengths ("x1.5", "x2", "x3"), starting on its default.
-    static OptionButton StrengthPicker(Potion p)
+    // The strength last picked for this potion (in either picker), or its default. Survives restarts via settings.
+    int StrengthIndex(Potion p)
+    {
+        int i = Array.IndexOf(p.Strengths, S.PotionStrength.GetValueOrDefault(p.Id, p.Default));
+        return i >= 0 ? i : Array.IndexOf(p.Strengths, p.Default);
+    }
+
+    void RememberStrength(Potion p, float strength)
+    {
+        S.PotionStrength[p.Id] = strength;
+        try { Persist.SaveSettings(S); } catch (Exception e) { GD.PushError(e.ToString()); }
+    }
+
+    // A dropdown of a potion's strengths ("x1.5", "x2", "x3"), starting on the one picked last time.
+    OptionButton StrengthPicker(Potion p)
     {
         var pick = new OptionButton { FocusMode = FocusModeEnum.None, CustomMinimumSize = new Vector2(92, 36), SizeFlagsVertical = SizeFlags.ShrinkCenter, TooltipText = "Strength. Strengths never stack: the strongest runs first, weaker ones wait." };
         foreach (var s in p.Strengths) pick.AddItem(Defs.X(s));
-        pick.Selected = Array.IndexOf(p.Strengths, p.Default);
+        pick.Selected = StrengthIndex(p);
+        pick.ItemSelected += i => RememberStrength(p, p.Strengths[i]);
         return pick;
     }
 
@@ -70,14 +84,15 @@ public sealed partial class Hud
         // Two sliders: strength steps through the potion's strengths, length runs in whole minutes.
         HSlider Slider(double min, double max, double value) => new() { MinValue = min, MaxValue = max, Step = 1, Value = value, SizeFlagsHorizontal = SizeFlags.ExpandFill, SizeFlagsVertical = SizeFlags.ShrinkCenter, CustomMinimumSize = new Vector2(100, 0) };
         Label Value() { var l = Ui.MakeLabel("", 14, Ui.Muted); l.CustomMinimumSize = new Vector2(60, 0); l.HorizontalAlignment = HorizontalAlignment.Right; return l; }
-        var power = Slider(0, Defs.Potions[0].Strengths.Length - 1, Array.IndexOf(Defs.Potions[0].Strengths, Defs.Potions[0].Default));
+        var power = Slider(0, Defs.Potions[0].Strengths.Length - 1, StrengthIndex(Defs.Potions[0]));
         power.TooltipText = "Strength. Strengths never stack: the strongest runs first, weaker ones wait.";
         kind.ItemSelected += i => // each potion has its own strengths
         {
             var p = Defs.Potions[i];
             power.MaxValue = p.Strengths.Length - 1;
-            power.Value = Array.IndexOf(p.Strengths, p.Default);
+            power.Value = StrengthIndex(p);
         };
+        power.DragEnded += changed => { if (changed) { var p = Defs.Potions[kind.Selected]; RememberStrength(p, p.Strengths[(int)power.Value]); } };
         var minutes = Slider(1, Defs.PotionMaxMinutes, 30);
         var powerLabel = Value();
         var minLabel = Value();

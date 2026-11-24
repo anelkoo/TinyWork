@@ -4,7 +4,15 @@ Everything that changed since the last release goes under "Unreleased". A new re
 
 ## Unreleased
 
-- Jumpscare: every second there is a 1 in 10,000 chance of a jumpscare in its own see-through window over the whole screen, even while the game is hidden or in the mini window. It never takes a click. Settings > Jumpscare sets the chance with two numbers, for example 1 / 10 (0 on the left = never). The frames and the sound come from a FramesAndSound folder next to the game, which is not part of the download.
+- A secret: click the "Tiny Works" logo on the title screen 10 times. It unlocks jumpscares with a big celebration (banner, confetti, flash and screen shake). Jumpscares are off until then.
+- Jumpscare: once unlocked, every second there is a 1 in 500 chance of a jumpscare in its own see-through window over the whole screen, even while the game is hidden or in the mini window. It never takes a click. Settings > Jumpscare sets the chance with two numbers, for example 1 / 10 (0 on the left = never), and has its own volume slider. The frames and the sound come from a FramesAndSound folder next to the game, which is not part of the download.
+- Potions remember the strength you picked last, per potion, also after a restart. The Brew your own slider uses the same memory.
+- Saves are safer:
+  - Each save is written to disk completely before it replaces the old file, so a power cut or a crash while saving can no longer leave an empty or broken file.
+  - The previous save is kept as a backup (`.json.bak` next to the save). If a save file is broken, the game loads the backup and says so.
+  - Before writing, the game checks that the save reads back with every building. A save that fails the check isn't written, and the last good file stays.
+  - No saving while a save is loading or while another save is running.
+- If "Skip the title screen" is on and the last save can't be opened, the title screen now shows behind the error instead of an empty window.
 
 ## v0.1.1 Beta (2026-11-22)
 

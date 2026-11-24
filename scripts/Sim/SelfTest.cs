@@ -61,6 +61,7 @@ public static class SelfTest
         Test("new ores never move old ore tiles; each has a starter patch near the Hub", OreLayout);
         Test("Mk2 and Mk3 machines work two and three times as fast", MachineTiers);
         Test("a better tier goes straight onto the old one, refunds it, keeps the recipe; undo swaps back", UpgradeInPlace);
+        Test("a broken save file falls back to its backup; each save keeps the one before", SaveBackup);
         GD.Print(_fails == 0 ? "SELFTEST PASS" : $"SELFTEST FAIL ({_fails})");
         return _fails;
     }
@@ -72,6 +73,30 @@ public static class SelfTest
     }
 
     static void Check(bool ok, string msg) { if (!ok) throw new Exception(msg); }
+
+    static void SaveBackup()
+    {
+        var root = Persist.Root;
+        Persist.Root = System.IO.Path.Combine(System.IO.Path.GetTempPath(), "tinyworks-selftest-" + Guid.NewGuid().ToString("N"));
+        try
+        {
+            var w = World.New("bak", "normal", true, 1);
+            Persist.SaveSlot("s", w.ToSave());
+            w.Coins = 42;
+            Persist.SaveSlot("s", w.ToSave()); // the first save is now the .bak
+            Check(Persist.LoadSlot("s").Coins == 42 && !Persist.LoadedBackup, "the newest save should load");
+            var file = System.IO.Path.Combine(Persist.Root, "saves", "s.json");
+            System.IO.File.WriteAllBytes(file, new byte[4096]); // what a power cut can leave: all zero bytes
+            var back = Persist.LoadSlot("s");
+            Check(Persist.LoadedBackup && back.Coins != 42 && back.Name == "bak", "a broken save should load its backup");
+            Check(Persist.ListSlots().Exists(x => x.Slot == "s" && x.Data.Name == "bak"), "the save list should show the backup, not 'unreadable'");
+        }
+        finally
+        {
+            try { System.IO.Directory.Delete(Persist.Root, true); } catch { }
+            Persist.Root = root;
+        }
+    }
 
     static World Sandbox()
     {

@@ -48,7 +48,7 @@ public sealed partial class Jumpscare : Control
     static string Folder => OS.HasFeature("editor") ? ProjectSettings.GlobalizePath("res://FramesAndSound")
         : Path.Combine(Path.GetDirectoryName(OS.GetExecutablePath()), "FramesAndSound");
 
-    public static void Show(Sfx sfx, string folder = null) // folder: only the UI test passes its own
+    public static void Show(Sfx sfx, float volume, string folder = null) // folder: only the UI test passes its own
     {
         folder ??= Folder;
         var root = sfx.GetTree().Root;
@@ -71,10 +71,10 @@ public sealed partial class Jumpscare : Control
         win.AddChild(s);
         root.AddChild(win);
         win.Show();
-        if (_sound != null && !sfx.Muted && sfx.Volume > 0)
+        if (_sound != null && !sfx.Muted && volume > 0)
         {
             // On the Sfx node, not the window, so the sound plays to its end after the last frame.
-            var p = new AudioStreamPlayer { Stream = _sound, VolumeDb = Mathf.LinearToDb(sfx.Volume) };
+            var p = new AudioStreamPlayer { Stream = _sound, VolumeDb = Mathf.LinearToDb(volume) };
             sfx.AddChild(p);
             p.Finished += p.QueueFree;
             p.Play();
