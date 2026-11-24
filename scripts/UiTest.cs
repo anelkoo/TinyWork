@@ -35,6 +35,7 @@ public partial class Main
         T Find<T>() where T : Entity => _world.Entities.OfType<T>().First();
         void CtrlKey(Key k, bool shift = false) { Input.ParseInputEvent(new InputEventKey { Keycode = k, CtrlPressed = true, ShiftPressed = shift, Pressed = true }); Input.ParseInputEvent(new InputEventKey { Keycode = k, CtrlPressed = true, Pressed = false }); }
 
+        _s.ScareOdds = 0; // no surprise jumpscare in the middle of the screenshots
         LoadGame(_s.LastSlot);
         await Wait(0.35);
         Shot("01_celebration");
@@ -299,6 +300,12 @@ public partial class Main
         Shot("20c_item_detail");
         Key(Godot.Key.Escape);
         await Wait(0.2);
+        Jumpscare.Show(_hud, _sfx);
+        await Wait(0.3);
+        Shot("20d_jumpscare");
+        Check(FindAll<Jumpscare>(_hud).Any(), "a jumpscare covers the screen");
+        await Wait(1.3);
+        Check(!FindAll<Jumpscare>(_hud).Any(), "the jumpscare goes away by itself");
         var spot = new Vector2I(-12, -12);
         foreach (var (item, n) in Defs.Buildings["chest"].Cost) _world.AddStorage(item, n * 2); // enough for the chest and its redo
         _world.BeginAction(); _world.Place("chest", spot, 0); _world.EndAction();

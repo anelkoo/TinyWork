@@ -33,6 +33,7 @@ public sealed partial class Hud : Control
     Control _panel;           // the open modal panel, if any
     Action _panelTick;        // refreshes the open panel's numbers each frame
     float _toastT;
+    double _scareT;
     double _coinsShown;
     bool _mini;
     int _seenMilestone = -1;
@@ -399,6 +400,8 @@ public sealed partial class Hud : Control
         UpdatePotionTimers();
         UpdateHoverCard();
         UpdateSpeed();
+        for (_scareT += delta; _scareT >= 1; _scareT--) // one roll per real second
+            if (S.ScareOdds > 0 && GD.Randi() % (uint)S.ScareOdds == 0) Jumpscare.Show(this, Sfx);
         bool showStorage = S.StatOn("storage");
         foreach (var id in Defs.Items.Keys)
         {

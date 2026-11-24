@@ -4,6 +4,8 @@ Everything that changed since the last release goes under "Unreleased". A new re
 
 ## Unreleased
 
+- Jumpscare: every second there is a 1 in 10,000 chance that a pale face with red eyes jumps at the screen for about a second, with a screech. Settings > Jumpscare sets the chance to 1 in 1,000, 1 in 10,000, 1 in 100,000 or Never.
+
 ## v0.1.1 Beta (2026-11-22)
 
 - Item book: press I or click Items at the top. It lists every item in the game by group. Click one to see what it sells for, how many you have, how to get it, which recipes use it, which buildings cost it and which milestones need it. Clicking an item in storage on the left opens its page too.

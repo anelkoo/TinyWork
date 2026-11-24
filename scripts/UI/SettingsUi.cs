@@ -82,6 +82,14 @@ public static class SettingsUi
         body.AddChild(Line("Music volume", music, musicLabel));
         body.AddChild(MusicPicker(s, apply, sfx));
 
+        Section(body, "Jumpscare");
+        var odds = new OptionButton { FocusMode = Control.FocusModeEnum.None };
+        int[] oddsValues = { 0, 1000, 10000, 100000 };
+        foreach (var o in oddsValues) odds.AddItem(o == 0 ? "Never" : $"1 in {o:N0} every second");
+        odds.Selected = System.Math.Max(0, System.Array.IndexOf(oddsValues, s.ScareOdds));
+        odds.ItemSelected += i => { s.ScareOdds = oddsValues[i]; apply(); };
+        body.AddChild(Line("Chance", odds));
+
         Section(body, "Start");
         var skip = new CheckBox { Text = "Skip the title screen and open the last save", ButtonPressed = s.SkipTitle, FocusMode = Control.FocusModeEnum.None };
         skip.Toggled += on => { s.SkipTitle = on; apply(); };
