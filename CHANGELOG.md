@@ -3,6 +3,9 @@
 Everything that changed since the last release goes under "Unreleased". A new release moves it under its version number.
 
 ## Unreleased
+- Better miners (#16): Mk2 has 2 outputs and Mk3 4, each 0.5 ore/s (Mk3 was 1.5, now 2). Miners no longer turn and give ore to every side.
+- Miners that touch share their outputs: cover an ore patch with miners and put a belt around it. Belts or machines next to a miner now get ore even if they did not before.
+- Hover a miner to see its group size, ore per second and exits.
 
 ## v0.1.3 Beta (2026-11-25)
 

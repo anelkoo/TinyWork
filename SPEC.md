@@ -61,7 +61,8 @@ A relaxing, peaceful factory-builder in the same genre as Factorio. Original art
 - Underground belt (range 5) in three tiers (12, 24, 40 items/s) and underground pipe (range 10). A view toggle switches between the surface layer and the underground layer.
 - Crossing: 40 items/s per lane, as fast as the fastest belt.
 - Inserter: it takes from the tile behind it and drops in front, with an optional single-item filter.
-- Miner, furnace, assembler and inserter each come as Mk2 (twice as fast, twice the power) and Mk3 (three times).
+- Furnace, assembler and inserter each come as Mk2 (twice as fast, twice the power) and Mk3 (three times).
+- Miners have no direction. Each output gives 0.5 ore/s: Miner 1 output, Mk2 2, Mk3 4 (power 90 kW per output). Miners that touch form a group, and every building next to any miner of the group is an exit for all of them.
 - Tiers: every tier of a building shares its hotbar slot. Building a tier onto another tier of the same building swaps it in place: the old one is refunded, the recipe or filter stays, and an underground pair swaps both ends. Undo swaps back.
 - Carriers (belts, splitters, undergrounds, crossings) update downstream first and hand on what runs over an edge, so a line carries its rated speed in whatever order it was built.
 - Power: generators (coal or sparkgas, 600 kW), solar arrays (100 kW, always on, used before coal) and poles. Poles come in three tiers sharing one hotbar slot: Power Pole (wires 7 tiles, powers 5x5), Big Pole (12, 7x7) and Super Pole (18, 9x9). Two poles link within the shorter of their two ranges. Each connected group is its own network. Power is a bonus: full power doubles a machine's speed, too little gives part of it.

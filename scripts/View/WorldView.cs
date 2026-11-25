@@ -508,8 +508,8 @@ public sealed partial class WorldView : Node2D
             {
                 case Miner m:
                     if (prod && m.Working) sq *= new Vector2(1, 1 + 0.05f * Mathf.Sin(_time * 22));
-                    Sprite(Sprites.Miner, c, Angle(m.Rot), sq);
-                    var hub = c + new Vector2(-0.5f, -1.5f).Rotated(Angle(m.Rot));
+                    Sprite(Sprites.Miner, c, 0, sq);
+                    var hub = c + new Vector2(-0.5f, -1.5f); 
                     float spin = m.Working ? _time * 12 : 0.4f;
                     DrawLine(hub - Vector2.FromAngle(spin) * 2.5f, hub + Vector2.FromAngle(spin) * 2.5f, Sprites.Glow, 1);
                     DrawLine(hub - Vector2.FromAngle(spin + 1.57f) * 2.5f, hub + Vector2.FromAngle(spin + 1.57f) * 2.5f, Sprites.Glow, 1);
@@ -894,7 +894,7 @@ public sealed partial class WorldView : Node2D
         }
     }
 
-    static bool Turns(string type) => Defs.IsBelt(type) || Defs.BaseOf(type) is "miner" or "inserter" or "splitter" or "tunnel" or "pipe_tunnel" or "pump" or "refinery" or "source";
+    static bool Turns(string type) => Defs.IsBelt(type) || Defs.BaseOf(type) is "inserter" or "splitter" or "tunnel" or "pipe_tunnel" or "pump" or "refinery" or "source";
 
     // A hat on top of the Hub, if one is worn. at = the middle of the Hub's top edge.
     void DrawHat(Vector2 at)

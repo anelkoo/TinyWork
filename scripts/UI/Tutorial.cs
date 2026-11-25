@@ -15,7 +15,7 @@ public sealed partial class Hud
     static readonly Step[] Steps =
     {
         new("Mine by hand", "Click the coloured pebbles on the ground to dig up ore. Mouse wheel zooms, WASD or the middle mouse button moves around.", h => h._tutSeen.Contains("mined")),
-        new("Build a miner", "Press 3 and click on ore. Press R first to turn it: the chute on its side is where ore comes out. Miners dig forever.", h => h.W.Entities.Any(e => e is Miner)),
+        new("Build a miner", "Press 3 and click on ore. Ore comes out on every side, and miners that touch share their outputs. Put a belt next to one. Miners dig forever.", h => h.W.Entities.Any(e => e is Miner)),
         new("Belt it to the Hub", "Press 1 and drag a line of belts from the miner's chute to the big orange Hub. Everything the Hub gets goes into your storage (top left).", h => h._tutSeen.Contains("ore")),
         new("Smelt some plates", "Press 4 and put a furnace at the end of a belt that carries ore. The belt feeds it by itself.", h => h._tutSeen.Contains("smelted")),
         new("Plates to the Hub", "Furnaces need an inserter to take plates out. Press 2, place it next to the furnace facing away (R turns it), and belt the plates to the Hub.", h => h._tutSeen.Contains("plate")),

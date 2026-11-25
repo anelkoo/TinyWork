@@ -71,7 +71,8 @@ public static class Defs
     // How much faster a machine tier works than its base (and how much more power it draws). Belts use BeltSpeed.
     public static readonly Dictionary<string, float> TierSpeed = new()
     {
-        ["miner_mk2"] = 2, ["miner_mk3"] = 3, ["furnace_mk2"] = 2, ["furnace_mk3"] = 3,
+        ["miner_mk2"] = 2, ["miner_mk3"] = 4, // miners: tier = number of outputs, 0.5 ore/s each
+        ["furnace_mk2"] = 2, ["furnace_mk3"] = 3,
         ["assembler_mk2"] = 2, ["assembler_mk3"] = 3, ["inserter_mk2"] = 2, ["inserter_mk3"] = 3,
     };
     public static float SpeedOf(string type) => TierSpeed.GetValueOrDefault(type, 1f);

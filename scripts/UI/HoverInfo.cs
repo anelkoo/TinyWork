@@ -93,6 +93,8 @@ public sealed partial class Hud
             case Miner m:
                 var under = W.OreAt(m.Pos);
                 lines.Add(under == null ? "No ore here" : $"Mines {N(under)}: one every {Miner.Interval / W.SpeedOf(m) / World.TicksPerSecond:0.0}s");
+                var grp = W.MinerGroup(m);
+                lines.Add($"Group: {grp.Members.Count} miners, {grp.Members.Sum(x => World.TicksPerSecond * W.SpeedOf(x) / Miner.Interval):0.#} ore/s, {grp.Exits.Count} exits");
                 if (m.Buffer != null) lines.Add($"Waiting to drop {N(m.Buffer)}");
                 break;
             case Furnace f:

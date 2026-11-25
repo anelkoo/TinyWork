@@ -513,6 +513,32 @@ public sealed class World
         if (e is Tunnel { Exit: false } && Partner(e) is { } p) yield return p;
     }
 
+    // Miners that touch form a group. Every non-miner next to any member is an exit for the whole group.
+    public sealed class MinerGroupInfo { public List<Miner> Members = new(); public List<(Entity Target, Vector2I From)> Exits = new(); }
+    Dictionary<Miner, MinerGroupInfo> _minerGroups = new();
+    int _minerGroupsVersion = -1;
+
+    public MinerGroupInfo MinerGroup(Miner m)
+    {
+        if (_minerGroupsVersion != Version) { _minerGroups = new(); _minerGroupsVersion = Version; }
+        if (_minerGroups.TryGetValue(m, out var g)) return g;
+        g = new MinerGroupInfo();
+        var stack = new Stack<Miner>();
+        stack.Push(m); _minerGroups[m] = g;
+        while (stack.Count > 0)
+        {
+            var cur = stack.Pop();
+            g.Members.Add(cur);
+            foreach (var d in Entity.Dirs)
+            {
+                var n = At(cur.Pos + d);
+                if (n is Miner nm) { if (_minerGroups.TryAdd(nm, g)) stack.Push(nm); }
+                else if (n != null) g.Exits.Add((n, cur.Pos));
+            }
+        }
+        return g;
+    }
+
     List<Entity> TickOrder()
     {
         if (_tickOrder != null && _tickOrderVersion == Version && _tickOrder.Count == Entities.Count) return _tickOrder;

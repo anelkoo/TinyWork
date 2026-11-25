@@ -203,7 +203,14 @@ public sealed class Miner : Entity
         var ore = w.OreAt(Pos);
         if (Buffer == null && ore != null && (Progress += w.SpeedOf(this)) >= Interval) { Progress -= Interval; Buffer = ore; Produced++; w.Made(ore, 1); }
         Working = Buffer == null && ore != null;
-        if (Buffer != null && w.At(Front) is { } t && t.CanAccept(w, Buffer, Pos)) { t.Accept(w, Buffer, Pos); Buffer = null; }
+        if (Buffer == null) return;
+        // Touching miners share their outputs: any building next to any miner of the group may take the ore.
+        var exits = w.MinerGroup(this).Exits;
+        for (int i = 0; i < exits.Count; i++)
+        {
+            var (t, from) = exits[(int)((w.Tick + i) % exits.Count)];
+            if (t.CanAccept(w, Buffer, from)) { t.Accept(w, Buffer, from); Buffer = null; return; }
+        }
     }
 
     public override string Status => Idle > StallTicks && Buffer != null ? "blocked" : null;

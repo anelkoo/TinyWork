@@ -26,6 +26,7 @@ public static class SelfTest
         Test("milestone unlocks after exact deliveries", Milestones);
         Test("auto-sell keeps the reserve and pays the price", AutoSell);
         Test("speed upgrade makes miners faster", SpeedUpgrade);
+        Test("touching miners share their outputs", MinerGroups);
         Test("every tier can be built with earlier unlocks", Producible);
         Test("underground belt carries items past buildings without loss", Tunnels);
         Test("splitter deals items out evenly and skips missing sides", Splitting);
@@ -451,7 +452,7 @@ public static class SelfTest
                 for (int t = 0; t < 1200; t++) w.Step();
                 made.Add(sink.Eaten);
             }
-            Check(Math.Abs(made[1] - made[0] * 2) <= 2 && Math.Abs(made[2] - made[0] * 3) <= 3, $"{family[0]} tiers made {string.Join(", ", made)}");
+            Check(Math.Abs(made[1] - made[0] * 2) <= 2 && Math.Abs(made[2] - made[0] * (family[0] == "miner" ? 4 : 3)) <= 4, $"{family[0]} tiers made {string.Join(", ", made)}");
         }
         Check(Defs.PowerOf("assembler_mk3") == Defs.PowerUse["assembler"] * 3, "Mk3 should draw three times the power");
     }
@@ -486,6 +487,26 @@ public static class SelfTest
         System.IO.Directory.Delete(dir, true);
         Check(string.Join(",", names) == "a.MP3,b.ogg,c.wav", $"got {string.Join(",", names)}");
         Check(TinyWorks.View.Sfx.Tracks(null).Count == 0 && TinyWorks.View.Sfx.Tracks(dir).Count == 0, "no folder or a missing one should give no tracks");
+    }
+
+    static void MinerGroups()
+    {
+        var w = Sandbox();
+        for (int x = 0; x < 3; x++) for (int y = 0; y < 3; y++) { w.ForcedOre[new(x, y)] = "iron_ore"; w.Place("miner", new(x, y), 0); }
+        var chest = (Chest)w.Place("chest", new(3, 1), 0); // touches only an edge miner
+        Check(w.MinerGroup(w.Entities.OfType<Miner>().First()).Members.Count == 9, "9 touching miners should be one group");
+        for (int i = 0; i < 400; i++) w.Step();
+        long produced = w.Entities.OfType<Miner>().Sum(m => m.Produced);
+        Check(produced > 60 && chest.Count >= produced - 9, $"field should empty into the chest: made {produced}, chest {chest.Count}");
+        var far = Sandbox();
+        far.ForcedOre[new(0, 0)] = "iron_ore"; far.Place("miner", new(0, 0), 0);
+        var c2 = (Chest)far.Place("chest", new(0, 1), 0); // below, not in front: still an exit
+        for (int i = 0; i < 100; i++) far.Step();
+        Check(c2.Count > 0, "a lone miner should output on every side");
+        var blocked = Sandbox();
+        blocked.ForcedOre[new(0, 0)] = "iron_ore"; var bm = (Miner)blocked.Place("miner", new(0, 0), 0);
+        for (int i = 0; i < 200; i++) blocked.Step();
+        Check(bm.Buffer != null && bm.Produced == 1, "a group with no exit should stop at one buffered ore");
     }
 
     static void ChestAndFilter()
