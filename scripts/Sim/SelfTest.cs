@@ -483,6 +483,8 @@ public static class SelfTest
 
     static void UpgradeEverything()
     {
+        // The bulk run takes everything down first, so a bigger tier could find its tile taken.
+        Check(Defs.TierFamilies.All(f => f.Select(t => Defs.Buildings[t].Size).Distinct().Count() == 1), "every tier of a family has the same size");
         var w = World.New("t", "normal", false, 1);
         w.MilestoneIndex = Defs.Milestones.Length;
         var cost = Defs.Buildings.Values.SelectMany(b => b.Cost).Select(c => c.Item).Distinct().ToList();

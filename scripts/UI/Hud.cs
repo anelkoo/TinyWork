@@ -585,14 +585,14 @@ public sealed partial class Hud : Control
             body.AddChild(gets);
         }
         foreach (var r in refresh) r();
-        body.AddChild(Ui.Row(Ui.MakeButton("Cancel", ClosePanel, Sfx), Ui.MakeButton($"Upgrade {count}", () => { ClosePanel(); ConfirmUpgrade(beltsOnly); }, Sfx)));
+        body.AddChild(Ui.Row(Ui.MakeButton("Cancel", ClosePanel, Sfx), Ui.MakeButton($"Upgrade {count}", () => { ClosePanel(); ConfirmUpgrade(beltsOnly, noun); }, Sfx)));
     }
 
     // Plans again: the factory kept running while the question was open.
-    void ConfirmUpgrade(bool beltsOnly)
+    void ConfirmUpgrade(bool beltsOnly, string noun)
     {
         var plan = W.PlanUpgrade(beltsOnly);
-        if (W.Upgrade(plan)) { Toast($"Upgraded {plan.Targets.Count}. Ctrl+Z undoes it", Ui.Good, 2.5f); return; }
+        if (W.Upgrade(plan)) { Toast($"Upgraded {plan.Targets.Count} {noun}{(plan.Targets.Count == 1 ? "" : "s")}. Ctrl+Z undoes it", Ui.Good, 2.5f); return; }
         var lines = plan.Net.Where(x => x.Value > 0)
             .Select(x => $"{x.Value} {Defs.Items[x.Key].Name} (have {W.Storage.GetValueOrDefault(x.Key)})")
             .Chunk(_mini ? 1 : 2).Select(c => string.Join(",   ", c));
