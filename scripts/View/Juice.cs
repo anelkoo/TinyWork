@@ -13,6 +13,7 @@ public sealed class Juice
     readonly List<Floater> _floats = new();
     readonly RandomNumberGenerator _rng = new();
     float _trauma;
+    public bool Thin; // reduced animations: half as many particles
 
     public Vector2 ShakeOffset { get; private set; }
     public System.Func<Color, Color> Recolor; // a particle style from the shop, or null for the natural colours
@@ -20,6 +21,7 @@ public sealed class Juice
     public void Burst(Vector2 at, Color c, int n, float speed = 40, float size = 2, float grav = 120, float life = 0.45f)
     {
         if (_parts.Count > 600) return; // keep it cheap when lots happens at once
+        if (Thin) n = (n + 1) / 2;
         for (int i = 0; i < n; i++)
         {
             var dir = Vector2.FromAngle(_rng.RandfRange(0, Mathf.Tau));

@@ -32,7 +32,20 @@ public sealed class Settings
     // Juice families: place, production, screen, ui. Each can be off in normal or mini mode.
     public Dictionary<string, bool> Juice = new();
 
-    public bool JuiceOn(string family, bool mini) => Juice.GetValueOrDefault($"{family}.{(mini ? "mini" : "normal")}", true);
+    // Off also switches every moving effect family off; the "ui" family keeps its own checkbox.
+    public bool JuiceOn(string family, bool mini) =>
+        (family == "ui" || OtherAnim != AnimOff) && Juice.GetValueOrDefault($"{family}.{(mini ? "mini" : "normal")}", true);
+
+    // Performance: how much moves on screen. Drawing only, the simulation never reads these.
+    public const int AnimFull = 0, AnimReduced = 1, AnimOff = 2;
+    public int BeltAnim = AnimFull, OtherAnim = AnimFull;
+
+    // Which of the 4 belt frames to draw. steps counts frames at full rate; Reduced shows only every second one.
+    public int BeltFrame(double steps) => BeltAnim switch { AnimOff => 0, AnimReduced => (int)(steps % 4) / 2 * 2, _ => (int)(steps % 4) };
+    // Where between the last two ticks to draw something: only Full glides, otherwise it sits on the newest tick.
+    public static float Glide(int level, float f) => level == AnimFull ? f : 1;
+    // The clock for building animations: smooth, 6 steps per second, or standing still.
+    public float AnimTime(float time) => OtherAnim switch { AnimOff => 0, AnimReduced => MathF.Floor(time * 6) / 6, _ => time };
 
     // HUD info that can be switched off: storage, coins, milestone, bottleneck, hints.
     public Dictionary<string, bool> Stats = new();
@@ -55,6 +68,8 @@ public static class Persist
             var s = File.Exists(SettingsPath) ? JsonSerializer.Deserialize<Settings>(File.ReadAllText(SettingsPath), Json) ?? new() : new();
             if (s.ScareOutOf == 10000) s.ScareOutOf = 500; // the old default; someone who typed 10000 themselves gets 500 once
             s.PotionStrength ??= new();
+            s.BeltAnim = Math.Clamp(s.BeltAnim, Settings.AnimFull, Settings.AnimOff);
+            s.OtherAnim = Math.Clamp(s.OtherAnim, Settings.AnimFull, Settings.AnimOff);
             return s;
         }
         catch (Exception e) { GD.PushWarning($"Settings unreadable, using defaults: {e.Message}"); return new(); }

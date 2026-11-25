@@ -114,6 +114,8 @@ All four families are in:
 
 Each effect family has its own toggles for normal mode and for mini mode.
 
+Settings > Performance has two levels for weaker PCs, "Belt animation" and "Other animations" (Full, Reduced, Off; default Full). They change drawing only. Reduced: every second belt frame, no gliding between ticks, building animations at 6 steps per second, half the particles. Off: still belts and buildings (items still move), and the placement, production and screen families are off. UI juice keeps its own toggle.
+
 ## Audio
 
 SFX plus a calm music loop, with separate volume sliders. Audio mutes while hidden and plays quieter in mini mode.

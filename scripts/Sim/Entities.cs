@@ -198,6 +198,7 @@ public sealed class Miner : Entity
     public float Progress;
     public string Buffer;
     public long Produced; // for the self-test
+    int _next; // the exit to try first, so the exits take turns whatever the production rhythm is
 
     public override void Tick(World w)
     {
@@ -209,15 +210,16 @@ public sealed class Miner : Entity
         var exits = w.MinerGroup(this).Exits;
         for (int i = 0; i < exits.Count; i++)
         {
-            var (t, from) = exits[(int)((w.Tick + i) % exits.Count)];
-            if (t.CanAccept(w, Buffer, from)) { t.Accept(w, Buffer, from); Buffer = null; return; }
+            int k = (_next + i) % exits.Count;
+            var (t, from) = exits[k];
+            if (t.CanAccept(w, Buffer, from)) { t.Accept(w, Buffer, from); Buffer = null; _next = k + 1; return; }
         }
     }
 
     public override string Status => Idle > StallTicks && Buffer != null ? "blocked" : null;
     public override void Contents(List<string> into) { if (Buffer != null) into.Add(Buffer); }
-    public override void Save(EntityData d) { d.A = Buffer; d.P = Progress; }
-    public override void Load(EntityData d) { Buffer = d.A; Progress = d.P; }
+    public override void Save(EntityData d) { d.A = Buffer; d.P = Progress; d.N = _next; }
+    public override void Load(EntityData d) { Buffer = d.A; Progress = d.P; _next = Math.Max(0, d.N); }
 }
 
 public sealed class Furnace : Entity

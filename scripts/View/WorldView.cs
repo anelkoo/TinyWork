@@ -314,6 +314,7 @@ public sealed partial class WorldView : Node2D
             "fx_snow" => c => new Color("e6f0ff").Lerp(new Color("a9d2f2"), GD.Randf()) with { A = c.A },
             _ => null,
         };
+        _juice.Thin = S.OtherAnim != Settings.AnimFull;
         StreamChunks();
         DrainEvents();
         _juice.Update(_dt);
@@ -476,7 +477,10 @@ public sealed partial class WorldView : Node2D
     {
         var view = ViewRect().Grow(T * 3);
         float f = W.Paused ? 1 : (float)Engine.GetPhysicsInterpolationFraction(); // paused: nothing moves, so nothing may twitch
-        int frame = (int)(_beltTime * 16) % 4;
+        int frame = S.BeltFrame(_beltTime * 16);
+        float beltF = Settings.Glide(S.BeltAnim, f); // items on belts, splitters, tunnels and crossings
+        float armF = Settings.Glide(S.OtherAnim, f);
+        float anim = S.AnimTime(_time); // building animations; _time itself still ages effects
         bool prod = J("production");
 
         _mod = W.Worn("belt")?.Color ?? Colors.White;
@@ -490,7 +494,7 @@ public sealed partial class WorldView : Node2D
             var input = b.InputFrom(W);
             foreach (var it in b.Items)
             {
-                var p = BeltPoint(b, input, Mathf.Lerp(it.Prev, it.Pos, f)) + it.Side * Mathf.Lerp(it.PrevSide, it.SideLeft, f) * T;
+                var p = BeltPoint(b, input, Mathf.Lerp(it.Prev, it.Pos, beltF)) + it.Side * Mathf.Lerp(it.PrevSide, it.SideLeft, beltF) * T;
                 DrawTexture(Sprites.Items[it.Id], Px(p - Vector2.One * 4));
             }
         }
@@ -507,19 +511,19 @@ public sealed partial class WorldView : Node2D
             switch (e)
             {
                 case Miner m:
-                    if (prod && m.Working) sq *= new Vector2(1, 1 + 0.05f * Mathf.Sin(_time * 22));
+                    if (prod && m.Working) sq *= new Vector2(1, 1 + 0.05f * Mathf.Sin(anim * 22));
                     Sprite(Sprites.Miner, c, 0, sq);
                     var hub = c + new Vector2(-0.5f, -1.5f); 
-                    float spin = m.Working ? _time * 12 : 0.4f;
+                    float spin = m.Working ? anim * 12 : 0.4f;
                     DrawLine(hub - Vector2.FromAngle(spin) * 2.5f, hub + Vector2.FromAngle(spin) * 2.5f, Sprites.Glow, 1);
                     DrawLine(hub - Vector2.FromAngle(spin + 1.57f) * 2.5f, hub + Vector2.FromAngle(spin + 1.57f) * 2.5f, Sprites.Glow, 1);
                     break;
                 case Furnace fu:
-                    if (prod && fu.Working) sq *= new Vector2(1 + 0.03f * Mathf.Sin(_time * 9), 1 - 0.03f * Mathf.Sin(_time * 9));
+                    if (prod && fu.Working) sq *= new Vector2(1 + 0.03f * Mathf.Sin(anim * 9), 1 - 0.03f * Mathf.Sin(anim * 9));
                     Sprite(Sprites.Furnace, c, 0, sq);
                     if (fu.Working)
                     {
-                        float flick = 0.75f + 0.25f * Mathf.Sin(_time * 23 + e.Pos.X);
+                        float flick = 0.75f + 0.25f * Mathf.Sin(anim * 23 + e.Pos.X);
                         DrawRect(new Rect2(c + new Vector2(-3, 0), new Vector2(6, 4)), Sprites.Glow with { A = flick });
                         DrawRect(new Rect2(c + new Vector2(-2, 1), new Vector2(4, 2)), Colors.White with { A = flick * 0.6f });
                         if (prod && GD.Randf() < _dt * 2.5f) _juice.Puff(c + new Vector2(0, -8), new Color(0.85f, 0.85f, 0.9f, 0.55f));
@@ -527,20 +531,20 @@ public sealed partial class WorldView : Node2D
                     break;
                 case Inserter ins:
                     Sprite(Sprites.InserterBase, c, 0, sq);
-                    DrawArm(ins, c, f);
+                    DrawArm(ins, c, armF);
                     if (ins.Filter != null) DrawTextureRect(Sprites.Items[ins.Filter], new Rect2(c + new Vector2(2, 2), Vector2.One * 6), false);
                     break;
                 case Assembler a when a is not Refinery:
-                    if (prod && a.Working) sq *= new Vector2(1 + 0.04f * Mathf.Sin(_time * 14), 1 - 0.04f * Mathf.Sin(_time * 14));
+                    if (prod && a.Working) sq *= new Vector2(1 + 0.04f * Mathf.Sin(anim * 14), 1 - 0.04f * Mathf.Sin(anim * 14));
                     Sprite(Sprites.Assembler, c, 0, sq);
                     if (a.Recipe is { } r)
                     {
-                        float bob = a.Working && prod ? Mathf.Round(Mathf.Sin(_time * 10)) : 0;
+                        float bob = a.Working && prod ? Mathf.Round(Mathf.Sin(anim * 10)) : 0;
                         DrawTexture(Sprites.Items[r.Out], (c + new Vector2(-4, -5 + bob)).Round());
                     }
                     break;
                 case Crossing x:
-                    DrawCrossing(x, c, f);
+                    DrawCrossing(x, c, beltF);
                     break;
                 case Pole:
                     Sprite(Sprites.Icons[e.Type], c, 0, sq);
@@ -549,7 +553,7 @@ public sealed partial class WorldView : Node2D
                     Sprite(Sprites.BeltFrames["belt"][frame], c, Angle(sp.Rot), Vector2.One);
                     foreach (var it in sp.Lane)
                     {
-                        float k = Mathf.Lerp(it.Prev, it.Pos, f);
+                        float k = Mathf.Lerp(it.Prev, it.Pos, beltF);
                         var outDir = (Vector2)(it.Out >= 0 ? sp.OutTile(it.Out) - sp.Pos : sp.Dir);
                         var ip = k < 0.5f ? c - (Vector2)sp.Dir * (0.5f - k) * T : c + outDir * (k - 0.5f) * T;
                         DrawTexture(Sprites.Items[it.Id], Px(ip - Vector2.One * 4));
@@ -558,7 +562,7 @@ public sealed partial class WorldView : Node2D
                     if (sp.Filter != null) DrawTextureRect(Sprites.Items[sp.Filter], new Rect2(c - Vector2.One * 3, Vector2.One * 6), false);
                     break;
                 case Tunnel tu:
-                    if (!tu.Exit) DrawTunnelItems(tu, f, false);
+                    if (!tu.Exit) DrawTunnelItems(tu, beltF, false);
                     Sprite(Sprites.Tunnel, c, Angle(tu.Rot), sq * new Vector2(tu.Exit ? -1 : 1, 1));
                     break;
                 case Pipe pi when pi.Type == "pipe_tunnel":
@@ -575,36 +579,36 @@ public sealed partial class WorldView : Node2D
                     break;
                 case Pump pu:
                     Sprite(Sprites.Pump, c, Angle(pu.Rot), sq);
-                    float stroke = pu.Working && prod ? Mathf.Round(Mathf.Sin(_time * 12) * 1.5f) : 0;
+                    float stroke = pu.Working && prod ? Mathf.Round(Mathf.Sin(anim * 12) * 1.5f) : 0;
                     DrawRect(new Rect2((c + new Vector2(-2, -9 + stroke)).Round(), new Vector2(4, 3)), Sprites.Accent);
                     if (prod && pu.Working && GD.Randf() < _dt * 2) _juice.Burst(c + new Vector2(-1, 3), Defs.Items["water"].Color, 2, 20, 1, 30, 0.4f);
                     break;
                 case Refinery rf:
-                    if (prod && rf.Working) sq *= new Vector2(1 + 0.03f * Mathf.Sin(_time * 11), 1 - 0.03f * Mathf.Sin(_time * 11));
+                    if (prod && rf.Working) sq *= new Vector2(1 + 0.03f * Mathf.Sin(anim * 11), 1 - 0.03f * Mathf.Sin(anim * 11));
                     Sprite(Sprites.Refinery, c, Angle(rf.Rot), sq);
                     if (rf.Recipe is { } rr)
                     {
-                        float bob = rf.Working && prod ? Mathf.Round(Mathf.Sin(_time * 10)) : 0;
+                        float bob = rf.Working && prod ? Mathf.Round(Mathf.Sin(anim * 10)) : 0;
                         DrawTexture(Sprites.Items[rr.Out], (c + new Vector2(-4, -3 + bob)).Round());
                         if (prod && rf.Working && GD.Randf() < _dt * 2) _juice.Puff(c + new Vector2(0, -9), Defs.Items[rr.Out].Color with { A = 0.6f });
                     }
                     break;
                 case Generator g:
-                    if (prod && g.Working) sq *= new Vector2(1 + 0.03f * Mathf.Sin(_time * 18), 1 - 0.03f * Mathf.Sin(_time * 18));
+                    if (prod && g.Working) sq *= new Vector2(1 + 0.03f * Mathf.Sin(anim * 18), 1 - 0.03f * Mathf.Sin(anim * 18));
                     Sprite(Sprites.Generator, c, 0, sq);
                     var wheel = c + new Vector2(5, 1);
-                    float turn = g.Working ? _time * 9 : 0.3f;
+                    float turn = g.Working ? anim * 9 : 0.3f;
                     for (int k = 0; k < 3; k++) DrawLine(wheel, wheel + Vector2.FromAngle(turn + k * 2.094f) * 2.5f, Sprites.Glow, 1);
                     if (g.Working)
                     {
-                        DrawRect(new Rect2(c + new Vector2(-4, 3), new Vector2(4, 2)), Sprites.Glow with { A = 0.7f + 0.3f * Mathf.Sin(_time * 21) });
+                        DrawRect(new Rect2(c + new Vector2(-4, 3), new Vector2(4, 2)), Sprites.Glow with { A = 0.7f + 0.3f * Mathf.Sin(anim * 21) });
                         if (prod && GD.Randf() < _dt * 3) _juice.Puff(c + new Vector2(-4, -9), new Color(0.35f, 0.33f, 0.36f, 0.6f));
                     }
                     // fuel gauge: one pixel per coal or fuel canister
                     for (int k = 0; k < Mathf.Min(g.Fuel + g.Cans, 12); k++) DrawRect(new Rect2(c + new Vector2(-6 + k, 7), Vector2.One), Sprites.Ink);
                     break;
                 case Chest ch:
-                    Sprite(Sprites.Chest, c, 0, sq * (ch.Count > 0 && prod ? new Vector2(1, 1 + 0.02f * Mathf.Sin(_time * 3)) : Vector2.One));
+                    Sprite(Sprites.Chest, c, 0, sq * (ch.Count > 0 && prod ? new Vector2(1, 1 + 0.02f * Mathf.Sin(anim * 3)) : Vector2.One));
                     break;
                 case Hub:
                     var hc = e.Pos * T + Vector2.One * T * 1.5f;
@@ -619,21 +623,21 @@ public sealed partial class WorldView : Node2D
                     break;
                 case Solar so:
                     Sprite(Sprites.Icons["solar"], c, 0, sq);
-                    if (so.Working && prod) DrawRect(new Rect2(c + new Vector2(-5 + (int)(_time * 6) % 10, -4), new Vector2(1, 1)), Colors.White with { A = 0.8f }); // a glint sliding across
+                    if (so.Working && prod) DrawRect(new Rect2(c + new Vector2(-5 + (int)(anim * 6) % 10, -4), new Vector2(1, 1)), Colors.White with { A = 0.8f }); // a glint sliding across
                     break;
                 case LightningRod lr:
                     Sprite(Sprites.Icons["lightning_rod"], c, 0, sq);
-                    if (lr.Charge > 0 && prod) DrawRect(new Rect2(c + new Vector2(-2, -9), new Vector2(4, 4)), Bolt with { A = 0.5f + 0.4f * Mathf.Sin(_time * 30) }); // the tip glows while charged
+                    if (lr.Charge > 0 && prod) DrawRect(new Rect2(c + new Vector2(-2, -9), new Vector2(4, 4)), Bolt with { A = 0.5f + 0.4f * Mathf.Sin(anim * 30) }); // the tip glows while charged
                     break;
                 case Outpost:
                     Sprite(Sprites.Icons["outpost"], c + Vector2.One * T / 2, 0, sq);
                     break;
                 case Lab lab:
                     Sprite(Sprites.Icons["lab"], c, 0, sq);
-                    if (lab.Working && prod) DrawRect(new Rect2(c + new Vector2(-1 + (int)(_time * 4) % 3, -6 - (int)(_time * 5) % 4), Vector2.One), Sprites.Glow with { A = 0.8f }); // a bubble rising from the flask
+                    if (lab.Working && prod) DrawRect(new Rect2(c + new Vector2(-1 + (int)(anim * 4) % 3, -6 - (int)(anim * 5) % 4), Vector2.One), Sprites.Glow with { A = 0.8f }); // a bubble rising from the flask
                     break;
                 case ItemVoid:
-                    Sprite(Sprites.Icons["void"], c, J("production") ? _time * 2 : 0, sq);
+                    Sprite(Sprites.Icons["void"], c, J("production") ? anim * 2 : 0, sq);
                     break;
             }
             if (e is not Pole && Defs.TierOf(e.Type) is > 0 and var tier) // the same pips as the icon
@@ -645,7 +649,7 @@ public sealed partial class WorldView : Node2D
         }
 
         _mod = Colors.White;
-        if (Underground) DrawUnderground(view, f);
+        if (Underground) DrawUnderground(view, beltF);
 
         foreach (var g in _gone) // removed buildings shrink and spin away
         {
@@ -776,7 +780,7 @@ public sealed partial class WorldView : Node2D
     // A sagging wire, swaying a little. Live wires are copper coloured, dead ones dark.
     void DrawWire(Vector2 a, Vector2 b, bool live)
     {
-        float sway = J("production") ? Mathf.Sin(_time * 1.3f + a.X * 0.05f) * 0.8f : 0;
+        float sway = J("production") ? Mathf.Sin(S.AnimTime(_time) * 1.3f + a.X * 0.05f) * 0.8f : 0;
         float sag = 3 + ((b - a).Length() / T) * 0.4f + sway;
         var col = live ? new Color("c9733e") : Sprites.Wire;
         var prev = a;
@@ -806,7 +810,7 @@ public sealed partial class WorldView : Node2D
     void DrawStatus(Vector2 c, string status)
     {
         var (glyph, col) = status switch { "blocked" => ("!", new Color("e8665a")), "norecipe" => ("?", new Color("5aa9e8")), _ => ("...", new Color("f2c14e")) };
-        float bob = J("production") ? Mathf.Round(Mathf.Sin(_time * 4 + c.X) * 1.5f) : 0;
+        float bob = J("production") ? Mathf.Round(Mathf.Sin(S.AnimTime(_time) * 4 + c.X) * 1.5f) : 0;
         int w = glyph.Length * 4 + 3;
         var box = new Rect2((c + new Vector2(-w / 2f, -17 + bob)).Round(), new Vector2(w, 9));
         DrawRect(box.Grow(1), Sprites.Ink);
@@ -839,7 +843,7 @@ public sealed partial class WorldView : Node2D
     {
         var input = b.InputFrom(W);
         var c = Center(b.Pos);
-        frame = (int)(_beltTime * 160 * b.Speed) % 4; // faster tiers animate faster
+        frame = S.BeltFrame(_beltTime * 160 * b.Speed); // faster tiers animate faster
         if (input == b.Back) Sprite(Sprites.BeltFrames[b.Type][frame], c, Angle(b.Rot), Vector2.One);
         else
         {
@@ -887,7 +891,7 @@ public sealed partial class WorldView : Node2D
     void DrawEyes(Vector2 hc)
     {
         var look = GetGlobalMousePosition();
-        bool blink = _time % 4.3f < 0.12f;
+        bool blink = S.OtherAnim != Settings.AnimOff && _time % 4.3f < 0.12f;
         foreach (var off in new[] { new Vector2(-9.5f, -3), new Vector2(10.5f, -3) })
         {
             var eye = hc + off;
@@ -951,7 +955,7 @@ public sealed partial class WorldView : Node2D
         if (Selected != null)
         {
             bool ok = W.CanPlace(Selected, _hover, out _) || W.CanReplace(Selected, _hover);
-            float wob = J("place") ? 1 + 0.06f * Mathf.Sin(_time * 7) : 1;
+            float wob = J("place") ? 1 + 0.06f * Mathf.Sin(S.AnimTime(_time) * 7) : 1;
             var tint = ok ? new Color(1, 1, 1, 0.6f) : new Color(1, 0.4f, 0.4f, 0.6f);
             float ang = Turns(Selected) ? Angle(Rot) : 0;
             // An underground piece that would pair shows as an exit, with a line back to its entrance.
@@ -974,8 +978,10 @@ public sealed partial class WorldView : Node2D
         }
         var e = W.At(_hover);
         if (e is Pole hovered) DrawPoleArea(hovered.Pos, hovered.Type, Sprites.Glow);
+        if (e is Miner dug) // the whole group that shares its outputs
+            foreach (var m in W.MinerGroup(dug).Members) DrawRect(new Rect2(m.Pos * T, Vector2.One * T), Sprites.Glow with { A = 0.22f });
         var rect = e != null ? new Rect2(e.Pos * T, Vector2.One * T * e.Size) : new Rect2(_hover * T, Vector2.One * T);
         var col = e == null && W.OreAt(_hover) != null ? Sprites.Glow : Colors.White;
-        DrawRect(rect.Grow(-0.5f), col with { A = 0.45f + 0.15f * Mathf.Sin(_time * 5) }, false, 1);
+        DrawRect(rect.Grow(-0.5f), col with { A = 0.45f + 0.15f * Mathf.Sin(S.AnimTime(_time) * 5) }, false, 1);
     }
 }

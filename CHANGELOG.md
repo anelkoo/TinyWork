@@ -4,6 +4,9 @@ Everything that changed since the last release goes under "Unreleased". A new re
 
 ## Unreleased
 
+- Hovering a miner now also highlights its whole group (#16).
+- Fixed: a miner group could keep feeding the same exit, so a second one (for example a furnace next to a chest) never got ore. Exits now take turns.
+- Performance settings (#17): Settings > Performance has "Belt animation" and "Other animations", each Full, Reduced or Off. Reduced shows half the belt frames, moves items and inserter arms in steps, runs building animations at 6 steps per second and halves the particles. Off stops the belt texture and building animations (items still move), and also turns off particles, floating numbers, screen shake, flash, zoom easing and place effects, whatever the Effects checkboxes say.
 - Outpost (#15, milestone 2): a small 2x2 second Hub. Belt items into it anywhere on the map and they go into the same storage as the Hub. Costs 20 iron plates, 10 gears and 12 iron screws.
 
 ## v0.1.4 Beta (2026-11-25)

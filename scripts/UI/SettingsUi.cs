@@ -39,6 +39,10 @@ public static class SettingsUi
         vsync.Toggled += on => { s.VSync = on; apply(); };
         body.AddChild(vsync);
 
+        Section(body, "Performance");
+        body.AddChild(Line("Belt animation", AnimLevel(s.BeltAnim, v => { s.BeltAnim = v; apply(); })));
+        body.AddChild(Line("Other animations", AnimLevel(s.OtherAnim, v => { s.OtherAnim = v; apply(); })));
+
         Section(body, "Keys (work from any app on Windows and X11)");
         body.AddChild(Line("Hide / show window", KeyButton(() => s.HideKey, v => { s.HideKey = v; apply(); }, keys)));
         body.AddChild(Line("Normal / mini window", KeyButton(() => s.ModeKey, v => { s.ModeKey = v; apply(); }, keys)));
@@ -130,6 +134,15 @@ public static class SettingsUi
         row.AddChild(dialog);
         Show();
         return row;
+    }
+
+    static OptionButton AnimLevel(int current, Action<int> set)
+    {
+        var box = new OptionButton { FocusMode = Control.FocusModeEnum.None, CustomMinimumSize = new Vector2(130, 0) };
+        foreach (var name in new[] { "Full", "Reduced", "Off" }) box.AddItem(name); // the order of Settings.AnimFull..AnimOff
+        box.Selected = current;
+        box.ItemSelected += i => set((int)i);
+        return box;
     }
 
     static void Section(VBoxContainer body, string title)

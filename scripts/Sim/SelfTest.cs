@@ -58,6 +58,7 @@ public static class SelfTest
         Test("long wires let poles link further", LongWires);
         Test("every metal makes screws, nails and rods; they survive a save", MetalParts);
         Test("own music folder lists only music files, in name order", MusicFolder);
+        Test("animation settings pick the right frames and survive a restart", AnimationLevels);
         Test("every belt, splitter and underground tier at full load keeps spacing and loses nothing", CarriersAtFullLoad);
         Test("Belt Rush x10 moves ten times as much and loses nothing", BeltRush);
         Test("items sort into their list groups", ItemGroups);
@@ -490,6 +491,33 @@ public static class SelfTest
         Check(TinyWorks.View.Sfx.Tracks(null).Count == 0 && TinyWorks.View.Sfx.Tracks(dir).Count == 0, "no folder or a missing one should give no tracks");
     }
 
+    static void AnimationLevels()
+    {
+        var s = new Settings();
+        string Frames() => string.Join("", Enumerable.Range(0, 5).Select(i => s.BeltFrame(i + 0.5)));
+        Check(Frames() == "01230" && Settings.Glide(s.BeltAnim, 0.4f) == 0.4f && s.AnimTime(1.3f) == 1.3f, $"full: got {Frames()}");
+        s.BeltAnim = s.OtherAnim = Settings.AnimReduced;
+        Check(Frames() == "00220" && Settings.Glide(s.BeltAnim, 0.4f) == 1, $"reduced: got {Frames()}");
+        Check(s.AnimTime(1.3f) == 7 / 6f && s.JuiceOn("production", false), "reduced steps the clock and keeps the effects");
+        s.BeltAnim = s.OtherAnim = Settings.AnimOff;
+        Check(Frames() == "00000" && Settings.Glide(s.BeltAnim, 0.4f) == 1 && s.AnimTime(1.3f) == 0, $"off: got {Frames()}");
+        Check(!s.JuiceOn("production", false) && !s.JuiceOn("screen", true) && s.JuiceOn("ui", false), "off stops world effects, not the ui ones");
+
+        var root = Persist.Root;
+        Persist.Root = System.IO.Path.Combine(System.IO.Path.GetTempPath(), "tinyworks-selftest-" + Guid.NewGuid().ToString("N"));
+        try
+        {
+            Check(Persist.LoadSettings() is { BeltAnim: Settings.AnimFull, OtherAnim: Settings.AnimFull }, "the default should be full");
+            Persist.SaveSettings(new Settings { BeltAnim = Settings.AnimOff, OtherAnim = Settings.AnimReduced });
+            Check(Persist.LoadSettings() is { BeltAnim: Settings.AnimOff, OtherAnim: Settings.AnimReduced }, "the levels should survive a restart");
+        }
+        finally
+        {
+            try { System.IO.Directory.Delete(Persist.Root, true); } catch { }
+            Persist.Root = root;
+        }
+    }
+
     static void OutpostDelivers()
     {
         var w = Sandbox();
@@ -511,6 +539,11 @@ public static class SelfTest
         for (int i = 0; i < 400; i++) w.Step();
         long produced = w.Entities.OfType<Miner>().Sum(m => m.Produced);
         Check(produced > 60 && chest.Count >= produced - 9, $"field should empty into the chest: made {produced}, chest {chest.Count}");
+        var lined = Sandbox();
+        for (int x = 0; x < 3; x++) for (int y = 0; y < 2; y++) { lined.ForcedOre[new(x, y)] = "iron_ore"; lined.Place("miner", new(x, y), 0); }
+        for (int x = 0; x < 3; x++) lined.Place("belt", new(x, 2), 0); // runs along one edge, fed from the side
+        for (int i = 0; i < 400; i++) lined.Step();
+        Check(lined.Entities.OfType<Belt>().Sum(t => t.Items.Count) > 3, "a belt along the field should fill with ore");
         var far = Sandbox();
         far.ForcedOre[new(0, 0)] = "iron_ore"; far.Place("miner", new(0, 0), 0);
         var c2 = (Chest)far.Place("chest", new(0, 1), 0); // below, not in front: still an exit
@@ -520,6 +553,13 @@ public static class SelfTest
         blocked.ForcedOre[new(0, 0)] = "iron_ore"; var bm = (Miner)blocked.Place("miner", new(0, 0), 0);
         for (int i = 0; i < 200; i++) blocked.Step();
         Check(bm.Buffer != null && bm.Produced == 1, "a group with no exit should stop at one buffered ore");
+        var mixed = Sandbox();
+        mixed.ForcedOre[new(0, 0)] = "iron_ore"; mixed.ForcedOre[new(1, 0)] = "copper_ore";
+        mixed.Place("miner", new(0, 0), 0); mixed.Place("miner", new(1, 0), 0);
+        var furnace = (Furnace)mixed.Place("furnace", new(2, 0), 0);
+        var rest = (Chest)mixed.Place("chest", new(0, 1), 0);
+        for (int i = 0; i < 600; i++) mixed.Step();
+        Check((furnace.In ?? furnace.Out) != null && rest.Count > 0 && mixed.Entities.OfType<Miner>().All(m => m.Produced > 3), $"mixed ore: furnace takes one kind, the rest goes elsewhere (furnace {furnace.In} {furnace.Out}, chest {rest.Count})");
     }
 
     static void ChestAndFilter()
