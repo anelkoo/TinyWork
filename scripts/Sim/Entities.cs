@@ -51,6 +51,7 @@ public abstract class Entity
         "pump" => new Pump(),
         "refinery" => new Refinery(),
         "hub" => new Hub(),
+        "outpost" => new Outpost(),
         "solar" => new Solar(),
         "lightning_rod" => new LightningRod(),
         "lab" => new Lab(),
@@ -542,6 +543,13 @@ public sealed class Lab : Entity
 }
 
 public sealed class Hub : Entity
+{
+    public override bool CanAccept(World w, string item, Vector2I from) => true;
+    public override void Accept(World w, string item, Vector2I from, float overflow = 0) => w.Deliver(item, from);
+}
+
+// A small second Hub: whatever reaches it goes into the same central storage.
+public sealed class Outpost : Entity
 {
     public override bool CanAccept(World w, string item, Vector2I from) => true;
     public override void Accept(World w, string item, Vector2I from, float overflow = 0) => w.Deliver(item, from);

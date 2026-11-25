@@ -27,6 +27,7 @@ public static class SelfTest
         Test("auto-sell keeps the reserve and pays the price", AutoSell);
         Test("speed upgrade makes miners faster", SpeedUpgrade);
         Test("touching miners share their outputs", MinerGroups);
+        Test("an outpost delivers into the same storage as the Hub", OutpostDelivers);
         Test("every tier can be built with earlier unlocks", Producible);
         Test("underground belt carries items past buildings without loss", Tunnels);
         Test("splitter deals items out evenly and skips missing sides", Splitting);
@@ -487,6 +488,18 @@ public static class SelfTest
         System.IO.Directory.Delete(dir, true);
         Check(string.Join(",", names) == "a.MP3,b.ogg,c.wav", $"got {string.Join(",", names)}");
         Check(TinyWorks.View.Sfx.Tracks(null).Count == 0 && TinyWorks.View.Sfx.Tracks(dir).Count == 0, "no folder or a missing one should give no tracks");
+    }
+
+    static void OutpostDelivers()
+    {
+        var w = Sandbox();
+        w.ForcedOre[new(0, 0)] = "iron_ore";
+        w.Place("miner", new(0, 0), 0);
+        var op = w.Place("outpost", new(1, 0), 0);
+        Check(op != null && w.At(new(2, 1)) == op, "outpost should fill 2x2 tiles");
+        for (int i = 0; i < 400; i++) w.Step();
+        Check(w.Storage.GetValueOrDefault("iron_ore") > 5, "outpost should deliver into the shared storage");
+        Check(w.Remove(new(2, 1)) && w.At(op.Pos) == null, "outpost should be removable");
     }
 
     static void MinerGroups()

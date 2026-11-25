@@ -156,6 +156,7 @@ public static class Sprites
         Icons["solar"] = PaintSolar().Tex();
         Icons["lightning_rod"] = PaintLightningRod().Tex();
         Icons["lab"] = PaintLab().Tex();
+        Icons["outpost"] = PaintOutpost().Tex();
         Icons["tank"] = PaintTank().Tex();
         Icons["accumulator"] = PaintAccumulator().Tex();
         // A higher tier without its own art is its base with one pip per tier in the top-left corner.
@@ -219,6 +220,17 @@ public static class Sprites
         c.R(7, 3, 2, 9, copper); c.R(6, 3, 1, 9, Ink); c.R(9, 3, 1, 9, Ink);
         c.R(7, 1, 2, 2, new Color("e8c15a")); c.P(7, 0, Ink); c.P(8, 0, Ink);
         c.R(5, 6, 6, 1, copper.Darkened(0.3f));
+        return c;
+    }
+
+    // Outpost: a small Hub, 2x2 tiles.
+    static Canvas PaintOutpost()
+    {
+        var c = new Canvas(T * 2, T * 2);
+        c.Box(2, 9, 28, 21, Accent, Ink);
+        c.Box(1, 4, 30, 6, new Color("c9733e"), Ink);
+        c.Box(12, 19, 8, 11, new Color("6b4a3a"), Ink);
+        c.R(9, 13, 3, 4, Ink); c.R(20, 13, 3, 4, Ink);
         return c;
     }
 

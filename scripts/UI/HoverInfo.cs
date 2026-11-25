@@ -146,6 +146,9 @@ public sealed partial class Hud
             case Pump pu:
                 lines.Add($"Pumps {W.PumpRate * W.SpeedOf(pu) * World.TicksPerSecond:0} water/s into the pipe in front");
                 break;
+            case Outpost:
+                lines.Add("Delivers into the same storage as the Hub");
+                break;
             case Hub:
                 lines.Add("Central storage: everything delivered here");
                 lines.Add("Click to sell, shop and brew potions");

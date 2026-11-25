@@ -4,6 +4,8 @@ Everything that changed since the last release goes under "Unreleased". A new re
 
 ## Unreleased
 
+- Outpost (#15, milestone 2): a small 2x2 second Hub. Belt items into it anywhere on the map and they go into the same storage as the Hub. Costs 20 iron plates, 10 gears and 12 iron screws.
+
 ## v0.1.4 Beta (2026-11-25)
 
 - Better miners (#16): Mk2 has 2 outputs and Mk3 4, each 0.5 ore/s (Mk3 was 1.5, now 2). Miners no longer turn and give ore to every side.

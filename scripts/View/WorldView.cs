@@ -625,6 +625,9 @@ public sealed partial class WorldView : Node2D
                     Sprite(Sprites.Icons["lightning_rod"], c, 0, sq);
                     if (lr.Charge > 0 && prod) DrawRect(new Rect2(c + new Vector2(-2, -9), new Vector2(4, 4)), Bolt with { A = 0.5f + 0.4f * Mathf.Sin(_time * 30) }); // the tip glows while charged
                     break;
+                case Outpost:
+                    Sprite(Sprites.Icons["outpost"], c + Vector2.One * T / 2, 0, sq);
+                    break;
                 case Lab lab:
                     Sprite(Sprites.Icons["lab"], c, 0, sq);
                     if (lab.Working && prod) DrawRect(new Rect2(c + new Vector2(-1 + (int)(_time * 4) % 3, -6 - (int)(_time * 5) % 4), Vector2.One), Sprites.Glow with { A = 0.8f }); // a bubble rising from the flask
@@ -954,7 +957,7 @@ public sealed partial class WorldView : Node2D
             // An underground piece that would pair shows as an exit, with a line back to its entrance.
             var entrance = W.EntranceFor(Selected, _hover, Rot);
             if (entrance != null) DrawLine(Center(entrance.Pos), c, Sprites.Glow with { A = 0.7f }, 2);
-            Sprite(Sprites.Icons[Selected], c, ang, new Vector2(entrance != null ? -wob : wob, wob), tint);
+            Sprite(Sprites.Icons[Selected], c + Vector2.One * T * (Defs.Buildings[Selected].Size - 1) / 2, ang, new Vector2(entrance != null ? -wob : wob, wob), tint);
             if (Defs.TiersOf(Selected) == Defs.PoleTiers) // where it powers and which poles it would wire to
             {
                 DrawPoleArea(_hover, Selected, Sprites.Glow);
@@ -971,7 +974,7 @@ public sealed partial class WorldView : Node2D
         }
         var e = W.At(_hover);
         if (e is Pole hovered) DrawPoleArea(hovered.Pos, hovered.Type, Sprites.Glow);
-        var rect = e is Hub ? new Rect2(e.Pos * T, Vector2.One * T * 3) : new Rect2(_hover * T, Vector2.One * T);
+        var rect = e != null ? new Rect2(e.Pos * T, Vector2.One * T * e.Size) : new Rect2(_hover * T, Vector2.One * T);
         var col = e == null && W.OreAt(_hover) != null ? Sprites.Glow : Colors.White;
         DrawRect(rect.Grow(-0.5f), col with { A = 0.45f + 0.15f * Mathf.Sin(_time * 5) }, false, 1);
     }
