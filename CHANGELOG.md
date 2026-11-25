@@ -4,6 +4,8 @@ Everything that changed since the last release goes under "Unreleased". A new re
 
 ## Unreleased
 
+- Upgrade all: two new buttons in the build menu (Q), "Upgrade all belts" and "Upgrade everything", take every belt or every tiered building on the map to the best unlocked tier. A popup shows the materials needed and asks first. If you don't have enough, nothing changes and a message listing what you need stays for 7 seconds. Ctrl+Z undoes the whole run.
+- Fixed: undoing could mix up underground pairs when two stood close together in one line.
 - Hovering a miner now also highlights its whole group (#16).
 - Fixed: a miner group could keep feeding the same exit, so a second one (for example a furnace next to a chest) never got ore. Exits now take turns.
 - Performance settings (#17): Settings > Performance has "Belt animation" and "Other animations", each Full, Reduced or Off. Reduced shows half the belt frames, moves items and inserter arms in steps, runs building animations at 6 steps per second and halves the particles. Off stops the belt texture and building animations (items still move), and also turns off particles, floating numbers, screen shake, flash, zoom easing and place effects, whatever the Effects checkboxes say.

@@ -142,6 +142,8 @@ public sealed partial class Hud : Control
         _toast.SetAnchorsAndOffsetsPreset(LayoutPreset.CenterBottom);
         _toast.GrowHorizontal = GrowDirection.Both;
         _toast.HorizontalAlignment = HorizontalAlignment.Center;
+        _toast.VerticalAlignment = VerticalAlignment.Bottom; // a toast of several lines grows upward, away from the hotbar
+        _toast.GrowVertical = GrowDirection.Begin;
         _toast.Position -= new Vector2(0, 90);
         _toast.AddThemeColorOverride("font_outline_color", Ui.Ink);
         _toast.AddThemeConstantOverride("outline_size", 6);
@@ -550,9 +552,61 @@ public sealed partial class Hud : Control
         body.AddChild(info);
     }
 
+    // Asks first: what the run costs, then Upgrade. Short on material at that point: a long toast, nothing changes.
+    void OpenUpgrade(bool beltsOnly)
+    {
+        var plan = W.PlanUpgrade(beltsOnly);
+        string noun = beltsOnly ? "belt" : "building";
+        if (plan.Targets.Count == 0) { Toast($"Every {noun} is already on the best unlocked tier"); return; }
+        string count = $"{plan.Targets.Count} {noun}{(plan.Targets.Count == 1 ? "" : "s")}";
+        var refresh = new List<Action>();
+        var body = OpenPanel(beltsOnly ? "Upgrade all belts" : "Upgrade everything", 440, () => { foreach (var r in refresh) r(); });
+        var info = Ui.MakeLabel($"{count} will go to the best unlocked tier. {(beltsOnly ? "Items on them move" : "What's on or inside them moves")} to storage. Ctrl+Z undoes it.", 14);
+        info.AutowrapMode = TextServer.AutowrapMode.WordSmart;
+        body.AddChild(info);
+        var need = plan.Net.Where(x => x.Value > 0).ToList();
+        body.AddChild(Ui.MakeLabel(need.Count == 0 ? "Needs no materials" : "Needs", 16));
+        foreach (var (item, n) in need)
+        {
+            var amount = Ui.MakeLabel("", 14);
+            refresh.Add(() =>
+            {
+                long have = W.Storage.GetValueOrDefault(item);
+                amount.Text = $"{n}  (have {have}{(have < n ? $", {n - have} short" : "")})";
+                amount.AddThemeColorOverride("font_color", have < n ? Ui.Bad : Ui.Text);
+            });
+            body.AddChild(Ui.Row(Ui.Icon(Sprites.Items[item], 20), Ui.Grow(Ui.MakeLabel(Defs.Items[item].Name, 14)), amount));
+        }
+        var back = plan.Net.Where(x => x.Value < 0).Select(x => $"{-x.Value} {Defs.Items[x.Key].Name}").ToList();
+        if (back.Count > 0)
+        {
+            var gets = Ui.MakeLabel("You get back: " + string.Join(", ", back), 13, Ui.Muted);
+            gets.AutowrapMode = TextServer.AutowrapMode.WordSmart;
+            body.AddChild(gets);
+        }
+        foreach (var r in refresh) r();
+        body.AddChild(Ui.Row(Ui.MakeButton("Cancel", ClosePanel, Sfx), Ui.MakeButton($"Upgrade {count}", () => { ClosePanel(); ConfirmUpgrade(beltsOnly); }, Sfx)));
+    }
+
+    // Plans again: the factory kept running while the question was open.
+    void ConfirmUpgrade(bool beltsOnly)
+    {
+        var plan = W.PlanUpgrade(beltsOnly);
+        if (W.Upgrade(plan)) { Toast($"Upgraded {plan.Targets.Count}. Ctrl+Z undoes it", Ui.Good, 2.5f); return; }
+        var lines = plan.Net.Where(x => x.Value > 0)
+            .Select(x => $"{x.Value} {Defs.Items[x.Key].Name} (have {W.Storage.GetValueOrDefault(x.Key)})")
+            .Chunk(_mini ? 1 : 2).Select(c => string.Join(",   ", c));
+        Toast("Not enough materials to upgrade. You need:\n" + string.Join("\n", lines), Ui.Bad, 7);
+        Sfx.Play("error");
+    }
+
     public void OpenBuildMenu()
     {
-        var body = OpenPanel("All Buildings", 660);
+        var upgradeBelts = Ui.MakeButton("Upgrade all belts", () => OpenUpgrade(true), Sfx);
+        upgradeBelts.TooltipText = "Every belt on the map to the best unlocked belt. Asks first";
+        var upgradeAll = Ui.MakeButton("Upgrade everything", () => OpenUpgrade(false), Sfx);
+        upgradeAll.TooltipText = "Every building with tiers, belts included, to its best unlocked tier. Asks first";
+        var body = OpenPanel("All Buildings", 660, header: Ui.Row(upgradeBelts, upgradeAll));
         int cols = _mini ? 2 : 3; // three columns: room for "Hyper Underground Belt" and its icon
         var ids = Defs.BuildOrder.Concat(W.Free ? Defs.SandboxOnly : Array.Empty<string>()).ToList();
         Control Make(string id)

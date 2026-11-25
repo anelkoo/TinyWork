@@ -66,6 +66,7 @@ public static class SelfTest
         Test("new ores never move old ore tiles; each has a starter patch near the Hub", OreLayout);
         Test("Mk2 and Mk3 machines work two and three times as fast", MachineTiers);
         Test("a better tier goes straight onto the old one, refunds it, keeps the recipe; undo swaps back", UpgradeInPlace);
+        Test("upgrade everything: best unlocked tier, one price, one undo; too little material changes nothing", UpgradeEverything);
         Test("a broken save file falls back to its backup; each save keeps the one before", SaveBackup);
         GD.Print(_fails == 0 ? "SELFTEST PASS" : $"SELFTEST FAIL ({_fails})");
         return _fails;
@@ -478,6 +479,48 @@ public static class SelfTest
         Check(w.Replace("fast_tunnel", new(13, 12), 0) != null, "replacing the exit of an underground pair");
         var a = w.At(new(10, 12)); var b = w.At(new(13, 12));
         Check(a.Type == "fast_tunnel" && b.Type == "fast_tunnel" && !a.Exit && b.Exit && w.Partner(a) == b, "both ends become fast and stay paired");
+    }
+
+    static void UpgradeEverything()
+    {
+        var w = World.New("t", "normal", false, 1);
+        w.MilestoneIndex = Defs.Milestones.Length;
+        var cost = Defs.Buildings.Values.SelectMany(b => b.Cost).Select(c => c.Item).Distinct().ToList();
+        foreach (var item in cost) w.AddStorage(item, 1000);
+        w.Place("belt", new(10, 10), 1);
+        w.Place("fast_belt", new(11, 10), 2);
+        w.Place("ultra_belt", new(12, 10), 3);
+        w.Place("assembler", new(10, 14), 0, config: "gear");
+        // Two pairs in one line, the second entrance within range of the first: both must stay what they are.
+        foreach (int x in new[] { 10, 13, 15, 18 }) w.Place("tunnel", new(x, 16), 0);
+        string Layout() => string.Join(" ", w.Entities.Where(e => e is not Hub).Select(e => $"{e.Type}@{e.Pos}:{e.Rot}:{e.Config}:{e.Exit}").OrderBy(x => x, StringComparer.Ordinal));
+        Dictionary<string, long> Stock() => cost.ToDictionary(i => i, i => w.Storage.GetValueOrDefault(i));
+        bool Paid(Dictionary<string, long> was, World.UpgradePlan p) => cost.All(i => w.Storage.GetValueOrDefault(i) == was[i] - p.Net.GetValueOrDefault(i));
+        var before = Layout();
+        var stock = Stock();
+
+        // Too little: nothing changes and the plan says what the whole run needs.
+        var belts = w.PlanUpgrade(true);
+        Check(belts.Targets.Count == 2 && belts.Net["motor"] == 2, "two belts are below ultra, one motor each");
+        w.Storage["motor"] = 1;
+        Check(!w.CanAfford(belts) && !w.Upgrade(belts) && Layout() == before && w.Storage["motor"] == 1, "one motor short: nothing may change");
+        w.Storage["motor"] = stock["motor"];
+
+        Check(w.Upgrade(belts), "belts should upgrade");
+        Check(w.At(new(10, 10)) is Belt { Type: "ultra_belt", Rot: 1 } && w.At(new(11, 10)) is Belt { Type: "ultra_belt", Rot: 2 }, "belts become ultra and keep their direction");
+        Check(w.At(new(10, 14)).Type == "assembler" && w.At(new(10, 16)).Type == "tunnel" && Paid(stock, belts), "belts only: nothing else changes and the plan is what was paid");
+        Check(w.PlanUpgrade(true).Targets.Count == 0, "no belt is left to upgrade");
+        Check(w.Undo() == 0 && Layout() == before && cost.All(i => w.Storage[i] == stock[i]), "one undo takes the whole run back");
+
+        var all = w.PlanUpgrade(false);
+        Check(w.Upgrade(all) && Paid(stock, all), "everything should upgrade for the planned price");
+        Check(w.At(new(10, 14)) is Assembler { Type: "assembler_mk3", RecipeId: "gear" }, "the assembler becomes Mk3 with its recipe");
+        bool Pair(int a, int b) => w.At(new(a, 16)) is { Type: "hyper_tunnel", Exit: false } x && w.At(new(b, 16)) is { Type: "hyper_tunnel", Exit: true } y && w.Partner(x) == y;
+        Check(Pair(10, 13) && Pair(15, 18), "underground pairs stay paired");
+        Check(w.Undo() == 0 && Layout() == before, "undo restores every tier, pairs included");
+
+        w.MilestoneIndex = 2;
+        Check(w.PlanUpgrade(true).Targets.All(t => t.To == "fast_belt") && w.PlanUpgrade(true).Targets.Count == 1, "only unlocked tiers, never a downgrade");
     }
 
     static void MusicFolder()

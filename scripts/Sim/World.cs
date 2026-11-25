@@ -634,7 +634,7 @@ public sealed class World
         foreach (var o in steps.Where(o => o.Kind == "removed"))
             if (At(o.Pos) is { } e && e.Pos == o.Pos && e.Type == o.Type) Remove(o.Pos);
         foreach (var o in steps.Where(o => o.Kind == "placed").OrderBy(o => o.Exit))
-            if (Place(o.Type, o.Pos, o.Rot, config: o.Config) == null) failed++;
+            if (Place(o.Type, o.Pos, o.Rot, config: o.Config, exit: o.Exit) == null) failed++;
         foreach (var o in steps.Where(o => o.Kind == "rotated")) SetRot(o.Pos, o.Rot);
         to.Add(ops);
         return failed;
@@ -803,7 +803,8 @@ public sealed class World
     }
 
     // config: a recipe, filter or source item to start with (copies, undo).
-    public Entity Place(string type, Vector2I pos, int rot, bool force = false, string config = null)
+    // exit: undo and bulk upgrades put an underground end back as it was instead of working it out again.
+    public Entity Place(string type, Vector2I pos, int rot, bool force = false, string config = null, bool? exit = null)
     {
         if (!force && !CanPlace(type, pos, out _)) return null;
         if (!force && !Free)
@@ -814,7 +815,7 @@ public sealed class World
         e.Rot = rot;
         e.Config = config;
         // An underground piece becomes the exit of the nearest unpaired entrance behind it, if there is one.
-        e.Exit = EntranceFor(type, pos, rot) != null;
+        e.Exit = exit ?? EntranceFor(type, pos, rot) != null;
         Add(e);
         if (!force) Session.Built++;
         _recording?.Add(new Op("placed", type, pos, rot, e.Config, e.Exit));
@@ -867,6 +868,43 @@ public sealed class World
         var (pos, config) = (old.Pos, old.Config);
         Remove(tile);
         return Place(type, pos, old is Tunnel ? old.Rot : rot, config: config);
+    }
+
+    // ---------- Upgrade everything ----------
+    // Every building below the best unlocked tier of its family (belts only: just the belt family). Net is the
+    // material the whole run takes per item, new costs minus refunds; negative means that much comes back.
+    public sealed record UpgradePlan(List<(Entity Old, string To)> Targets, Dictionary<string, long> Net);
+
+    public UpgradePlan PlanUpgrade(bool beltsOnly)
+    {
+        var targets = new List<(Entity Old, string To)>();
+        var net = new Dictionary<string, long>();
+        foreach (var e in Entities)
+        {
+            if (Defs.TiersOf(e.Type) is not { } f || beltsOnly && f != Defs.BeltTiers) continue;
+            var to = f.LastOrDefault(IsUnlocked);
+            if (to == null || Defs.TierOf(to) <= Defs.TierOf(e.Type)) continue; // never a downgrade
+            targets.Add((e, to));
+            if (Free) continue;
+            foreach (var (item, n) in Defs.Buildings[to].Cost) net[item] = net.GetValueOrDefault(item) + n;
+            foreach (var (item, n) in Defs.Buildings[e.Type].Cost) net[item] = net.GetValueOrDefault(item) - n;
+        }
+        return new(targets, net);
+    }
+
+    public bool CanAfford(UpgradePlan plan) => plan.Net.All(x => x.Value <= 0 || Storage.GetValueOrDefault(x.Key) >= x.Value);
+
+    // All or nothing, and one undo step. Everything comes down before anything goes up, so every refund is in
+    // storage when the new tiers are paid. Each underground end keeps its Exit flag, so pairs stay as they were.
+    public bool Upgrade(UpgradePlan plan)
+    {
+        if (!CanAfford(plan)) return false;
+        BeginAction();
+        var olds = plan.Targets.Select(t => (t.To, t.Old.Pos, t.Old.Rot, t.Old.Config, t.Old.Exit)).ToList();
+        foreach (var o in olds) Remove(o.Pos);
+        foreach (var o in olds) Place(o.To, o.Pos, o.Rot, config: o.Config, exit: o.Exit);
+        EndAction();
+        return true;
     }
 
     // Swaps a belt for a crossing (a belt line being drawn straight across it). Items on the belt go to storage.
