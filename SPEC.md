@@ -49,6 +49,10 @@ A relaxing, peaceful factory-builder in the same genre as Factorio. Original art
   - Upgrades: Faster Machines, Quick Arms, Strong Hands, Better Deals, Bigger Generators, Strong Pumps and Long Wires (+2 tiles of wire reach per level, 3 levels). Prices double per level.
   - Better Deals is endless: +10% per level, with a price that doubles up to level 10 and then grows x1.5 per level.
   - No music tracks in the shop: you pick your own music folder in Settings > Sound > Music. There is no Hub capacity upgrade either, since central storage has no limit.
+- **Gambling:**
+  - Slot machine (a Hub tab): bet 1 to all your coins. Multiplier and chance: 0x 20%, 0.2x 10%, 0.5x 14%, 0.8x 14%, 1x 14%, 1.2x 10%, 1.5x 8%, 2x 6%, 5x 3%, 10x 1% (95.2% back on average). Payouts are rounded down and capped so coins never overflow. Winnings ignore the sell multiplier and don't count as coins earned, session coins or coin stats.
+  - Item gamble (the Gamble button, no building): chance = (bet count x bet sell price) / (target count x target sell price), shown before playing and allowed up to 95%. The bet is always lost; a win goes straight to storage and counts neither as delivered nor as made. Targets are only items the factory can already make (recipe, machine and inputs unlocked; ores always). Fluids have no price, so they are left out. There is only the one value per item, the sell price.
+  - Results are random and not saved with the game. Sandbox works the same.
 - **Potions** (a Hub tab): Coin Rush, Overdrive, Arm Tonic and Rock Crusher, bought for 2 or 10 minutes or any length from 1 to 120. Each comes in three strengths. Strengths never stack: the strongest runs first and weaker ones wait. Prices grow with milestones and coins earned, and timers only run while the game runs.
 - **Start:** a small starter kit, and you can click ore patches to mine by hand at any time.
 - **Sandbox:** everything unlocked, free building, an item source and an item void, and speed controls.

@@ -129,6 +129,8 @@ public sealed partial class Hud : Control
         stats.TooltipText = "Production per item and coins per minute (P)";
         var items = Ui.MakeButton("Items", OpenItems, Sfx);
         items.TooltipText = "Every item: price, how to get it, what uses it (I)";
+        var gamble = Ui.MakeButton("Gamble", OpenGamble, Sfx); // stays in the mini window
+        gamble.TooltipText = "Bet items for other items";
         var bps = Ui.MakeButton("Blueprints", OpenBlueprints, Sfx);
         bps.TooltipText = "Saved copies, shared by every save (B). Ctrl+C copies an area";
         _miniBtn = Ui.MakeButton("Mini", () => ToggleMini?.Invoke(), Sfx);
@@ -136,7 +138,7 @@ public sealed partial class Hud : Control
         menu.TooltipText = "Save, settings, main menu, quit (Esc)";
         _bigOnly.AddRange(_speedBtns);
         _bigOnly.AddRange(new Control[] { gap, stats, items, bps });
-        foreach (var b in _speedBtns.Concat(new Control[] { gap, build, stats, items, bps, _miniBtn, menu })) { b.FocusMode = FocusModeEnum.None; top.AddChild(b); }
+        foreach (var b in _speedBtns.Concat(new Control[] { gap, build, stats, items, gamble, bps, _miniBtn, menu })) { b.FocusMode = FocusModeEnum.None; top.AddChild(b); }
 
         _toast = Ui.MakeLabel("", 16, Ui.Accent);
         _toast.SetAnchorsAndOffsetsPreset(LayoutPreset.CenterBottom);
@@ -634,17 +636,18 @@ public sealed partial class Hud : Control
         body.AddChild(Ui.MakeLabel("Locked buildings unlock with milestones. Hover one to see which.", 13, Ui.Muted));
     }
 
-    public const int SellTab = 0, ShopTab = 1, PotionTab = 2;
+    public const int SellTab = 0, ShopTab = 1, PotionTab = 2, SlotsTab = 3;
 
     public void OpenHub(int tab)
     {
         var refresh = new List<Action>();
         var coins = Ui.MakeLabel("", 16, new Color("f7c948"));
-        var tabs = new[] { Ui.MakeButton("Sell", () => OpenHub(SellTab), Sfx), Ui.MakeButton("Shop", () => OpenHub(ShopTab), Sfx), Ui.MakeButton("Potions", () => OpenHub(PotionTab), Sfx) };
+        var tabs = new[] { Ui.MakeButton("Sell", () => OpenHub(SellTab), Sfx), Ui.MakeButton("Shop", () => OpenHub(ShopTab), Sfx), Ui.MakeButton("Potions", () => OpenHub(PotionTab), Sfx), Ui.MakeButton("Slots", () => OpenHub(SlotsTab), Sfx) };
         tabs[tab].AddThemeStyleboxOverride("normal", Ui.Box(Ui.BtnHover, Ui.Accent, 3));
-        var body = OpenPanel("Hub", 620, () => { coins.Text = $"{W.Coins} coins"; foreach (var r in refresh) r(); }, Ui.Row(tabs[0], tabs[1], tabs[2], Ui.Icon(Sprites.Coin), coins));
+        var body = OpenPanel("Hub", 620, () => { coins.Text = _mini ? Compact(W.Coins) : $"{W.Coins} coins"; /* four tabs leave little room in mini */ foreach (var r in refresh) r(); }, Ui.Row(tabs[0], tabs[1], tabs[2], tabs[3], Ui.Icon(Sprites.Coin), coins));
 
         if (tab == PotionTab) { FillPotions(body, refresh); return; }
+        if (tab == SlotsTab) { FillSlots(body, refresh); return; }
         if (tab == SellTab)
         {
             var info = Ui.MakeLabel("Auto-sell turns items delivered here into coins. The reserve always stays in storage for building.", 13, Ui.Muted);

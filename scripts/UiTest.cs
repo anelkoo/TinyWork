@@ -509,6 +509,63 @@ public partial class Main
         Shot("15_items_recent");
         _hud.ClosePanel();
 
+        // Gambling, still mini sized: both ways in must be reachable and fit.
+        await Wait(0.3);
+        var gambleBtn = FindAll<Button>(_hud).First(x => x.Text == "Gamble");
+        var topRow = gambleBtn.GetParent().GetChildren().OfType<Button>().Where(x => x.IsVisibleInTree()).ToList();
+        Check(gambleBtn.IsVisibleInTree() && topRow.All(x => x.GetGlobalRect().Position.X >= 0 && x.GetGlobalRect().End.X <= 400), "the Gamble button shows in the mini window and the top row fits");
+        Shot("16_mini_top_row");
+        _world.AddStorage("iron_ore", 50);
+        gambleBtn.EmitSignal(BaseButton.SignalName.Pressed);
+        await Wait(0.4);
+        bool Fits(Control c) => c.GetGlobalRect().Position.X >= 0 && c.GetGlobalRect().End.X <= 400;
+        var picks = FindAll<OptionButton>(_hud).Where(x => x.IsVisibleInTree()).ToList();
+        var counts = FindAll<SpinBox>(_hud).Where(x => x.IsVisibleInTree()).ToList();
+        Check(_hud.HasPanel && picks.Count == 2 && counts.Count == 2 && picks.All(Fits) && counts.All(Fits), "the gamble window opens and fits");
+        int Item(OptionButton o, string name) => Enumerable.Range(0, o.ItemCount).First(i => o.GetItemText(i).StartsWith(name + "  ("));
+        void Pick(OptionButton o, string name) { int i = Item(o, name); o.Selected = i; o.EmitSignal(OptionButton.SignalName.ItemSelected, i); }
+        Pick(picks[0], "Iron Ore"); Pick(picks[1], "Iron Plate");
+        counts[0].Value = 5; counts[1].Value = 2; // 5 / 6
+        await Wait(0.2);
+        var play = FindAll<Button>(_hud).Last(x => x.IsVisibleInTree() && x.Text == "Gamble");
+        Check(FindAll<Label>(_hud).Any(l => l.IsVisibleInTree() && l.Text == "Chance: 83.33%") && !play.Disabled, "the chance shows before playing");
+        Check(play.GetGlobalRect().End.Y <= 300, "the Gamble button is on screen in the mini window without scrolling");
+        Shot("17_mini_gamble");
+        long oreBefore = _world.Storage["iron_ore"];
+        play.EmitSignal(BaseButton.SignalName.Pressed);
+        await Wait(0.2);
+        Check(_world.Storage["iron_ore"] == oreBefore - 5 && FindAll<Label>(_hud).Any(l => l.IsVisibleInTree() && (l.Text == "You won 2 Iron Plate!" || l.Text == "Lost. 5 Iron Ore gone.")), "gambling takes the stake and says how it went");
+        counts[1].GetLineEdit().Text = "1"; // typed but not confirmed: the press must still use it
+        play.EmitSignal(BaseButton.SignalName.Pressed);
+        await Wait(0.2);
+        Check(_world.Storage["iron_ore"] == oreBefore - 5, "typed 5 for 1 plate is over 95%: nothing taken");
+        Check(play.Disabled && FindAll<Label>(_hud).Any(l => l.IsVisibleInTree() && l.Text.StartsWith("Over 95%")) && play.GetGlobalRect().End.Y <= 300, "above 95% the button is locked, says why and stays on screen");
+        Shot("17b_mini_gamble_locked");
+
+        _hud.OpenHub(Hud.SlotsTab);
+        _world.Coins = 500;
+        await Wait(0.4);
+        var bet = FindAll<SpinBox>(_hud).First(x => x.IsVisibleInTree());
+        var spin = FindAll<Button>(_hud).First(x => x.IsVisibleInTree() && x.Text == "Spin");
+        var tabRow = FindAll<Button>(_hud).Where(x => x.IsVisibleInTree() && x.Text is "Sell" or "Shop" or "Potions" or "Slots" or "Spin" or "All").ToList();
+        Check(tabRow.Count == 6 && tabRow.All(Fits) && Fits(bet), "the Slots tab fits the mini window");
+        bet.GetLineEdit().Text = "100";
+        long slotBefore = _world.Coins, earned = _world.CoinsEarned;
+        spin.EmitSignal(BaseButton.SignalName.Pressed);
+        long after = _world.Coins;
+        await Wait(0.2);
+        var said = FindAll<Label>(_hud).First(l => l.IsVisibleInTree() && l.Text.Contains("you bet 100 and got")).Text;
+        long got = long.Parse(said.Split("got ")[1].Split(' ')[0]);
+        Check(after == slotBefore - 100 + got && _world.CoinsEarned == earned, $"a typed bet spins and the coins add up ({said})");
+        Shot("18_mini_slots");
+        FindAll<Button>(_hud).First(x => x.IsVisibleInTree() && x.Text == "All").EmitSignal(BaseButton.SignalName.Pressed);
+        await Wait(0.2); // like a player: the box shows the new number before the next click
+        long everything = _world.Coins;
+        spin.EmitSignal(BaseButton.SignalName.Pressed);
+        await Wait(0.2);
+Check(FindAll<Label>(_hud).Any(l => l.IsVisibleInTree() && l.Text.Contains($"you bet {Math.Max(1, everything)} and got")), "All bets every coin");
+        _hud.ClosePanel();
+
         GD.Print(_uiFails == 0 ? "UITEST PASS" : $"UITEST FAIL ({_uiFails})");
         GetTree().Quit(_uiFails == 0 ? 0 : 1);
     }

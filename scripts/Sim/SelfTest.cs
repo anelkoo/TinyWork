@@ -44,6 +44,8 @@ public static class SelfTest
         Test("strongest potion runs first, weaker ones wait, never multiplied", PotionOrder);
         Test("potions from v0.0.3 saves still load", LegacyPotions);
         Test("better deals and bigger generators upgrades work", NewUpgrades);
+        Test("slot machine pays back about 95.2%, rounds down and counts as no earnings", Slots);
+        Test("item gamble: chance from sell prices, stake gone, win goes to storage only", ItemGamble);
         Test("recently used keeps the last 5, newest first, once each, and survives a save", RecentlyUsed);
         Test("research needs a lab, costs storage, unlocks a recipe and survives a save", ResearchWorks);
         Test("big poles wire far, but only to each other", BigPoles);
@@ -1290,6 +1292,60 @@ public static class SelfTest
         Check(string.Join(",", b.Recent["items"]) == "c,f,e,d,b" && b.Recent["builds"][0] == "x", "history survives a save");
         var old = Persist.Deserialize("{\"Version\":1,\"Name\":\"old\",\"Seed\":1}");
         Check(World.FromSave(old).Recent.Count == 0, "a save without history loads");
+    }
+
+    static void Slots()
+    {
+        Check(World.SlotTable.Sum(x => x.Percent) == 100 && World.SlotTable.Sum(x => x.Tenths * x.Percent) == 952, "the table sums to 100% and returns 95.2%");
+        var w = World.New("t", "normal", false, 1);
+        w.Luck = new Random(12345);
+        double Return(long bet, int spins)
+        {
+            long back = 0;
+            for (int i = 0; i < spins; i++)
+            {
+                w.Coins = bet;
+                var r = w.Spin(bet).Value;
+                Check(r.Payout == bet * r.Tenths / 10 && w.Coins == r.Payout, $"bet {bet} at {r.Tenths} tenths paid {r.Payout}, coins {w.Coins}");
+                back += r.Payout;
+            }
+            return back / (double)(bet * spins);
+        }
+        double big = Return(1000, 200_000), one = Return(1, 100_000);
+        Check(Math.Abs(big - 0.952) < 0.01, $"200000 spins should return about 95.2%, got {big:P2}");
+        Check(one < 1, $"a bet of 1 must never pay on average, got {one:P2}");
+        Check(w.CoinsEarned == 0 && w.Session.Coins == 0 && w.PerMinute(World.CoinKey) == 0, "winnings are not earnings");
+        w.Coins = 5;
+        Check(w.Spin(0) == null && w.Spin(-1) == null && w.Spin(6) == null && w.Coins == 5, "only 1 up to all your coins can be bet");
+        for (int i = 0; i < 2000; i++)
+        {
+            w.Coins = World.MaxCoins;
+            var r = w.Spin(World.MaxCoins).Value;
+            Check(r.Payout >= 0 && w.Coins >= 0 && w.Coins <= World.MaxCoins, $"huge bets overflow: {r.Payout}, coins {w.Coins}");
+        }
+    }
+
+    static void ItemGamble()
+    {
+        Check(World.GambleChance("iron_ore", 5, "sulfur", 2) == 0.25, "5 iron ore for 2 sulfur is 25%");
+        var w = World.New("t", "normal", false, 1);
+        Check(w.CanMake("iron_ore") && w.CanMake("iron_plate") && !w.CanMake("gear") && !w.CanMake("sulfur") && !w.CanMake("sky_beacon"), "a new factory can only win what it can make");
+        w.Luck = new Random(7);
+        var need = w.CurrentMilestone.Need[0].Item; // winning it must not count for the milestone
+        w.AddStorage("iron_ore", 1_000_000);
+        long had = w.Storage.GetValueOrDefault(need), wins = 0;
+        const int tries = 100_000;
+        for (int i = 0; i < tries; i++) if (w.Gamble("iron_ore", 3, need, 4) == true) wins++;
+        Check(Math.Abs(wins / (double)tries - 0.25) < 0.01, $"3 ore for 4 plates (25%) won {wins} of {tries}");
+        Check(w.Storage["iron_ore"] == 1_000_000 - 3 * tries && w.Storage.GetValueOrDefault(need) == had + 4 * wins, "the stake is always gone and each win lands in storage");
+        Check(w.MilestoneIndex == 0 && w.Delivered.Count == 0 && w.Session.Delivered == 0 && w.Session.Made == 0 && w.CoinsEarned == 0, "a win is not a delivery, production or earnings");
+        long ore = w.Storage["iron_ore"];
+        Check(w.Gamble("iron_ore", 96, "iron_plate", 33) == null && w.CanGamble("iron_ore", 95, "brick", 25), "above 95% is locked, 95% is allowed");
+        Check(w.Gamble("iron_ore", ore + 1, "iron_plate", World.MaxGambleCount) == null && w.Gamble("iron_ore", 1, "sky_beacon", 1) == null
+            && w.Gamble("iron_ore", 0, "iron_plate", 1) == null && w.Gamble("iron_ore", 1, "water", 1) == null && w.Storage["iron_ore"] == ore, "a gamble that isn't allowed takes nothing");
+        var s = World.New("t", "sandbox", false, 1);
+        s.AddStorage("iron_ore", 5);
+        Check(s.CanGamble("iron_ore", 5, "sulfur", 2), "sandbox gambles the same way");
     }
 
     static void NewUpgrades()

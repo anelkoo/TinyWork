@@ -273,6 +273,54 @@ public sealed class World
     public const int RawBatch = 10;
     public static long RawCost(string ore) => RawBatch * Defs.Items[ore].Price * 2;
 
+    // ---------- Gambling ----------
+    // Not saved: a reload rolls fresh. Tests swap in a seeded one.
+    public Random Luck = new();
+
+    // Multipliers in tenths with their chance in percent. 95.2% comes back on average, so it can't print money.
+    public static readonly (int Tenths, int Percent)[] SlotTable = { (0, 20), (2, 10), (5, 14), (8, 14), (10, 14), (12, 10), (15, 8), (20, 6), (50, 3), (100, 1) };
+    public const long MaxCoins = long.MaxValue / 2;
+
+    // Null if the bet isn't allowed. Winnings are not earnings: no sell bonus, no CoinsEarned, no stats.
+    public (int Tenths, long Payout)? Spin(long bet)
+    {
+        if (bet < 1 || bet > Coins) return null;
+        int roll = Luck.Next(100), i = 0;
+        while (roll >= SlotTable[i].Percent) roll -= SlotTable[i++].Percent;
+        int tenths = SlotTable[i].Tenths;
+        long payout = (long)Int128.Min((Int128)bet * tenths / 10, MaxCoins); // always rounded down
+        Coins = (long)Int128.Min((Int128)(Coins - bet) + payout, MaxCoins);
+        return (tenths, payout);
+    }
+
+    // The one value per item is its sell price: a second one would let you gamble cheap, win dear and sell.
+    static long Worth(string item, long n) => n * Defs.Items[item].Price;
+    public static double GambleChance(string stake, long stakeN, string target, long targetN) => (double)Worth(stake, stakeN) / Worth(target, targetN);
+
+    public const int MaxGambleChance = 95; // percent: a sure swap would be a free converter
+    public const long MaxGambleCount = 1_000_000;
+    public static bool GambleTooSure(string stake, long stakeN, string target, long targetN) => Worth(stake, stakeN) * 100 > Worth(target, targetN) * MaxGambleChance;
+
+    // Only things this factory can already get: an open recipe also needs its machine and its inputs.
+    public bool CanMake(string item) =>
+        Free || Array.IndexOf(Defs.Ores, item) >= 0 || (item == "water" ? IsUnlocked("pump")
+        : Defs.Recipes.Any(r => r.Out == item && IsUnlocked(r.Unlock) && IsUnlocked(r.Machine) && r.In.All(x => CanMake(x.Item))));
+
+    public bool CanGamble(string stake, long stakeN, string target, long targetN) =>
+        stake != null && target != null && !Defs.IsFluid(stake) && !Defs.IsFluid(target) && CanMake(target)
+        && stakeN >= 1 && stakeN <= Storage.GetValueOrDefault(stake) && targetN >= 1 && targetN <= MaxGambleCount
+        && !GambleTooSure(stake, stakeN, target, targetN);
+
+    // Null if not allowed. The stake is gone either way; a win goes straight to storage, not through Deliver.
+    public bool? Gamble(string stake, long stakeN, string target, long targetN)
+    {
+        if (!CanGamble(stake, stakeN, target, targetN)) return null;
+        AddStorage(stake, -stakeN);
+        bool won = Luck.NextInt64(Worth(target, targetN)) < Worth(stake, stakeN);
+        if (won) AddStorage(target, targetN);
+        return won;
+    }
+
     public int LabCount => Entities.Count(e => e is Lab);
 
     // Takes the cost from storage and starts the research. One at a time, and it needs a lab.
