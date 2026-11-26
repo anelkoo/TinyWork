@@ -35,7 +35,7 @@ public static class SettingsUi
         Section(body, "Frame rate");
         body.AddChild(Line("When focused", Fps(s.FpsFocused, v => { s.FpsFocused = v; apply(); })));
         body.AddChild(Line("Mini or in background", Fps(s.FpsBackground, v => { s.FpsBackground = v; apply(); })));
-        var vsync = new CheckBox { Text = "VSync: no tearing, but never faster than your screen", ButtonPressed = s.VSync, FocusMode = Control.FocusModeEnum.None };
+        var vsync = new CheckBox { AutowrapMode = TextServer.AutowrapMode.WordSmart, Text = "VSync: no tearing, but never faster than your screen", ButtonPressed = s.VSync, FocusMode = Control.FocusModeEnum.None };
         vsync.Toggled += on => { s.VSync = on; apply(); };
         body.AddChild(vsync);
 
@@ -55,7 +55,7 @@ public static class SettingsUi
         head.AddChild(Ui.MakeLabel("Mini", 13, Ui.Muted));
         foreach (var (key, name) in new[] { ("place", "Building and removing"), ("production", "Machines, particles, numbers"), ("screen", "Screen shake, zoom easing, slow motion"), ("ui", "Bouncy buttons and counters") })
         {
-            head.AddChild(Ui.Grow(Ui.MakeLabel(name, 14)));
+            head.AddChild(Wrapped(name));
             foreach (var mode in new[] { "normal", "mini" })
             {
                 var id = $"{key}.{mode}";
@@ -69,7 +69,7 @@ public static class SettingsUi
         Section(body, "Show on screen");
         foreach (var (key, name) in new[] { ("storage", "Storage counts"), ("coins", "Coins"), ("coinrate", "Coins per minute"), ("milestone", "Milestone progress"), ("bottleneck", "Bottleneck bubbles over machines"), ("tooltips", "Info card for what the mouse is over"), ("hints", "Key hints") })
         {
-            var cb = new CheckBox { Text = name, ButtonPressed = s.StatOn(key), FocusMode = Control.FocusModeEnum.None };
+            var cb = new CheckBox { AutowrapMode = TextServer.AutowrapMode.WordSmart, Text = name, ButtonPressed = s.StatOn(key), FocusMode = Control.FocusModeEnum.None };
             cb.Toggled += on => { s.Stats[key] = on; apply(); };
             body.AddChild(cb);
         }
@@ -96,13 +96,13 @@ public static class SettingsUi
             outOf.ValueChanged += v => { s.ScareOutOf = (int)v; apply(); };
             body.AddChild(Line("Chance every second", hits, Ui.MakeLabel("/", 14), outOf));
             body.AddChild(Slider("Volume", 0, 1, s.ScareVolume, v => s.ScareVolume = v, apply)); // not halved in the mini window
-            var maxDevice = new CheckBox { Text = "Turn the device volume up to 100% for it (set back after)", ButtonPressed = s.ScareMaxDevice, FocusMode = Control.FocusModeEnum.None };
+            var maxDevice = new CheckBox { AutowrapMode = TextServer.AutowrapMode.WordSmart, Text = "Turn the device volume up to 100% for it (set back after)", ButtonPressed = s.ScareMaxDevice, FocusMode = Control.FocusModeEnum.None };
             maxDevice.Toggled += on => { s.ScareMaxDevice = on; apply(); };
             body.AddChild(maxDevice);
         }
 
         Section(body, "Start");
-        var skip = new CheckBox { Text = "Skip the title screen and open the last save", ButtonPressed = s.SkipTitle, FocusMode = Control.FocusModeEnum.None };
+        var skip = new CheckBox { AutowrapMode = TextServer.AutowrapMode.WordSmart, Text = "Skip the title screen and open the last save", ButtonPressed = s.SkipTitle, FocusMode = Control.FocusModeEnum.None };
         skip.Toggled += on => { s.SkipTitle = on; apply(); };
         body.AddChild(skip);
     }
@@ -112,7 +112,9 @@ public static class SettingsUi
     {
         var name = Ui.MakeLabel("", 14, Ui.Muted);
         name.TextOverrunBehavior = TextServer.OverrunBehavior.TrimEllipsis;
-        name.CustomMinimumSize = new Vector2(150, 0);
+        name.CustomMinimumSize = new Vector2(60, 0); // leaves room for both buttons in the mini window
+        name.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
+        name.HorizontalAlignment = HorizontalAlignment.Right;
         Button builtIn = null;
         void Show()
         {
@@ -161,9 +163,17 @@ public static class SettingsUi
         return l;
     }
 
+    // A row's name: takes the free width and wraps, so it never makes the panel wider than a mini window.
+    static Label Wrapped(string text)
+    {
+        var l = Ui.Grow(Ui.MakeLabel(text, 14));
+        l.AutowrapMode = TextServer.AutowrapMode.WordSmart;
+        return l;
+    }
+
     static HBoxContainer Line(string label, params Control[] controls)
     {
-        var row = Ui.Row(Ui.Grow(Ui.MakeLabel(label, 14)));
+        var row = Ui.Row(Wrapped(label));
         foreach (var c in controls) row.AddChild(c);
         return row;
     }

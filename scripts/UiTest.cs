@@ -525,9 +525,19 @@ public partial class Main
         var window = new Rect2(0, 0, 400, 300);
         Check(window.Encloses(buildPanel.GetGlobalRect()) && window.Encloses(buildClose.GetGlobalRect()), $"the whole build menu and its Close button fit in the mini window ({buildPanel.GetGlobalRect()})");
         await SearchReady("mini build menu");
+        _s.MusicFolder = outDir; // worst case: a picked folder adds the "Built-in" button to the Music row
         OpenSettings((t, w) => _hud.OpenPanel(t, w));
+        _s.MusicFolder = null;
         await Wait(0.5);
         Shot("14_mini_settings");
+        var setClose = FindAll<Button>(_hud).First(x => x.IsVisibleInTree() && x.Text == "Close");
+        var setPanel = (Control)setClose.GetParent().GetParent().GetParent();
+        // The scroll container hides nothing sideways, so every control must also end inside the window.
+        var wide = FindAll<Control>(setPanel).Where(c => c.IsVisibleInTree() && (c.GetGlobalRect().Position.X < 0 || c.GetGlobalRect().End.X > 400)).ToList();
+        Check(window.Encloses(setPanel.GetGlobalRect()) && window.Encloses(setClose.GetGlobalRect()) && wide.Count == 0, $"the whole settings window and its Close button fit in the mini window ({setPanel.GetGlobalRect()}, {wide.Count} controls stick out)");
+        FindAll<ScrollContainer>(setPanel).First().ScrollVertical = 100000;
+        await Wait(0.2);
+        Shot("14b_mini_settings_end");
 
         // Search and "Recently used" in the item book
         _world.Recent.Clear();
