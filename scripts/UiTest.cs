@@ -33,6 +33,18 @@ public partial class Main
         void Shot(string name) => GetViewport().GetTexture().GetImage().SavePng(Path.Combine(outDir, name + ".png"));
         void Check(bool ok, string what) { if (!ok) _uiFails++; GD.Print($"UITEST {(ok ? "ok  " : "FAIL")} {what}"); }
         void Key(Key k) { Input.ParseInputEvent(new InputEventKey { Keycode = k, Pressed = true }); Input.ParseInputEvent(new InputEventKey { Keycode = k, Pressed = false }); }
+        // Like Key, but with the character a real keyboard sends along: without it a text field types nothing.
+        void Type(Key k, char c) { Input.ParseInputEvent(new InputEventKey { Keycode = k, Unicode = c, Pressed = true }); Input.ParseInputEvent(new InputEventKey { Keycode = k, Pressed = false }); }
+        LineEdit Focused() => _hud.GetViewport().GuiGetFocusOwner() as LineEdit;
+        // Right after a menu opened: its search field has the keyboard, and a typed letter lands in it.
+        async Task SearchReady(string menu)
+        {
+            var field = Focused();
+            Check(field is { PlaceholderText: "Search", Text: "" }, $"{menu}: the search field has focus and is empty (got {field?.PlaceholderText ?? "no field"} \"{field?.Text}\")");
+            Type(Godot.Key.G, 'g');
+            await Wait(0.1);
+            Check(Focused()?.Text == "g", $"{menu}: typing goes straight into the search field (\"{Focused()?.Text}\")");
+        }
         T Find<T>() where T : Entity => _world.Entities.OfType<T>().First();
         void CtrlKey(Key k, bool shift = false) { Input.ParseInputEvent(new InputEventKey { Keycode = k, CtrlPressed = true, ShiftPressed = shift, Pressed = true }); Input.ParseInputEvent(new InputEventKey { Keycode = k, CtrlPressed = true, Pressed = false }); }
 
@@ -136,12 +148,27 @@ public partial class Main
         Shot("05c_potion_active");
         _hud.ClosePanel();
 
-        Key(Godot.Key.Q);
+        // H brings the camera back to the Hub from anywhere, at the same zoom.
+        var (homeCam, homeZoom) = (_view.CamTarget, _view.ZoomTarget);
+        var hubNow = Find<Hub>();
+        _view.SetCamera(new Vector2(900, -700), homeZoom);
+        Key(Godot.Key.H);
+        await Wait(0.1);
+        var hubMiddle = new Vector2(hubNow.Pos.X + hubNow.Size / 2f, hubNow.Pos.Y + hubNow.Size / 2f) * 16;
+        Check(_view.CamTarget == hubMiddle && _view.ZoomTarget == homeZoom, $"H moves the camera back to the Hub ({_view.CamTarget}, Hub middle {hubMiddle})");
+        _view.SetCamera(homeCam, homeZoom);
+
+        Type(Godot.Key.Q, 'q');
         await Wait(0.5);
         Check(_hud.HasPanel, "Q opens the build menu");
         Shot("06_build_menu");
+        await SearchReady("build menu"); // empty first: the Q that opened it was not typed
+        Key(Godot.Key.H);
+        await Wait(0.1);
+        Check(_view.CamTarget == homeCam, "H with a window open leaves the camera alone");
         Key(Godot.Key.Escape);
         await Wait(0.1);
+        Check(!_hud.HasPanel, "Esc closes the window while the search field has focus");
         Key(Godot.Key.Key1);
         await Wait(0.1);
         Check(_view.Selected == "belt", "1 picks the belt with no window open");
@@ -183,6 +210,7 @@ public partial class Main
         _hud.Inspect(asm);
         await Wait(0.5);
         Shot("07_recipe");
+        await SearchReady("recipe list");
         _world.SetRecipe(asm, "gear");
         _hud.ClosePanel();
         _hud.Inspect(Find<Inserter>());
@@ -298,11 +326,17 @@ public partial class Main
         Shot("20_stats");
         Key(Godot.Key.Escape);
         await Wait(0.2);
-        Key(Godot.Key.I);
+        Type(Godot.Key.I, 'i');
         await Wait(0.4);
         var plateName = Defs.Items["iron_plate"].Name;
         Check(_hud.HasPanel && FindAll<Button>(_hud).Any(b => b.Text == plateName), "I opens the item book");
         Shot("20b_items");
+        await SearchReady("item book");
+        Type(Godot.Key.I, 'i');
+        await Wait(0.1);
+        Check(_hud.HasPanel && Focused()?.Text == "gi", $"the opening key pressed again is typed, the window stays (\"{Focused()?.Text}\")");
+        _hud.OpenItems();
+        await Wait(0.3);
         FindAll<Button>(_hud).First(b => b.Text == plateName).EmitSignal(BaseButton.SignalName.Pressed);
         await Wait(0.4);
         Check(FindAll<Label>(_hud).Any(l => l.Text.StartsWith("Sells for")) && FindAll<Label>(_hud).Any(l => l.Text == "Used in") && FindAll<Label>(_hud).Any(l => l.Text.StartsWith("Furnace")),
@@ -354,6 +388,12 @@ public partial class Main
         await Wait(0.3);
         Input.ParseInputEvent(new InputEventKey { Keycode = Godot.Key.Up, Pressed = false });
         Check(_view.CamTarget == camBefore, "arrow keys in a text field don't move the camera");
+        FindAll<LineEdit>(_hud).First().EmitSignal(LineEdit.SignalName.TextSubmitted, ""); // no name yet: nothing saved
+        var copyName = FindAll<LineEdit>(_hud).First();
+        copyName.Text = "uitest copy";
+        copyName.EmitSignal(LineEdit.SignalName.TextSubmitted, copyName.Text); // saves and reopens the window, now with a search bar
+        await Wait(0.4);
+        await SearchReady("blueprints");
         Key(Godot.Key.Escape);
         Key(Godot.Key.Escape);
         await Wait(0.2);
@@ -480,12 +520,16 @@ public partial class Main
         _hud.OpenBuildMenu();
         await Wait(0.5);
         Shot("13_mini_build");
+        await SearchReady("mini build menu");
         OpenSettings((t, w) => _hud.OpenPanel(t, w));
         await Wait(0.5);
         Shot("14_mini_settings");
 
         // Search and "Recently used" in the item book
         _world.Recent.Clear();
+        _hud.OpenItems();
+        await Wait(0.3);
+        await SearchReady("mini item book");
         _hud.OpenItems();
         await Wait(0.3);
         var box = FindAll<LineEdit>(_hud).First(l => l.PlaceholderText == "Search");
@@ -542,6 +586,7 @@ public partial class Main
         Check(play.Disabled && FindAll<Label>(_hud).Any(l => l.IsVisibleInTree() && l.Text.StartsWith("Over 95%")) && play.GetGlobalRect().End.Y <= 300, "above 95% the button is locked, says why and stays on screen");
         Shot("17b_mini_gamble_locked");
 
+        _world.AutoSell.Clear(); // a sale between "All" and the spin would change what "every coin" means
         _hud.OpenHub(Hud.SlotsTab);
         _world.Coins = 500;
         await Wait(0.4);

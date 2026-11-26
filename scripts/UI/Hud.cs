@@ -151,7 +151,7 @@ public sealed partial class Hud : Control
         _toast.AddThemeConstantOverride("outline_size", 6);
         AddChild(_toast);
 
-        _hints = Ui.MakeLabel("Click ore to mine   Click a building to open it   1-0 build (Tab: next tier)   Q all buildings   I items   R rotate   Right-click remove   Ctrl+Z undo   Ctrl+C copy   V underground   Space pause   F7 mini   F8 hide", 13, Ui.Text);
+      _hints = Ui.MakeLabel("Click ore to mine  Click a building to open it  1-0 build (Tab: next tier)  Q all buildings  I items  H Hub  R rotate  Right-click remove  Ctrl+Z undo  Ctrl+C copy  V underground  Space pause  F7 mini  F8 hide", 13, Ui.Text);
         _hints.SetAnchorsAndOffsetsPreset(LayoutPreset.BottomLeft);
         _hints.GrowVertical = GrowDirection.Begin;
         _hints.Position += new Vector2(10, -66);

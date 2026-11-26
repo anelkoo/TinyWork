@@ -4,6 +4,9 @@ Everything that changed since the last release goes under "Unreleased". A new re
 
 ## Unreleased
 
+- Press H to move the camera back to the Hub. Your zoom stays as it was.
+- Search bars are ready as soon as a window opens: in the item book (I), the build menu (Q), blueprints (B, once you have saved one) and recipe lists you can type right away. Esc still closes the window.
+
 ## v0.1.5 Beta (2026-11-26)
 
 - Gambling (#18):

@@ -106,7 +106,8 @@ Auto-sell keeps a reserve in storage (50 per item by default, adjustable per ite
 - A bottom hotbar with a slot for every building, locked ones dimmed. Keys 1 to 9 and 0 reach the first ten, and pressing a slot again puts the building away. A tiered slot starts with the tier used last and shows a strip of all its tiers above the slot (locked ones dimmed): click one to pick it, or press Tab for the next unlocked tier. Q opens a grid of all buildings. R rotates, X or right-click removes. In mini mode the hotbar shrinks to fit.
 - Stats: a window (P) with coins per minute and production per item, each with a 10 minute bar graph; coins per minute next to the coin count; a hover card at the top centre for whatever the mouse is over (contents, recipe progress, power, problems, or how to mine an ore patch); and bottleneck bubbles over machines. Each can be turned on or off in settings.
 - A first-start tutorial: a 7-step checklist card at the top right that ticks itself off as you play, with a cheer per step. It can be hidden per world, and saves already past milestone 1 skip it.
-- Keys: Space pauses, the full stop steps one tick, Ctrl+Z / Ctrl+Y undo and redo, Ctrl+C copies, Ctrl+V pastes, B opens blueprints, V switches to the underground view.
+- Keys: Space pauses, the full stop steps one tick, Ctrl+Z / Ctrl+Y undo and redo, Ctrl+C copies, Ctrl+V pastes, B opens blueprints, V switches to the underground view, H moves the camera back to the Hub (the zoom stays).
+- A window with a search bar (recipe list, item book, build menu, blueprints once one is saved) opens with the cursor in it, so typing searches at once. While a window is open, letter keys type instead of acting, including the key that opened it; Esc closes it.
 
 ## Juice
 

@@ -16,6 +16,7 @@ public sealed partial class Hud
         var entries = new List<(Control C, string Name, Control Head)>();
         var search = new LineEdit { PlaceholderText = "Search", ClearButtonEnabled = true, MaxLength = 40, TooltipText = "Type part of a name" };
         body.AddChild(search);
+        Callable.From(() => { if (IsInstanceValid(search) && search.IsInsideTree()) { search.GrabFocus(); search.Edit(); } }).CallDeferred(); // typing works at once; focus alone does not always start editing
 
         var recent = new VBoxContainer();
         recent.AddThemeConstantOverride("separation", 6);
