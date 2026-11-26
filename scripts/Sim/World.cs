@@ -302,6 +302,7 @@ public sealed class World
     public static bool GambleTooSure(string stake, long stakeN, string target, long targetN) => Worth(stake, stakeN) * 100 > Worth(target, targetN) * MaxGambleChance;
 
     // Only things this factory can already get: an open recipe also needs its machine and its inputs.
+    // shortcut: no cycle guard; add a visited set if two recipes ever feed each other.
     public bool CanMake(string item) =>
         Free || Array.IndexOf(Defs.Ores, item) >= 0 || (item == "water" ? IsUnlocked("pump")
         : Defs.Recipes.Any(r => r.Out == item && IsUnlocked(r.Unlock) && IsUnlocked(r.Machine) && r.In.All(x => CanMake(x.Item))));
