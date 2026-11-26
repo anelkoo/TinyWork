@@ -132,7 +132,7 @@ public sealed partial class WorldView : Node2D
         {
             case Key.Tab when Defs.TiersOf(Selected) != null: NextTier(); return true;
             case Key.H when (_hub ??= W.Entities.Find(x => x is Hub) as Hub) != null: _camTarget = (Vector2)_hub.Pos * T + Vector2.One * (_hub.Size * T / 2f); return true;
-            case Key.R when Pasting:Clip = Clip.Select(p => p.Turned()).ToList(); Sfx.Play("rotate"); return true;
+            case Key.R when Pasting: Clip = Clip.Select(p => p.Turned()).ToList(); Sfx.Play("rotate"); return true;
             case Key.R when Selected != null: Rot = (Rot + 1) % 4; Sfx.Play("rotate"); return true;
             case Key.R: W.BeginAction(); W.Rotate(_hover); W.EndAction(); return true;
             case Key.X: W.BeginAction(); W.Remove(_hover); W.EndAction(); return true;
