@@ -4,6 +4,8 @@ Everything that changed since the last release goes under "Unreleased". A new re
 
 ## Unreleased
 
+## v0.1.5 Beta (2026-11-26)
+
 - Gambling (#18):
   - Slot machine: a new "Slots" tab in the Hub. Bet from 1 coin up to everything you have and get 0x to 10x back. On average 95.2% comes back, and payouts are rounded down. Winnings get no Better Deals or Coin Rush bonus and don't count as coins earned, so they don't raise potion prices or show in the stats.
   - Gamble button next to Items, also in the mini window: bet items for other items. The chance is the value of your bet divided by the value of what you want (sell prices), shown before you play, at most 95%. The bet is gone either way. A win goes to storage and doesn't count for milestones. You can only win items your factory can already make.
