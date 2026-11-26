@@ -6,6 +6,7 @@ Everything that changed since the last release goes under "Unreleased". A new re
 
 - Press H to move the camera back to the Hub. Your zoom stays as it was.
 - Search bars are ready as soon as a window opens: in the item book (I), the build menu (Q), blueprints (B, once you have saved one) and recipe lists you can type right away. Esc still closes the window.
+- Fixed: in a narrow mini window (for example 400x300 with "Size on hover" at 1) the build menu (Q) was cut off on the right, Close button included. Long building names now wrap.
 
 ## v0.1.5 Beta (2026-11-26)
 

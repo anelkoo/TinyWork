@@ -520,6 +520,10 @@ public partial class Main
         _hud.OpenBuildMenu();
         await Wait(0.5);
         Shot("13_mini_build");
+        var buildClose = FindAll<Button>(_hud).First(x => x.IsVisibleInTree() && x.Text == "Close");
+        var buildPanel = (Control)buildClose.GetParent().GetParent().GetParent();
+        var window = new Rect2(0, 0, 400, 300);
+        Check(window.Encloses(buildPanel.GetGlobalRect()) && window.Encloses(buildClose.GetGlobalRect()), $"the whole build menu and its Close button fit in the mini window ({buildPanel.GetGlobalRect()})");
         await SearchReady("mini build menu");
         OpenSettings((t, w) => _hud.OpenPanel(t, w));
         await Wait(0.5);

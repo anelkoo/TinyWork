@@ -617,6 +617,11 @@ public sealed partial class Hud : Control
             bool open = W.IsUnlocked(id);
             var b = new Button { Text = def.Name, Icon = Sprites.Icons[id], ExpandIcon = true, Disabled = !open, CustomMinimumSize = new Vector2(_mini ? 150 : 206, 44), Alignment = HorizontalAlignment.Left };
             b.AddThemeConstantOverride("icon_max_width", 24);
+            if (_mini) // two columns share the width and long names wrap, or the grid pushes the panel off screen
+            {
+                b.AutowrapMode = TextServer.AutowrapMode.WordSmart;
+                b.SizeFlagsHorizontal = SizeFlags.ExpandFill;
+            }
             b.TooltipText = open ? $"Costs {Ui.Cost(def.Cost)}" : $"Unlocks with milestone {Defs.UnlockTier(id)}";
             b.Pressed += () => { W.Used("builds", id); View.StopClip(); View.Selected = id; if (Defs.TiersOf(id) != null) S.LastTier[Defs.BaseOf(id)] = id; Sfx.Play("click"); ClosePanel(); };
             Ui.Squishy(b);
@@ -633,7 +638,9 @@ public sealed partial class Hud : Control
             grid.AddChild(b);
             add(b, Defs.Buildings[id].Name, null);
         }
-        body.AddChild(Ui.MakeLabel("Locked buildings unlock with milestones. Hover one to see which.", 13, Ui.Muted));
+        var note = Ui.MakeLabel("Locked buildings unlock with milestones. Hover one to see which.", 13, Ui.Muted);
+        note.AutowrapMode = TextServer.AutowrapMode.WordSmart;
+        body.AddChild(note);
     }
 
     public const int SellTab = 0, ShopTab = 1, PotionTab = 2, SlotsTab = 3;
